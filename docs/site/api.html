@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Halcyn API Reference</title>
+    <link rel="stylesheet" href="assets/styles.css">
+    <script defer src="assets/app.js"></script>
+  </head>
+  <body data-page="api">
+    <div class="page-shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true"></div>
+          <div class="brand-copy">
+            <h1>API Reference</h1>
+            <p>Endpoint behavior, payload formats, and validation rules.</p>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <button class="button" data-theme-toggle>Toggle theme</button>
+          <a class="button" href="index.html">Back to overview</a>
+        </div>
+      </header>
+
+      <div class="content-grid">
+        <nav class="nav-card">
+          <h3>Docs map</h3>
+          <ul>
+            <li><a href="index.html" data-nav-link="index">Overview</a></li>
+            <li><a href="tutorial.html" data-nav-link="tutorial">Tutorial</a></li>
+            <li><a href="api.html" data-nav-link="api">API Reference</a></li>
+            <li><a href="architecture.html" data-nav-link="architecture">Architecture</a></li>
+            <li><a href="testing.html" data-nav-link="testing">Testing</a></li>
+            <li><a href="code-docs.html" data-nav-link="code-docs">Code Docs</a></li>
+            <li><a href="field-reference.html">Field Reference</a></li>
+            <li><a href="control-center.html">Control Center</a></li>
+          </ul>
+        </nav>
+
+        <main>
+          <section class="panel">
+            <h3>Endpoints</h3>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Method</th>
+                    <th>Path</th>
+                    <th>Purpose</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td><code>GET</code></td><td><code>/api/v1/health</code></td><td>Service status plus current scene summary.</td></tr>
+                  <tr><td><code>GET</code></td><td><code>/api/v1/scene</code></td><td>The current active scene as JSON.</td></tr>
+                  <tr><td><code>GET</code></td><td><code>/api/v1/runtime/limits</code></td><td>The current request, vertex, and index safety limits.</td></tr>
+                  <tr><td><code>GET</code></td><td><code>/api/v1/runtime/logs?limit=200</code></td><td>The newest in-memory runtime log entries for diagnostics.</td></tr>
+                  <tr><td><code>GET</code></td><td><code>/api/v1/examples/2d</code></td><td>A built-in 2D example scene.</td></tr>
+                  <tr><td><code>GET</code></td><td><code>/api/v1/examples/3d</code></td><td>A built-in 3D example scene.</td></tr>
+                  <tr><td><code>POST</code></td><td><code>/api/v1/scene/validate</code></td><td>Validate a scene without activating it.</td></tr>
+                  <tr><td><code>POST</code></td><td><code>/api/v1/scene</code></td><td>Validate and activate a new scene.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h3>2D scene payload</h3>
+            <p>Set <code>sceneType</code> to <code>"2d"</code>. Every 2D vertex must include <code>x</code>, <code>y</code>, <code>r</code>, <code>g</code>, <code>b</code>, and <code>a</code>.</p>
+            <pre><code>{
+  "sceneType": "2d",
+  "primitive": "triangles",
+  "vertices": [
+    { "x": -1.0, "y": -1.0, "r": 1.0, "g": 0.0, "b": 0.0, "a": 1.0 },
+    { "x": 0.0, "y": 1.0, "r": 0.0, "g": 1.0, "b": 0.0, "a": 1.0 },
+    { "x": 1.0, "y": -1.0, "r": 0.0, "g": 0.0, "b": 1.0, "a": 1.0 }
+  ]
+}</code></pre>
+          </section>
+
+          <section class="panel">
+            <h3>3D scene payload</h3>
+            <p>Set <code>sceneType</code> to <code>"3d"</code>. Every 3D vertex must include <code>x</code>, <code>y</code>, <code>z</code>, <code>r</code>, <code>g</code>, and <code>b</code>. <code>a</code> is optional.</p>
+            <pre><code>{
+  "sceneType": "3d",
+  "primitive": "triangles",
+  "camera": {
+    "position": { "x": 2.5, "y": 2.0, "z": 2.8 },
+    "target": { "x": 0.0, "y": 0.0, "z": 0.0 },
+    "up": { "x": 0.0, "y": 1.0, "z": 0.0 },
+    "fovYDegrees": 60.0,
+    "nearPlane": 0.1,
+    "farPlane": 100.0
+  },
+  "vertices": [
+    { "x": -0.8, "y": -0.8, "z": 0.0, "r": 1.0, "g": 0.2, "b": 0.2 },
+    { "x": 0.8, "y": -0.8, "z": 0.0, "r": 0.2, "g": 1.0, "b": 0.2 },
+    { "x": 0.0, "y": 0.8, "z": 0.0, "r": 0.2, "g": 0.4, "b": 1.0 }
+  ],
+  "indices": [0, 1, 2]
+}</code></pre>
+          </section>
+
+          <section class="panel">
+            <h3>Validation rules</h3>
+            <ul>
+              <li>Lines need an even count of vertices or indices.</li>
+              <li>Triangles need counts divisible by three.</li>
+              <li>Scene payloads, vertex counts, and index counts are capped to prevent runaway submissions.</li>
+              <li><code>fovYDegrees</code> must be between 1 and 179.</li>
+              <li><code>nearPlane</code> must be positive.</li>
+              <li><code>farPlane</code> must be greater than <code>nearPlane</code>.</li>
+              <li><code>camera.target</code> must not equal <code>camera.position</code>.</li>
+              <li><code>camera.up</code> must not be the zero vector or parallel to the view direction.</li>
+              <li>Every index must point at a real vertex.</li>
+              <li>If you only want to check a payload without changing the active scene, use <code>POST /api/v1/scene/validate</code>.</li>
+            </ul>
+          </section>
+
+          <section class="panel">
+            <h3>Browser-based testing and API experiments</h3>
+            <p>
+              The control plane includes an API Lab for manual requests and a Testing tab for smoke checks. That gives
+              beginners a browser-first way to probe the live API before they are comfortable with command-line tools.
+            </p>
+            <pre><code>.\scripts\studio.ps1</code></pre>
+          </section>
+
+          <section class="panel">
+            <h3>Example PowerShell request</h3>
+            <pre><code>$body = Get-Content -Raw .\examples\scene_2d_triangle.json
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://127.0.0.1:8080/api/v1/scene `
+  -ContentType 'application/json' `
+  -Body $body</code></pre>
+          </section>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

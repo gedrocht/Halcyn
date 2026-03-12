@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Halcyn Tutorial</title>
+    <link rel="stylesheet" href="assets/styles.css">
+    <script defer src="assets/app.js"></script>
+  </head>
+  <body data-page="tutorial">
+    <div class="page-shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true"></div>
+          <div class="brand-copy">
+            <h1>Halcyn Tutorial</h1>
+            <p>Step-by-step instructions for first-time users.</p>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <button class="button" data-theme-toggle>Toggle theme</button>
+          <a class="button" href="index.html">Back to overview</a>
+        </div>
+      </header>
+
+      <div class="content-grid">
+        <nav class="nav-card">
+          <h3>Docs map</h3>
+          <ul>
+            <li><a href="index.html" data-nav-link="index">Overview</a></li>
+            <li><a href="tutorial.html" data-nav-link="tutorial">Tutorial</a></li>
+            <li><a href="api.html" data-nav-link="api">API Reference</a></li>
+            <li><a href="architecture.html" data-nav-link="architecture">Architecture</a></li>
+            <li><a href="testing.html" data-nav-link="testing">Testing</a></li>
+            <li><a href="code-docs.html" data-nav-link="code-docs">Code Docs</a></li>
+            <li><a href="field-reference.html">Field Reference</a></li>
+            <li><a href="control-center.html">Control Center</a></li>
+          </ul>
+        </nav>
+
+        <main>
+          <section class="panel">
+            <h3>Step 1: check prerequisites</h3>
+            <p>
+              Run the bootstrap script first. This does not build anything. It only tells you whether CMake, Python,
+              Git, a compiler, and optional documentation tools are present.
+            </p>
+            <pre><code>.\scripts\bootstrap.ps1</code></pre>
+          </section>
+
+          <section class="panel">
+            <h3>Step 2: build the project</h3>
+            <p>
+              The build script configures the project with CMake and then compiles it. By default it produces a Debug
+              build. You can also choose Release.
+            </p>
+            <pre><code>.\scripts\build.ps1
+.\scripts\build.ps1 -Configuration Release</code></pre>
+          </section>
+
+          <section class="panel">
+            <h3>Step 3: run the app</h3>
+            <p>
+              The run script builds the app if necessary, starts the HTTP API, and opens the render window. You can
+              choose a startup sample or load a scene file immediately.
+            </p>
+            <pre><code>.\scripts\run.ps1
+.\scripts\run.ps1 -Sample 3d
+.\scripts\run.ps1 -SceneFile .\examples\scene_2d_lines.json
+.\scripts\run.ps1 -Port 0</code></pre>
+            <p>
+              If you use <code>-Port 0</code>, Windows chooses any free TCP port. Halcyn then prints the real port in
+              its startup summary so you can connect to the correct address.
+            </p>
+          </section>
+
+          <section class="panel">
+            <h3>Step 4: post JSON into the running app</h3>
+            <p>
+              Open a second PowerShell terminal and post a sample scene. When the request succeeds, the renderer picks
+              up the new scene on the next frame.
+            </p>
+            <pre><code>.\scripts\post-sample-2d.ps1
+.\scripts\post-sample-3d.ps1</code></pre>
+            <pre><code>.\scripts\post-scene.ps1 -SceneFile .\examples\scene_3d_wireframe_lines.json</code></pre>
+          </section>
+
+          <section class="panel">
+            <h3>What happened behind the scenes?</h3>
+            <div class="cards">
+              <div class="card">
+                <h4>The API thread</h4>
+                <p>Received your HTTP request, parsed the JSON, validated it, and stored the latest good scene.</p>
+              </div>
+              <div class="card">
+                <h4>The scene store</h4>
+                <p>Created a new immutable snapshot with a higher version number so the renderer could notice the change.</p>
+              </div>
+              <div class="card">
+                <h4>The render thread</h4>
+                <p>Detected the new version, uploaded the scene to GPU buffers, and kept drawing at the target frame rate.</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h3>Step 5: use the browser control plane</h3>
+            <p>
+              If you prefer a web-based workflow, launch the control plane and open it in your browser. From there you
+              can run bootstrap, build, test, docs generation, smoke checks, and API requests without remembering the
+              individual terminal commands.
+            </p>
+            <pre><code>.\scripts\studio.ps1</code></pre>
+          </section>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

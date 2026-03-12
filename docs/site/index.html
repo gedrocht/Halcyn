@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Halcyn Docs</title>
+    <link rel="stylesheet" href="assets/styles.css">
+    <script defer src="assets/app.js"></script>
+  </head>
+  <body data-page="index">
+    <div class="page-shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true"></div>
+          <div class="brand-copy">
+            <h1>Halcyn Documentation</h1>
+            <p>Beginner-friendly docs for a JSON-driven GPU renderer.</p>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <button class="button" data-theme-toggle>Toggle theme</button>
+          <a class="button" href="../../README.md">Open README</a>
+        </div>
+      </header>
+
+      <section class="hero">
+        <div class="hero-grid">
+          <div>
+            <p class="eyebrow">Overview</p>
+            <h2>Send JSON in. See 2D or 3D graphics on the GPU.</h2>
+            <p>
+              Halcyn is a C++20 application with an embedded HTTP API and an OpenGL renderer. One thread accepts JSON
+              requests. Another thread-safe layer stores the latest validated scene. The main thread renders that scene
+              in a real window at a 60 FPS target using the GPU.
+            </p>
+            <div class="pill-row">
+              <span class="pill">C++20</span>
+              <span class="pill">OpenGL 3.3</span>
+              <span class="pill">2D + 3D JSON</span>
+              <span class="pill">Unit tested</span>
+              <span class="pill">Beginner docs</span>
+            </div>
+          </div>
+          <aside class="hero-card">
+            <h3>Start here</h3>
+            <dl>
+              <dt>1.</dt>
+              <dd>Run <code>.\scripts\bootstrap.ps1</code> to inspect prerequisites.</dd>
+              <dt>2.</dt>
+              <dd>Run <code>.\scripts\run.ps1</code> to build and launch the app.</dd>
+              <dt>3.</dt>
+              <dd>Run <code>.\scripts\post-sample-2d.ps1</code> or <code>.\scripts\post-sample-3d.ps1</code>.</dd>
+              <dt>4.</dt>
+              <dd>Read the tutorial page to learn how each layer works.</dd>
+            </dl>
+          </aside>
+        </div>
+      </section>
+
+      <div class="content-grid">
+        <nav class="nav-card">
+          <h3>Docs map</h3>
+          <ul>
+            <li><a href="index.html" data-nav-link="index">Overview</a></li>
+            <li><a href="tutorial.html" data-nav-link="tutorial">Tutorial</a></li>
+            <li><a href="api.html" data-nav-link="api">API Reference</a></li>
+            <li><a href="architecture.html" data-nav-link="architecture">Architecture</a></li>
+            <li><a href="testing.html" data-nav-link="testing">Testing</a></li>
+            <li><a href="code-docs.html" data-nav-link="code-docs">Code Docs</a></li>
+            <li><a href="field-reference.html">Field Reference</a></li>
+            <li><a href="control-center.html">Control Center</a></li>
+          </ul>
+        </nav>
+
+        <main>
+          <section class="panel">
+            <h3>What problem Halcyn solves</h3>
+            <p>
+              Many graphics demos focus only on rendering. Many API demos focus only on receiving JSON. Halcyn combines
+              both: it gives you a small but complete system that accepts structured JSON scenes and turns them into a
+              visible GPU-rendered result. That makes it a good teaching project for learning how application layers
+              cooperate in a real codebase.
+            </p>
+            <div class="cards">
+              <div class="card">
+                <h4>API layer</h4>
+                <p>Receives JSON over HTTP, validates it, and returns readable error messages when a request is invalid.</p>
+              </div>
+              <div class="card">
+                <h4>Domain layer</h4>
+                <p>Defines what a valid 2D scene and a valid 3D scene actually are.</p>
+              </div>
+              <div class="card">
+                <h4>Renderer layer</h4>
+                <p>Uploads vertices to OpenGL buffers and asks the GPU to draw the latest scene.</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h3>Important beginner idea: CPU vs GPU</h3>
+            <p>
+              The CPU still opens the window, accepts requests, parses JSON, validates data, and tells the GPU what to
+              draw. The GPU is the part that transforms vertices, rasterizes primitives, blends colors, and fills the
+              screen with pixels. That division of labor is exactly what modern graphics software is supposed to do.
+            </p>
+            <div class="callout">
+              If you are new to graphics, think of the CPU as the planner and the GPU as the specialist drawing team.
+            </div>
+          </section>
+
+          <section class="panel">
+            <h3>Project tour</h3>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Path</th>
+                    <th>Why it exists</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><code>src/domain</code></td>
+                    <td>Scene types, validation, JSON codec, and scene factory helpers.</td>
+                  </tr>
+                  <tr>
+                    <td><code>src/core</code></td>
+                    <td>Thread-safe storage for the latest scene snapshot.</td>
+                  </tr>
+                  <tr>
+                    <td><code>src/api</code></td>
+                    <td>Embedded HTTP routes for health, scene retrieval, and scene submission.</td>
+                  </tr>
+                  <tr>
+                    <td><code>src/renderer</code></td>
+                    <td>Window creation, shader setup, GPU uploads, and frame loop.</td>
+                  </tr>
+                  <tr>
+                    <td><code>tests</code></td>
+                    <td>Unit tests for parsing, validation, and scene store behavior.</td>
+                  </tr>
+                  <tr>
+                    <td><code>scripts</code></td>
+                    <td>Easy entry points for building, running, testing, posting sample JSON, and serving docs.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h3>New in the second iteration</h3>
+            <div class="cards">
+              <div class="card">
+                <h4>Browser control plane</h4>
+                <p>Launch <code>.\scripts\studio.ps1</code> to get a web dashboard for builds, tests, logs, docs, and API requests.</p>
+              </div>
+              <div class="card">
+                <h4>Safer runtime behavior</h4>
+                <p>The API now has startup readiness checks, payload size limits, and stronger 3D camera validation.</p>
+              </div>
+              <div class="card">
+                <h4>Cheaper testing</h4>
+                <p>The CMake targets are split so parser, API, and store tests no longer need the full OpenGL renderer stack.</p>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

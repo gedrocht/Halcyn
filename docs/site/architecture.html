@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Halcyn Architecture</title>
+    <link rel="stylesheet" href="assets/styles.css">
+    <script defer src="assets/app.js"></script>
+  </head>
+  <body data-page="architecture">
+    <div class="page-shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true"></div>
+          <div class="brand-copy">
+            <h1>Architecture</h1>
+            <p>Why the codebase is split the way it is.</p>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <button class="button" data-theme-toggle>Toggle theme</button>
+          <a class="button" href="index.html">Back to overview</a>
+        </div>
+      </header>
+
+      <div class="content-grid">
+        <nav class="nav-card">
+          <h3>Docs map</h3>
+          <ul>
+            <li><a href="index.html" data-nav-link="index">Overview</a></li>
+            <li><a href="tutorial.html" data-nav-link="tutorial">Tutorial</a></li>
+            <li><a href="api.html" data-nav-link="api">API Reference</a></li>
+            <li><a href="architecture.html" data-nav-link="architecture">Architecture</a></li>
+            <li><a href="testing.html" data-nav-link="testing">Testing</a></li>
+            <li><a href="code-docs.html" data-nav-link="code-docs">Code Docs</a></li>
+            <li><a href="field-reference.html">Field Reference</a></li>
+            <li><a href="control-center.html">Control Center</a></li>
+          </ul>
+        </nav>
+
+        <main>
+          <section class="panel">
+            <h3>High-level flow</h3>
+            <img class="diagram" src="assets/images/architecture.svg" alt="Architecture diagram showing the flow from HTTP clients to the API server, scene store, renderer, and GPU.">
+          </section>
+
+          <section class="panel">
+            <h3>Why one process and two main execution paths?</h3>
+            <p>
+              The renderer must own the graphics context on the main thread. The HTTP server blocks while it listens for
+              requests. Those two needs would fight each other if they ran on the same thread, so Halcyn starts the API
+              server on a background thread and keeps rendering on the main thread.
+            </p>
+          </section>
+
+          <section class="panel">
+            <h3>Layer responsibilities</h3>
+            <div class="cards">
+              <div class="card"><h4><code>src/domain</code></h4><p>Defines the scene language and validation rules.</p></div>
+              <div class="card"><h4><code>src/core</code></h4><p>Owns synchronization and versioned scene snapshots.</p></div>
+              <div class="card"><h4><code>src/api</code></h4><p>Owns HTTP transport and response handling.</p></div>
+              <div class="card"><h4><code>src/renderer</code></h4><p>Owns OpenGL, shaders, buffers, matrices, and draw calls.</p></div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h3>Why immutable scene snapshots?</h3>
+            <p>
+              The API thread and the render thread should not share a mutable scene object that one thread edits while
+              the other thread reads. Instead, Halcyn replaces the entire current scene snapshot with a new one when a
+              request succeeds. The renderer then picks up the new snapshot on a later frame.
+            </p>
+          </section>
+
+          <section class="panel">
+            <h3>Why normalize both 2D and 3D into one render format?</h3>
+            <p>
+              The GPU upload path becomes easier to understand if it always sees one flat vertex format:
+              position plus color. A 2D vertex becomes a 3D vertex with <code>z = 0</code>. A 3D vertex already has all
+              three position coordinates.
+            </p>
+          </section>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

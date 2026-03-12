@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Halcyn Testing</title>
+    <link rel="stylesheet" href="assets/styles.css">
+    <script defer src="assets/app.js"></script>
+  </head>
+  <body data-page="testing">
+    <div class="page-shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true"></div>
+          <div class="brand-copy">
+            <h1>Testing Guide</h1>
+            <p>What is tested, what is not, and why.</p>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <button class="button" data-theme-toggle>Toggle theme</button>
+          <a class="button" href="index.html">Back to overview</a>
+        </div>
+      </header>
+
+      <div class="content-grid">
+        <nav class="nav-card">
+          <h3>Docs map</h3>
+          <ul>
+            <li><a href="index.html" data-nav-link="index">Overview</a></li>
+            <li><a href="tutorial.html" data-nav-link="tutorial">Tutorial</a></li>
+            <li><a href="api.html" data-nav-link="api">API Reference</a></li>
+            <li><a href="architecture.html" data-nav-link="architecture">Architecture</a></li>
+            <li><a href="testing.html" data-nav-link="testing">Testing</a></li>
+            <li><a href="code-docs.html" data-nav-link="code-docs">Code Docs</a></li>
+            <li><a href="field-reference.html">Field Reference</a></li>
+            <li><a href="control-center.html">Control Center</a></li>
+          </ul>
+        </nav>
+
+        <main>
+          <section class="panel">
+            <h3>Why the tests focus on the domain and core layers</h3>
+            <p>
+              The domain layer and the scene store are deterministic. Given the same JSON input, they should always
+              produce the same result. That makes them excellent unit test candidates. A real render window depends on
+              GPU drivers and hardware availability, so that part is better handled with manual checks.
+            </p>
+          </section>
+
+          <section class="panel">
+            <h3>Current automated coverage</h3>
+            <div class="cards">
+              <div class="card"><h4>Scene JSON parsing</h4><p>Valid 2D and 3D payloads are accepted and turned into typed scenes.</p></div>
+              <div class="card"><h4>Validation rules</h4><p>Broken cameras or malformed primitive counts produce readable errors.</p></div>
+              <div class="card"><h4>Scene store behavior</h4><p>Version numbers increase and scene replacement behaves predictably.</p></div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h3>How to run the tests</h3>
+            <pre><code>.\scripts\test.ps1
+.\scripts\test.ps1 -Configuration Release</code></pre>
+          </section>
+
+          <section class="panel">
+            <h3>Recommended manual checks</h3>
+            <ul>
+              <li>Post the 2D triangle sample and confirm the window updates.</li>
+              <li>Post the 3D tetrahedron sample and confirm depth ordering looks correct.</li>
+              <li>Post intentionally invalid JSON and confirm the API returns a 400 response with readable errors.</li>
+              <li>Resize the window and confirm the scene stays visible.</li>
+            </ul>
+          </section>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

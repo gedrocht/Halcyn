@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 420" role="img" aria-labelledby="title desc">
+  <title id="title">Halcyn architecture diagram</title>
+  <desc id="desc">Shows the data flow from HTTP clients into the API server, scene store, renderer, and GPU.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#0b1830" />
+      <stop offset="100%" stop-color="#152947" />
+    </linearGradient>
+    <linearGradient id="card" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#143457" />
+      <stop offset="100%" stop-color="#1d486b" />
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#8ce3ff" />
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="860" height="420" rx="28" fill="url(#bg)" />
+  <rect x="48" y="148" width="140" height="88" rx="18" fill="url(#card)" stroke="#73d7ff" stroke-opacity="0.35" />
+  <rect x="244" y="66" width="176" height="88" rx="18" fill="url(#card)" stroke="#73d7ff" stroke-opacity="0.35" />
+  <rect x="244" y="252" width="176" height="88" rx="18" fill="url(#card)" stroke="#73d7ff" stroke-opacity="0.35" />
+  <rect x="478" y="148" width="170" height="88" rx="18" fill="url(#card)" stroke="#73d7ff" stroke-opacity="0.35" />
+  <rect x="694" y="148" width="120" height="88" rx="18" fill="url(#card)" stroke="#73d7ff" stroke-opacity="0.35" />
+  <text x="118" y="184" fill="#edf6ff" font-family="Segoe UI, sans-serif" font-size="22" text-anchor="middle">HTTP client</text>
+  <text x="118" y="212" fill="#a6c3de" font-family="Segoe UI, sans-serif" font-size="14" text-anchor="middle">PowerShell, tests, other apps</text>
+  <text x="332" y="102" fill="#edf6ff" font-family="Segoe UI, sans-serif" font-size="22" text-anchor="middle">API server</text>
+  <text x="332" y="130" fill="#a6c3de" font-family="Segoe UI, sans-serif" font-size="14" text-anchor="middle">Receives JSON and validates it</text>
+  <text x="332" y="288" fill="#edf6ff" font-family="Segoe UI, sans-serif" font-size="22" text-anchor="middle">Scene store</text>
+  <text x="332" y="316" fill="#a6c3de" font-family="Segoe UI, sans-serif" font-size="14" text-anchor="middle">Versioned, thread-safe snapshots</text>
+  <text x="563" y="184" fill="#edf6ff" font-family="Segoe UI, sans-serif" font-size="22" text-anchor="middle">Renderer</text>
+  <text x="563" y="212" fill="#a6c3de" font-family="Segoe UI, sans-serif" font-size="14" text-anchor="middle">Uploads vertices and draws frames</text>
+  <text x="754" y="184" fill="#edf6ff" font-family="Segoe UI, sans-serif" font-size="22" text-anchor="middle">GPU</text>
+  <text x="754" y="212" fill="#a6c3de" font-family="Segoe UI, sans-serif" font-size="14" text-anchor="middle">OpenGL pipeline</text>
+  <path d="M188 192 H236" stroke="#8ce3ff" stroke-width="4" fill="none" marker-end="url(#arrow)" />
+  <path d="M332 154 V242" stroke="#8ce3ff" stroke-width="4" fill="none" marker-end="url(#arrow)" />
+  <path d="M420 296 H470" stroke="#8ce3ff" stroke-width="4" fill="none" marker-end="url(#arrow)" />
+  <path d="M648 192 H686" stroke="#8ce3ff" stroke-width="4" fill="none" marker-end="url(#arrow)" />
+  <text x="208" y="180" fill="#8ce3ff" font-family="Segoe UI, sans-serif" font-size="13">POST /api/v1/scene</text>
+  <text x="350" y="206" fill="#8ce3ff" font-family="Segoe UI, sans-serif" font-size="13">validated scene</text>
+  <text x="440" y="286" fill="#8ce3ff" font-family="Segoe UI, sans-serif" font-size="13">latest snapshot</text>
+  <text x="650" y="178" fill="#8ce3ff" font-family="Segoe UI, sans-serif" font-size="13">draw calls</text>
+</svg>

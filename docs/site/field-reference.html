@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Halcyn Field Reference</title>
+    <link rel="stylesheet" href="assets/styles.css">
+    <script defer src="assets/app.js"></script>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true"></div>
+          <div class="brand-copy">
+            <h1>Field Reference</h1>
+            <p>An explicit explanation of the project's most important values and fields.</p>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <button class="button" data-theme-toggle>Toggle theme</button>
+          <a class="button" href="index.html">Back to overview</a>
+        </div>
+      </header>
+
+      <div class="content-grid">
+        <nav class="nav-card">
+          <h3>Docs map</h3>
+          <ul>
+            <li><a href="index.html">Overview</a></li>
+            <li><a href="tutorial.html">Tutorial</a></li>
+            <li><a href="api.html">API Reference</a></li>
+            <li><a href="architecture.html">Architecture</a></li>
+            <li><a href="testing.html">Testing</a></li>
+            <li><a href="code-docs.html">Code Docs</a></li>
+            <li><a href="control-center.html">Control Center</a></li>
+          </ul>
+        </nav>
+
+        <main>
+          <section class="panel">
+            <h3>2D vertex fields</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Field</th><th>Meaning</th></tr></thead>
+                <tbody>
+                  <tr><td><code>x</code></td><td>The horizontal position of the vertex in 2D space.</td></tr>
+                  <tr><td><code>y</code></td><td>The vertical position of the vertex in 2D space.</td></tr>
+                  <tr><td><code>r</code></td><td>The red color channel for that vertex, usually from 0.0 to 1.0.</td></tr>
+                  <tr><td><code>g</code></td><td>The green color channel for that vertex, usually from 0.0 to 1.0.</td></tr>
+                  <tr><td><code>b</code></td><td>The blue color channel for that vertex, usually from 0.0 to 1.0.</td></tr>
+                  <tr><td><code>a</code></td><td>The alpha channel for that vertex, where 1.0 is fully opaque.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h3>3D vertex and camera fields</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Field</th><th>Meaning</th></tr></thead>
+                <tbody>
+                  <tr><td><code>x</code>, <code>y</code>, <code>z</code></td><td>The 3D position of the vertex.</td></tr>
+                  <tr><td><code>r</code>, <code>g</code>, <code>b</code></td><td>The vertex color channels used by the shader.</td></tr>
+                  <tr><td><code>camera.position</code></td><td>Where the camera is located in world space.</td></tr>
+                  <tr><td><code>camera.target</code></td><td>The point the camera looks at.</td></tr>
+                  <tr><td><code>camera.up</code></td><td>The direction treated as "up" for the camera.</td></tr>
+                  <tr><td><code>fovYDegrees</code></td><td>The vertical field of view for the 3D projection.</td></tr>
+                  <tr><td><code>nearPlane</code></td><td>The near clipping plane distance.</td></tr>
+                  <tr><td><code>farPlane</code></td><td>The far clipping plane distance.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h3>Runtime limit fields</h3>
+            <p>
+              The code now enforces maximum payload sizes, vertex counts, and index counts so mistakes become readable
+              validation errors rather than mysterious crashes or frozen windows.
+            </p>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Limit</th><th>Purpose</th></tr></thead>
+                <tbody>
+                  <tr><td><code>maxPayloadBytes</code></td><td>Caps how much JSON one request can send.</td></tr>
+                  <tr><td><code>maxVertices</code></td><td>Caps scene complexity at a beginner-friendly level.</td></tr>
+                  <tr><td><code>maxIndices</code></td><td>Caps indexed mesh size for 3D submissions.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>
