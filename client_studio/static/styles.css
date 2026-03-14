@@ -153,6 +153,12 @@ code {
   padding: 18px 20px;
 }
 
+.status-card strong {
+  display: block;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .status-card .label,
 .meter-card span {
   display: block;

@@ -14,7 +14,7 @@
           <div class="brand-mark" aria-hidden="true"></div>
           <div class="brand-copy">
             <h1>Client Studio Guide</h1>
-            <p>How the browser client turns live signals into validated 3D scene payloads.</p>
+            <p>How the browser client turns live signals into server-driven 3D scene streaming.</p>
           </div>
         </div>
         <div class="topbar-actions">
@@ -42,7 +42,7 @@
             <p>
               Client Studio is the separate browser-facing scene authoring surface for Halcyn. It
               lives in its own top-level folder, but it still relies on the existing control-plane
-              server for routing, validation, logging, and test coverage.
+              server for routing, live-session control, logging, and test coverage.
             </p>
             <pre><code>http://127.0.0.1:9001/client/</code></pre>
           </section>
@@ -69,12 +69,32 @@
           </section>
 
           <section class="panel">
-            <h3>Safety path for live apply</h3>
+            <h3>How live streaming works now</h3>
             <p>
-              The browser does not submit raw ad-hoc values straight to the renderer. It first asks
-              the control-plane translator to generate a scene, then the control plane validates that
-              scene against the live Halcyn API, and only then does it submit the scene for
-              activation.
+              The browser does not need to send a full JSON scene every time the pointer or audio
+              input changes. Instead, it sends lighter control updates to the control plane. The
+              control plane keeps a persistent live session, regenerates scenes server-side on a
+              fixed cadence, and streams those scenes into the live Halcyn API.
+            </p>
+          </section>
+
+          <section class="panel">
+            <h3>Why it is still build-free HTML instead of React</h3>
+            <p>
+              The main latency improvement came from moving the streaming loop to the server side,
+              not from changing frontend frameworks. Keeping the client as a static HTML, CSS, and
+              JavaScript app preserves the repo's existing quality gates on machines without a Node
+              toolchain. If the UI grows more state-heavy later, the backend contract is now stable
+              enough to support a React migration without changing the renderer-facing design.
+            </p>
+          </section>
+
+          <section class="panel">
+            <h3>Control-plane routes behind the client</h3>
+            <p>
+              Client Studio uses the catalog, preview, one-shot apply, and live-session routes under
+              <code>/api/client-studio/...</code>. The live-session endpoints are what make the
+              browser feel more responsive during continuous manipulation.
             </p>
           </section>
         </main>

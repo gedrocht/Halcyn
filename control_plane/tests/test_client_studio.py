@@ -13,6 +13,7 @@ from typing import ClassVar, cast
 from unittest import mock
 
 from control_plane.client_studio import build_catalog_payload, build_scene_bundle
+from control_plane.client_studio_live import ClientStudioLiveSession
 from control_plane.runtime import ControlPlaneState
 from control_plane.server import ControlPlaneRequestHandler, create_server
 
@@ -96,6 +97,7 @@ class ClientStudioServerTests(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls) -> None:
+        cls.state.stop_client_studio_session()
         cls.server.shutdown()
         cls.server.server_close()
         cls.thread.join(timeout=2)
@@ -130,6 +132,19 @@ class ClientStudioServerTests(unittest.TestCase):
 
         self.assertEqual(payload["status"], "ok")
         self.assertGreaterEqual(len(payload["presets"]), 3)
+
+    def test_session_status_route_returns_live_session_snapshot(self) -> None:
+        """The browser should be able to inspect the live-session state."""
+
+        with urllib.request.urlopen(
+            f"{self.base_url}/api/client-studio/session",
+            timeout=5,
+        ) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+
+        self.assertEqual(payload["status"], "ok")
+        self.assertIn("session", payload)
+        self.assertEqual(payload["session"]["status"], "stopped")
 
     def test_preview_route_returns_generated_scene_payload(self) -> None:
         """Preview requests should return generated scenes without requiring the native app."""
@@ -194,6 +209,137 @@ class ClientStudioServerTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(payload["status"], "validation-failed")
         self.assertEqual(payload["submission"]["status"], 400)
+
+    def test_live_session_routes_forward_control_requests(self) -> None:
+        """The live session routes should expose configure, start, and stop controls."""
+
+        configured = {"status": "configured", "session": {"status": "stopped", "cadence_ms": 90}}
+        accepted = {"status": "accepted", "session": {"status": "running", "cadence_ms": 90}}
+
+        with mock.patch.object(
+            self.state,
+            "configure_client_studio_session",
+            return_value=configured,
+        ):
+            status, payload = self._post_json(
+                "/api/client-studio/session/configure",
+                {"session": {"cadenceMs": 90}},
+            )
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["status"], "configured")
+
+        with mock.patch.object(self.state, "start_client_studio_session", return_value=accepted):
+            status, payload = self._post_json(
+                "/api/client-studio/session/start",
+                {"session": {"cadenceMs": 90}},
+            )
+        self.assertEqual(status, 202)
+        self.assertEqual(payload["session"]["status"], "running")
+
+        with mock.patch.object(self.state, "stop_client_studio_session", return_value=accepted):
+            status, payload = self._post_json("/api/client-studio/session/stop", {})
+        self.assertEqual(status, 202)
+        self.assertEqual(payload["status"], "accepted")
+
+
+class ClientStudioLiveSessionTests(unittest.TestCase):
+    """Exercise the long-running server-side live session in isolation."""
+
+    def setUp(self) -> None:
+        self.submissions: list[tuple[str, int, dict]] = []
+        self.logs: list[tuple[str, str, str]] = []
+
+        def apply_callback(host: str, port: int, scene_json: str) -> dict:
+            self.submissions.append((host, port, json.loads(scene_json)))
+            return {
+                "ok": True,
+                "status": 202,
+                "reason": "Accepted",
+                "body": "{}",
+                "headers": {},
+            }
+
+        def log_callback(level: str, component: str, message: str) -> None:
+            self.logs.append((level, component, message))
+
+        self._log_callback = log_callback
+        self.session = ClientStudioLiveSession(apply_callback, self._log_callback)
+
+    def tearDown(self) -> None:
+        self.session.close()
+
+    def _wait_for(self, predicate, timeout_seconds: float = 2.0) -> None:
+        deadline = time.time() + timeout_seconds
+        while time.time() < deadline:
+            if predicate():
+                return
+            time.sleep(0.02)
+        self.fail("Timed out waiting for the live session to update.")
+
+    def test_configure_updates_snapshot_fields(self) -> None:
+        """Configuring the session should update the visible preset, target, and cadence."""
+
+        payload = self.session.configure(
+            {
+                "presetId": "comet-ribbon",
+                "target": {"host": "127.0.0.1", "port": 9090},
+                "session": {"cadenceMs": 85},
+            }
+        )
+
+        self.assertEqual(payload["preset_id"], "comet-ribbon")
+        self.assertEqual(payload["target_port"], 9090)
+        self.assertEqual(payload["cadence_ms"], 85)
+
+    def test_start_streams_multiple_frames_until_stopped(self) -> None:
+        """Starting the session should keep applying frames until it is explicitly stopped."""
+
+        self.session.start({"session": {"cadenceMs": 40}})
+        self._wait_for(lambda: self.session.snapshot()["frames_applied"] >= 2)
+        snapshot = self.session.stop()
+
+        self.assertGreaterEqual(snapshot["frames_applied"], 2)
+        self.assertEqual(snapshot["status"], "stopped")
+        self.assertGreaterEqual(len(self.submissions), 2)
+
+    def test_failed_submissions_are_recorded(self) -> None:
+        """Submission failures should surface in the session snapshot instead of disappearing."""
+
+        def failing_callback(host: str, port: int, scene_json: str) -> dict:
+            self.submissions.append((host, port, json.loads(scene_json)))
+            return {
+                "ok": False,
+                "status": 400,
+                "reason": "Bad Request",
+                "body": '{"status":"invalid-request"}',
+                "headers": {},
+            }
+
+        self.session.close()
+        self.session = ClientStudioLiveSession(failing_callback, self._log_callback)
+        self.session.start({"session": {"cadenceMs": 40}})
+        self._wait_for(lambda: self.session.snapshot()["frames_failed"] >= 1)
+        snapshot = self.session.stop()
+
+        self.assertGreaterEqual(snapshot["frames_failed"], 1)
+        self.assertEqual(snapshot["last_submission_status"], 400)
+
+    def test_unhandled_frame_exceptions_surface_as_session_errors(self) -> None:
+        """Unexpected frame exceptions should mark the live session as errored."""
+
+        def exploding_callback(host: str, port: int, scene_json: str) -> dict:
+            raise RuntimeError("boom")
+
+        self.session.close()
+        self.session = ClientStudioLiveSession(exploding_callback, self._log_callback)
+        self.session.start({"session": {"cadenceMs": 40}})
+        self._wait_for(lambda: self.session.snapshot()["status"] == "error")
+        snapshot = self.session.snapshot()
+
+        self.assertEqual(snapshot["status"], "error")
+        self.assertEqual(snapshot["last_submission_reason"], "exception")
+        self.assertIn("boom", snapshot["last_error"])
+        self.assertTrue(any("crashed" in message for _, _, message in self.logs))
 
 
 if __name__ == "__main__":

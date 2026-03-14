@@ -208,8 +208,9 @@ Run `.\scripts\client-studio.ps1` or open `/client/` from the control plane serv
 - choose from multiple 3D visual presets
 - drive scenes from unix time, deterministic noise, pointer motion, microphone energy, or manual sliders
 - preview generated JSON scene payloads before applying them
-- validate each generated scene against the live Halcyn API before submission
-- auto-apply scene updates at a fixed interval for live manipulation workflows
+- apply one scene immediately to the live renderer on demand
+- run a server-side live session that keeps streaming scenes to the renderer on a chosen cadence
+- send lighter browser control updates while the control plane owns the continuous scene stream
 
 ## Code documentation generation
 

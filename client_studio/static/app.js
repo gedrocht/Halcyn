@@ -1,10 +1,12 @@
 const state = {
   catalog: null,
-  selectedPresetId: null,
   latestPreview: null,
-  busy: false,
-  autoApplyTimerId: null,
-  lastAppliedSignature: null,
+  liveSession: null,
+  selectedPresetId: null,
+  previewBusy: false,
+  applyBusy: false,
+  configureTimerId: null,
+  sessionPollTimerId: null,
   pointer: {
     x: 0.5,
     y: 0.5,
@@ -34,6 +36,11 @@ function clamp(value, lower, upper) {
 
 function fract(value) {
   return value - Math.floor(value);
+}
+
+async function fetchJson(url) {
+  const response = await fetch(url);
+  return response.json();
 }
 
 async function postJson(url, payload = {}) {
@@ -114,6 +121,7 @@ function selectPreset(presetId) {
   document.getElementById("preset-summary").textContent = preset.name;
   renderPresetDeck();
   updateAllRangeValues();
+  syncTargetSummary();
 }
 
 function renderPresetDeck() {
@@ -131,20 +139,24 @@ function renderPresetDeck() {
     `;
     button.addEventListener("click", () => {
       selectPreset(preset.id);
+      queueLiveSessionConfigure();
       void previewScene();
     });
     target.appendChild(button);
   }
 }
 
+function isLiveStreaming() {
+  return document.getElementById("auto-apply-toggle").checked;
+}
+
 function buildSignalsPayload() {
-  const nowSeconds = Date.now() / 1000;
   return {
     useEpoch: document.getElementById("epoch-toggle").checked,
     useNoise: document.getElementById("noise-toggle").checked,
     usePointer: document.getElementById("pointer-toggle").checked,
     useAudio: document.getElementById("audio-toggle").checked && state.audio.enabled,
-    epochSeconds: nowSeconds,
+    epochSeconds: Date.now() / 1000,
     noiseSeed: 1,
     pointer: {
       x: state.pointer.x,
@@ -175,10 +187,12 @@ function buildRequestPayload() {
       speed: Number.parseFloat(String(data.get("speed"))),
       gain: Number.parseFloat(String(data.get("gain"))),
       manualDrive: Number.parseFloat(String(data.get("manualDrive"))),
-      autoApplyMs: Number.parseInt(String(data.get("autoApplyMs")), 10),
       background: String(data.get("background")),
       primaryColor: String(data.get("primaryColor")),
       secondaryColor: String(data.get("secondaryColor")),
+    },
+    session: {
+      cadenceMs: Number.parseInt(String(data.get("autoApplyMs")), 10),
     },
     signals: buildSignalsPayload(),
   };
@@ -216,12 +230,39 @@ function renderPreview(bundle) {
   setLastAction(`Previewed ${bundle.preset.name}`);
 }
 
+function renderLiveSession(payload) {
+  state.liveSession = payload.session;
+  const session = payload.session;
+  const target = document.getElementById("session-summary");
+  const framesSummary = `${session.frames_applied} ok / ${session.frames_failed} failed`;
+  const cadenceSummary = `${session.cadence_ms} ms`;
+  target.textContent = `${session.status} • ${cadenceSummary} • ${framesSummary}`;
+}
+
+function renderLiveSessionSnapshot(payload) {
+  state.liveSession = payload.session;
+  const session = payload.session;
+  const target = document.getElementById("session-summary");
+  const framesSummary = `${session.frames_applied} ok / ${session.frames_failed} failed`;
+  const cadenceSummary = `${session.cadence_ms} ms`;
+  target.textContent = `${session.status} - ${cadenceSummary} - ${framesSummary}`;
+}
+
+async function refreshLiveSession() {
+  try {
+    const payload = await fetchJson("/api/client-studio/session");
+    renderLiveSessionSnapshot(payload);
+  } catch {
+    document.getElementById("session-summary").textContent = "Unavailable";
+  }
+}
+
 async function previewScene() {
-  if (state.busy) {
+  if (state.previewBusy) {
     return;
   }
 
-  state.busy = true;
+  state.previewBusy = true;
   try {
     const bundle = await postJson("/api/client-studio/preview", buildRequestPayload());
     renderPreview(bundle);
@@ -229,43 +270,85 @@ async function previewScene() {
     writeApplyLog({ status: "preview-error", message: String(error) });
     setLastAction("Preview failed");
   } finally {
-    state.busy = false;
+    state.previewBusy = false;
   }
 }
 
-async function applyScene(reason = "manual") {
-  if (state.busy) {
+async function applyScene() {
+  if (state.applyBusy) {
     return;
   }
 
-  state.busy = true;
+  state.applyBusy = true;
   try {
-    const payload = buildRequestPayload();
-    const signature = JSON.stringify(payload);
-    if (reason === "auto" && signature === state.lastAppliedSignature) {
-      setLastAction("Skipped identical auto frame");
-      return;
-    }
-
-    const response = await postJson("/api/client-studio/apply", payload);
+    const response = await postJson("/api/client-studio/apply", buildRequestPayload());
     writeApplyLog(response);
     if (response.scene) {
       document.getElementById("scene-preview").textContent = JSON.stringify(response.scene, null, 2);
     }
-    if (response.status === "applied") {
-      state.lastAppliedSignature = signature;
-    }
     setLastAction(
       response.status === "applied"
-        ? `Applied ${response.preset.name} (${reason})`
-        : `${response.status} (${reason})`
+        ? `Applied ${response.preset.name}`
+        : response.status
     );
   } catch (error) {
     writeApplyLog({ status: "apply-error", message: String(error) });
     setLastAction("Apply failed");
   } finally {
-    state.busy = false;
+    state.applyBusy = false;
+    await refreshLiveSession();
   }
+}
+
+async function startLiveSession() {
+  try {
+    const response = await postJson("/api/client-studio/session/start", buildRequestPayload());
+    renderLiveSessionSnapshot(response);
+    setLastAction(`Live stream started at ${response.session.cadence_ms} ms`);
+  } catch (error) {
+    writeApplyLog({ status: "session-start-error", message: String(error) });
+    setLastAction("Live stream failed to start");
+    document.getElementById("auto-apply-toggle").checked = false;
+  }
+}
+
+async function stopLiveSession() {
+  if (state.configureTimerId !== null) {
+    window.clearTimeout(state.configureTimerId);
+    state.configureTimerId = null;
+  }
+
+  try {
+    const response = await postJson("/api/client-studio/session/stop", {});
+    renderLiveSessionSnapshot(response);
+    setLastAction("Live stream stopped");
+  } catch (error) {
+    writeApplyLog({ status: "session-stop-error", message: String(error) });
+    setLastAction("Live stream stop failed");
+  }
+}
+
+function queueLiveSessionConfigure() {
+  if (!isLiveStreaming()) {
+    return;
+  }
+
+  if (state.configureTimerId !== null) {
+    return;
+  }
+
+  state.configureTimerId = window.setTimeout(async () => {
+    state.configureTimerId = null;
+    if (!isLiveStreaming()) {
+      return;
+    }
+    try {
+      const response = await postJson("/api/client-studio/session/configure", buildRequestPayload());
+      renderLiveSessionSnapshot(response);
+    } catch (error) {
+      setLastAction(`Live update failed: ${String(error)}`);
+    }
+  }, 40);
 }
 
 function stopAudioCapture() {
@@ -294,6 +377,7 @@ function stopAudioCapture() {
     data: null,
   };
   renderSignalReadouts();
+  queueLiveSessionConfigure();
 }
 
 function pumpAudioMetrics() {
@@ -317,6 +401,7 @@ function pumpAudioMetrics() {
   state.audio.mid = clamp(averageBand(mid), 0, 1);
   state.audio.treble = clamp(averageBand(treble), 0, 1);
   renderSignalReadouts();
+  queueLiveSessionConfigure();
   state.audio.frameId = requestAnimationFrame(pumpAudioMetrics);
 }
 
@@ -325,7 +410,10 @@ async function startAudioCapture() {
     return;
   }
   if (!navigator.mediaDevices?.getUserMedia) {
-    writeApplyLog({ status: "audio-unavailable", message: "This browser does not support microphone capture." });
+    writeApplyLog({
+      status: "audio-unavailable",
+      message: "This browser does not support microphone capture.",
+    });
     document.getElementById("audio-toggle").checked = false;
     return;
   }
@@ -359,23 +447,6 @@ async function startAudioCapture() {
   }
 }
 
-function configureAutoApply() {
-  if (state.autoApplyTimerId) {
-    clearInterval(state.autoApplyTimerId);
-    state.autoApplyTimerId = null;
-  }
-  if (document.getElementById("auto-apply-toggle").checked) {
-    const intervalMs =
-      Number.parseInt(document.getElementById("auto-apply-ms-input").value, 10) ||
-      state.catalog?.defaults?.autoApplyMs ||
-      125;
-    state.autoApplyTimerId = window.setInterval(() => {
-      void applyScene("auto");
-    }, intervalMs);
-    setLastAction(`Auto-apply armed at ${intervalMs} ms`);
-  }
-}
-
 function handlePointerMove(event) {
   const stage = document.getElementById("pointer-stage");
   const rect = stage.getBoundingClientRect();
@@ -395,21 +466,31 @@ function handlePointerMove(event) {
     lastY: y,
   };
   renderSignalReadouts();
+  queueLiveSessionConfigure();
 }
 
 function wireEvents() {
   document.getElementById("preview-button").addEventListener("click", () => {
     void previewScene();
   });
+
   document.getElementById("apply-button").addEventListener("click", () => {
-    void applyScene("manual");
+    void applyScene();
   });
-  document.getElementById("auto-apply-toggle").addEventListener("change", configureAutoApply);
+
+  document.getElementById("auto-apply-toggle").addEventListener("change", async (event) => {
+    if (event.target.checked) {
+      await startLiveSession();
+    } else {
+      await stopLiveSession();
+    }
+  });
 
   document.getElementById("pointer-stage").addEventListener("pointermove", handlePointerMove);
   document.getElementById("pointer-stage").addEventListener("pointerleave", () => {
     state.pointer.speed = 0;
     renderSignalReadouts();
+    queueLiveSessionConfigure();
   });
 
   document.getElementById("audio-toggle").addEventListener("change", async (event) => {
@@ -426,10 +507,8 @@ function wireEvents() {
       updateAllRangeValues();
       syncTargetSummary();
       renderSignalReadouts();
-      if (input.id === "auto-apply-ms-input" && document.getElementById("auto-apply-toggle").checked) {
-        configureAutoApply();
-      }
-      if (state.latestPreview) {
+      queueLiveSessionConfigure();
+      if (state.latestPreview && !isLiveStreaming()) {
         void previewScene();
       }
     });
@@ -437,16 +516,19 @@ function wireEvents() {
 }
 
 async function bootstrap() {
-  state.catalog = await fetch("/api/client-studio/catalog").then((response) => response.json());
+  state.catalog = await fetchJson("/api/client-studio/catalog");
   state.selectedPresetId = state.catalog.defaults.presetId;
   document.getElementById("auto-apply-ms-input").value = state.catalog.defaults.autoApplyMs;
   renderPresetDeck();
   selectPreset(state.selectedPresetId);
-  syncTargetSummary();
   updateAllRangeValues();
   renderSignalReadouts();
   wireEvents();
   await previewScene();
+  await refreshLiveSession();
+  state.sessionPollTimerId = window.setInterval(() => {
+    void refreshLiveSession();
+  }, 300);
 }
 
 document.addEventListener("DOMContentLoaded", () => {

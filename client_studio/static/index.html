@@ -22,7 +22,7 @@
             <button class="accent-button" id="apply-button">Apply to renderer</button>
             <label class="toggle">
               <input type="checkbox" id="auto-apply-toggle">
-              <span>Auto-apply</span>
+              <span>Live stream</span>
             </label>
           </div>
         </div>
@@ -39,6 +39,10 @@
           <div class="status-card">
             <span class="label">Last action</span>
             <strong id="last-action">Waiting</strong>
+          </div>
+          <div class="status-card">
+            <span class="label">Live session</span>
+            <strong id="session-summary">Stopped</strong>
           </div>
         </div>
       </header>
@@ -169,12 +173,12 @@
               <span class="range-value" id="line-width-value">2.0</span>
             </label>
             <label>
-              Auto-apply cadence (ms)
+              Live cadence (ms)
               <input
                 name="autoApplyMs"
                 id="auto-apply-ms-input"
                 type="range"
-                min="80"
+                min="40"
                 max="1000"
                 step="5"
                 value="125">
@@ -202,13 +206,13 @@
           </div>
 
           <div class="preview-summary" id="analysis-summary">No scene generated yet.</div>
-          <pre id="scene-preview" class="code-panel">Press “Preview scene” to generate a scene.</pre>
+          <pre id="scene-preview" class="code-panel">Press "Preview scene" to generate a scene.</pre>
         </section>
 
         <section class="panel response-panel">
           <div class="panel-header">
             <h2>Apply Log</h2>
-            <p>This is where validation and submission feedback appears.</p>
+            <p>This is where validation, streaming, and submission feedback appears.</p>
           </div>
           <pre id="apply-log" class="code-panel">Nothing has been submitted yet.</pre>
         </section>

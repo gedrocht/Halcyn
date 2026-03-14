@@ -128,6 +128,9 @@ class ControlPlaneRequestHandler(BaseHTTPRequestHandler):
         if path == "/api/client-studio/catalog":
             return self._send_json(self.state.client_studio_catalog())
 
+        if path == "/api/client-studio/session":
+            return self._send_json(self.state.client_studio_session_status())
+
         self.send_error(HTTPStatus.NOT_FOUND, f"Unknown route: {path}")
 
     def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler requires this name.
@@ -232,6 +235,18 @@ class ControlPlaneRequestHandler(BaseHTTPRequestHandler):
                     result,
                     HTTPStatus.ACCEPTED if result["status"] == "applied" else HTTPStatus.OK,
                 )
+
+            if path == "/api/client-studio/session/configure":
+                result = self.state.configure_client_studio_session(payload)
+                return self._send_json(result)
+
+            if path == "/api/client-studio/session/start":
+                result = self.state.start_client_studio_session(payload)
+                return self._send_json(result, HTTPStatus.ACCEPTED)
+
+            if path == "/api/client-studio/session/stop":
+                result = self.state.stop_client_studio_session()
+                return self._send_json(result, HTTPStatus.ACCEPTED)
 
             return self._send_json(
                 {"status": "unknown-route", "message": f"Unknown route: {path}"},
