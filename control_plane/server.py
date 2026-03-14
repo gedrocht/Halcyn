@@ -70,6 +70,9 @@ class ControlPlaneRequestHandler(BaseHTTPRequestHandler):
         if path == "/":
             return self._serve_file(self.project_root / "control_plane" / "static" / "index.html")
 
+        if path in {"/client", "/client/"}:
+            return self._serve_file(self.project_root / "client_studio" / "static" / "index.html")
+
         if path.startswith("/static/"):
             relative_path = path.removeprefix("/static/")
             file_path = self._safe_relative_file(
@@ -78,6 +81,17 @@ class ControlPlaneRequestHandler(BaseHTTPRequestHandler):
             )
             if file_path is None:
                 self.send_error(HTTPStatus.NOT_FOUND, "Invalid static asset path.")
+                return
+            return self._serve_file(file_path)
+
+        if path.startswith("/client/static/"):
+            relative_path = path.removeprefix("/client/static/")
+            file_path = self._safe_relative_file(
+                self.project_root / "client_studio" / "static",
+                relative_path,
+            )
+            if file_path is None:
+                self.send_error(HTTPStatus.NOT_FOUND, "Invalid client asset path.")
                 return
             return self._serve_file(file_path)
 
@@ -110,6 +124,12 @@ class ControlPlaneRequestHandler(BaseHTTPRequestHandler):
 
         if path == "/api/app/status":
             return self._send_json({"status": "ok", "app": self.state.app_status()})
+
+        if path == "/api/client-studio/catalog":
+            return self._send_json(self.state.client_studio_catalog())
+
+        if path == "/api/client-studio/session":
+            return self._send_json(self.state.client_studio_session_status())
 
         self.send_error(HTTPStatus.NOT_FOUND, f"Unknown route: {path}")
 
@@ -204,6 +224,29 @@ class ControlPlaneRequestHandler(BaseHTTPRequestHandler):
                     content_type=payload.get("contentType", "application/json"),
                 )
                 return self._send_json(result)
+
+            if path == "/api/client-studio/preview":
+                result = self.state.preview_client_scene(payload)
+                return self._send_json(result)
+
+            if path == "/api/client-studio/apply":
+                result = self.state.apply_client_scene(payload)
+                return self._send_json(
+                    result,
+                    HTTPStatus.ACCEPTED if result["status"] == "applied" else HTTPStatus.OK,
+                )
+
+            if path == "/api/client-studio/session/configure":
+                result = self.state.configure_client_studio_session(payload)
+                return self._send_json(result)
+
+            if path == "/api/client-studio/session/start":
+                result = self.state.start_client_studio_session(payload)
+                return self._send_json(result, HTTPStatus.ACCEPTED)
+
+            if path == "/api/client-studio/session/stop":
+                result = self.state.stop_client_studio_session()
+                return self._send_json(result, HTTPStatus.ACCEPTED)
 
             return self._send_json(
                 {"status": "unknown-route", "message": f"Unknown route: {path}"},

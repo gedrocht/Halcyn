@@ -18,6 +18,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from control_plane.client_studio import build_catalog_payload, build_scene_bundle
+from control_plane.client_studio_live import ClientStudioLiveSession
+
 
 def utc_now_iso() -> str:
     """Return the current UTC time in a browser-friendly ISO 8601 format."""
@@ -126,6 +129,10 @@ class ControlPlaneState:
             working_directory=str(project_root),
         )
         self._app_process: subprocess.Popen[str] | None = None
+        self._client_studio_session = ClientStudioLiveSession(
+            apply_callback=self._submit_client_studio_scene,
+            log_callback=self.log_buffer.add,
+        )
         self.log_buffer.add("INFO", "control-plane", "Control plane state initialized.")
 
     def _next_job_id(self) -> str:
@@ -280,7 +287,7 @@ class ControlPlaneState:
                 "run.ps1",
                 "-Configuration",
                 configuration,
-                "-Host",
+                "-ApiHost",
                 host,
                 "-Port",
                 str(port),
@@ -534,6 +541,136 @@ class ControlPlaneState:
             jobs = list(self._jobs.values())[-max(1, limit):]
             return [job.to_dict() for job in jobs]
 
+    def client_studio_catalog(self) -> dict[str, Any]:
+        """Return the preset and input metadata for the browser-based client studio."""
+
+        return build_catalog_payload()
+
+    def client_studio_session_status(self) -> dict[str, Any]:
+        """Return the status of the server-side live Client Studio session."""
+
+        return {"status": "ok", "session": self._client_studio_session.snapshot()}
+
+    def configure_client_studio_session(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Update the live Client Studio session without starting or stopping it."""
+
+        snapshot = self._client_studio_session.configure(payload)
+        return {"status": "configured", "session": snapshot}
+
+    def start_client_studio_session(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Start the live Client Studio streaming session."""
+
+        snapshot = self._client_studio_session.start(payload)
+        return {"status": "accepted", "session": snapshot}
+
+    def stop_client_studio_session(self) -> dict[str, Any]:
+        """Stop the live Client Studio streaming session."""
+
+        snapshot = self._client_studio_session.stop()
+        return {"status": "accepted", "session": snapshot}
+
+    def preview_client_scene(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Generate one browser-authored scene without touching the live renderer."""
+
+        bundle = build_scene_bundle(payload)
+        self.log_buffer.add(
+            "INFO",
+            "client-studio",
+            f"Generated preview for preset {bundle['preset']['id']}.",
+        )
+        return bundle
+
+    def apply_client_scene(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Generate and submit one client-studio scene to the live renderer."""
+
+        bundle = build_scene_bundle(payload)
+        target = bundle["target"]
+        scene_json = json.dumps(bundle["scene"], separators=(",", ":"))
+
+        submission = self.run_api_request(
+            host=target["host"],
+            port=int(target["port"]),
+            method="POST",
+            path="/api/v1/scene",
+            body=scene_json,
+            content_type="application/json",
+        )
+        if submission["status"] == 0:
+            self.log_buffer.add(
+                "ERROR",
+                "client-studio",
+                "Could not reach the live Halcyn API while applying a client-studio scene.",
+            )
+            return {
+                "status": "offline",
+                "preset": bundle["preset"],
+                "target": target,
+                "scene": bundle["scene"],
+                "analysis": bundle["analysis"],
+                "submission": submission,
+            }
+
+        if submission["status"] == 400:
+            self.log_buffer.add(
+                "WARNING",
+                "client-studio",
+                f"Rejected client-studio scene {bundle['preset']['id']} during live submission.",
+            )
+            return {
+                "status": "validation-failed",
+                "preset": bundle["preset"],
+                "target": target,
+                "scene": bundle["scene"],
+                "analysis": bundle["analysis"],
+                "submission": submission,
+                "networkBytes": len(scene_json.encode("utf-8")),
+            }
+
+        applied = submission["status"] in (200, 202)
+        if not applied:
+            self.log_buffer.add(
+                "ERROR",
+                "client-studio",
+                f"Failed to apply preset {bundle['preset']['id']} to the live renderer.",
+            )
+            return {
+                "status": "apply-failed",
+                "preset": bundle["preset"],
+                "target": target,
+                "scene": bundle["scene"],
+                "analysis": bundle["analysis"],
+                "submission": submission,
+                "networkBytes": len(scene_json.encode("utf-8")),
+            }
+
+        self.log_buffer.add(
+            "INFO",
+            "client-studio",
+            f"Applied preset {bundle['preset']['id']} to {target['host']}:{target['port']}.",
+        )
+        return {
+            "status": "applied",
+            "preset": bundle["preset"],
+            "target": target,
+            "scene": bundle["scene"],
+            "analysis": bundle["analysis"],
+            "submission": submission,
+            "networkBytes": len(scene_json.encode("utf-8")),
+        }
+
+    def _submit_client_studio_scene(self, host: str, port: int, scene_json: str) -> dict[str, Any]:
+        """Submit one generated scene to the live Halcyn renderer."""
+
+        return self.run_api_request(
+            host=host,
+            port=port,
+            method="POST",
+            path="/api/v1/scene",
+            body=scene_json,
+            content_type="application/json",
+            timeout_seconds=2,
+        )
+
     def run_api_request(
         self,
         host: str,
@@ -542,6 +679,7 @@ class ControlPlaneState:
         path: str,
         body: str,
         content_type: str,
+        timeout_seconds: float = 10,
     ) -> dict[str, Any]:
         """Proxy one browser-issued request into the running Halcyn API."""
 
@@ -559,7 +697,7 @@ class ControlPlaneState:
         )
 
         try:
-            with urllib.request.urlopen(request, timeout=10) as response:
+            with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
                 payload = response.read().decode("utf-8")
                 return {
                     "ok": True,
@@ -641,6 +779,8 @@ class ControlPlaneState:
                 "codeDocsGuide": "/docs/code-docs.html",
                 "fieldReference": "/docs/field-reference.html",
                 "controlCenter": "/docs/control-center.html",
+                "clientStudioGuide": "/docs/client-studio.html",
                 "generatedCodeDocs": "/generated-code-docs/index.html",
+                "clientStudio": "/client/",
             },
         }

@@ -4,7 +4,7 @@
 [![Pages](https://github.com/gedrocht/Halcyn/actions/workflows/pages.yml/badge.svg)](https://github.com/gedrocht/Halcyn/actions/workflows/pages.yml)
 [![CodeQL](https://github.com/gedrocht/Halcyn/actions/workflows/codeql.yml/badge.svg)](https://github.com/gedrocht/Halcyn/actions/workflows/codeql.yml)
 
-Halcyn is a C++20 application that accepts JSON scene descriptions over HTTP and renders them in a GPU-backed OpenGL window at a 60 FPS target. It supports both 2D and 3D payloads, includes unit tests, ships with example scenes and helper scripts, and now includes a browser-based control plane for build, run, test, docs, logs, and API workflows.
+Halcyn is a C++20 application that accepts JSON scene descriptions over HTTP and renders them in a GPU-backed OpenGL window at a 60 FPS target. It supports both 2D and 3D payloads, includes unit tests, ships with example scenes and helper scripts, and now includes both a browser-based control plane and a separate browser-facing client studio for live scene manipulation.
 
 ## What you get
 
@@ -24,6 +24,7 @@ Halcyn is a C++20 application that accepts JSON scene descriptions over HTTP and
 |-- CMakeLists.txt
 |-- CMakePresets.json
 |-- Doxyfile
+|-- client_studio/
 |-- examples/
 |-- control_plane/
 |-- scripts/
@@ -42,10 +43,11 @@ Halcyn is a C++20 application that accepts JSON scene descriptions over HTTP and
 
 1. Run `.\scripts\bootstrap.ps1` to see which prerequisites are already installed.
 2. Launch the browser control plane with `.\scripts\studio.ps1`.
-3. Use the control plane dashboard to run bootstrap, build, tests, and app startup from the browser.
-4. In the API Lab or another terminal, send a sample scene with `.\scripts\post-sample-2d.ps1` or `.\scripts\post-sample-3d.ps1`.
-5. Open the docs site directly from the control plane or with `.\scripts\serve-docs.ps1`.
-6. For a full Windows setup and troubleshooting guide, see `INSTALL.md`.
+3. Open the separate client-facing scene GUI with `.\scripts\client-studio.ps1` or by visiting `http://127.0.0.1:9001/client/`.
+4. Use the control plane dashboard to run bootstrap, build, tests, and app startup from the browser.
+5. In the Client Studio or API Lab, generate and submit sample scenes to the live renderer.
+6. Open the docs site directly from the control plane or with `.\scripts\serve-docs.ps1`.
+7. For a full Windows setup and troubleshooting guide, see `INSTALL.md`.
 
 ## PowerShell first-run note
 
@@ -168,6 +170,7 @@ Example:
 - `.\scripts\verify-format.ps1`
 - `.\scripts\package.ps1`
 - `.\scripts\studio.ps1`
+- `.\scripts\client-studio.ps1`
 - `.\scripts\test-control-plane.ps1`
 - `.\scripts\post-sample-2d.ps1`
 - `.\scripts\post-sample-3d.ps1`
@@ -180,6 +183,7 @@ Example:
 - Beginner docs site: `docs/site/index.html`
 - Field reference: `docs/site/field-reference.html`
 - Control center guide: `docs/site/control-center.html`
+- Client Studio guide: `docs/site/client-studio.html`
 - Architecture guide: `docs/site/architecture.html`
 - API guide: `docs/site/api.html`
 - Testing guide: `docs/site/testing.html`
@@ -196,6 +200,17 @@ Run `.\scripts\studio.ps1` to launch the browser-based dashboard. The control pl
 - run smoke checks against the live Halcyn API
 - proxy browser-issued requests into the live Halcyn API
 - link directly into the docs site and generated code docs
+
+## Client Studio
+
+Run `.\scripts\client-studio.ps1` or open `/client/` from the control plane server to launch the separate browser-facing scene GUI. Client Studio can:
+
+- choose from multiple 3D visual presets
+- drive scenes from unix time, deterministic noise, pointer motion, microphone energy, or manual sliders
+- preview generated JSON scene payloads before applying them
+- apply one scene immediately to the live renderer on demand
+- run a server-side live session that keeps streaming scenes to the renderer on a chosen cadence
+- send lighter browser control updates while the control plane owns the continuous scene stream
 
 ## Code documentation generation
 

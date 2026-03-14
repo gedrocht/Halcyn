@@ -230,12 +230,30 @@ textarea {
   border-radius: 18px;
   padding: 14px;
   background: rgba(255, 255, 255, 0.03);
+  min-width: 0;
+  overflow: hidden;
 }
 
 .tool-card strong,
 .doc-card strong {
   display: block;
   margin-bottom: 6px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.muted,
+.tool-card .muted,
+.doc-card span,
+.stack-list span,
+.hero-card strong {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
+}
+
+.muted {
+  color: var(--muted);
 }
 
 .status-pill {
@@ -399,4 +417,3 @@ select {
     grid-template-columns: 1fr;
   }
 }
-

@@ -152,7 +152,9 @@ function renderDocs(docs) {
     codeDocsGuide: "Code Docs Guide",
     fieldReference: "Field Reference",
     controlCenter: "Control Center Guide",
+    clientStudioGuide: "Client Studio Guide",
     generatedCodeDocs: "Generated Code Docs",
+    clientStudio: "Open Client Studio",
   };
 
   for (const [key, href] of Object.entries(docs)) {

@@ -372,6 +372,7 @@ class ControlPlaneStateTests(unittest.TestCase):
             )
 
         self.assertEqual(record.pid, 2468)
+        self.assertIn("-ApiHost", record.command)
         self._wait_for(lambda: self.state.app_status()["status"] == "stopped")
         self.assertIn("booting", self.state.app_status()["output_lines"])
 
@@ -527,6 +528,7 @@ class ControlPlaneStateTests(unittest.TestCase):
         payload = self.state.summary()
         self.assertEqual(payload["status"], "ok")
         self.assertIn("docs", payload)
+        self.assertIn("clientStudio", payload["docs"])
         self.assertIn("generatedCodeDocs", payload["docs"])
         self.assertIn("tools", payload)
 
