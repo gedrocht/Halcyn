@@ -36,6 +36,8 @@ jobs:
   native-debug:
     runs-on: windows-latest
     timeout-minutes: 25
+    env:
+      HALCYN_CMAKE_GENERATOR: Visual Studio 17 2022
 
     steps:
       - name: Check out repository

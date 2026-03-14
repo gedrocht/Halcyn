@@ -118,6 +118,10 @@ function Get-PreferredGenerator {
     .SYNOPSIS
     Chooses the best available CMake generator for this machine.
   #>
+  if (-not [string]::IsNullOrWhiteSpace($env:HALCYN_CMAKE_GENERATOR)) {
+    return $env:HALCYN_CMAKE_GENERATOR
+  }
+
   $ninja = Get-Command ninja -ErrorAction SilentlyContinue
   $compiler = Get-AvailableCompiler
   if ($null -ne $ninja -and $null -ne $compiler) {
@@ -154,6 +158,7 @@ function Invoke-HalcynConfigure {
   $projectRoot = Get-ProjectRoot
   $buildDirectory = Get-BuildDirectory -Configuration $Configuration
   $generator = Get-PreferredGenerator
+  $python = Get-Command python -ErrorAction SilentlyContinue
 
   if (-not (Test-PythonModuleAvailable -ModuleName 'jinja2')) {
     throw @"
@@ -172,6 +177,13 @@ Install it with:
     '-G', $generator,
     '-D', 'HALCYN_ENABLE_TESTS=ON'
   )
+
+  if ($null -ne $python) {
+    $configureArgs += @(
+      '-D', "Python_EXECUTABLE=$($python.Source)",
+      '-D', "Python3_EXECUTABLE=$($python.Source)"
+    )
+  }
 
   if ($generator -eq 'Ninja') {
     $configureArgs += @('-D', "CMAKE_BUILD_TYPE=$Configuration")
