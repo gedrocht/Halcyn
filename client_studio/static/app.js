@@ -4,6 +4,7 @@ const state = {
   latestPreview: null,
   busy: false,
   autoApplyTimerId: null,
+  lastAppliedSignature: null,
   pointer: {
     x: 0.5,
     y: 0.5,
@@ -69,6 +70,7 @@ function updateAllRangeValues() {
   updateRangeValue("manual-drive-input", "manual-drive-value", 2);
   updateRangeValue("point-size-input", "point-size-value", 1);
   updateRangeValue("line-width-input", "line-width-value", 2);
+  updateRangeValue("auto-apply-ms-input", "auto-apply-ms-value", 0);
 }
 
 function currentTarget() {
@@ -173,6 +175,7 @@ function buildRequestPayload() {
       speed: Number.parseFloat(String(data.get("speed"))),
       gain: Number.parseFloat(String(data.get("gain"))),
       manualDrive: Number.parseFloat(String(data.get("manualDrive"))),
+      autoApplyMs: Number.parseInt(String(data.get("autoApplyMs")), 10),
       background: String(data.get("background")),
       primaryColor: String(data.get("primaryColor")),
       secondaryColor: String(data.get("secondaryColor")),
@@ -238,10 +241,19 @@ async function applyScene(reason = "manual") {
   state.busy = true;
   try {
     const payload = buildRequestPayload();
+    const signature = JSON.stringify(payload);
+    if (reason === "auto" && signature === state.lastAppliedSignature) {
+      setLastAction("Skipped identical auto frame");
+      return;
+    }
+
     const response = await postJson("/api/client-studio/apply", payload);
     writeApplyLog(response);
     if (response.scene) {
       document.getElementById("scene-preview").textContent = JSON.stringify(response.scene, null, 2);
+    }
+    if (response.status === "applied") {
+      state.lastAppliedSignature = signature;
     }
     setLastAction(
       response.status === "applied"
@@ -353,11 +365,14 @@ function configureAutoApply() {
     state.autoApplyTimerId = null;
   }
   if (document.getElementById("auto-apply-toggle").checked) {
-    const intervalMs = state.catalog?.defaults?.autoApplyMs || 750;
+    const intervalMs =
+      Number.parseInt(document.getElementById("auto-apply-ms-input").value, 10) ||
+      state.catalog?.defaults?.autoApplyMs ||
+      125;
     state.autoApplyTimerId = window.setInterval(() => {
       void applyScene("auto");
     }, intervalMs);
-    setLastAction("Auto-apply armed");
+    setLastAction(`Auto-apply armed at ${intervalMs} ms`);
   }
 }
 
@@ -411,6 +426,9 @@ function wireEvents() {
       updateAllRangeValues();
       syncTargetSummary();
       renderSignalReadouts();
+      if (input.id === "auto-apply-ms-input" && document.getElementById("auto-apply-toggle").checked) {
+        configureAutoApply();
+      }
       if (state.latestPreview) {
         void previewScene();
       }
@@ -421,6 +439,7 @@ function wireEvents() {
 async function bootstrap() {
   state.catalog = await fetch("/api/client-studio/catalog").then((response) => response.json());
   state.selectedPresetId = state.catalog.defaults.presetId;
+  document.getElementById("auto-apply-ms-input").value = state.catalog.defaults.autoApplyMs;
   renderPresetDeck();
   selectPreset(state.selectedPresetId);
   syncTargetSummary();

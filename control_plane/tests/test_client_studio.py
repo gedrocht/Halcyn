@@ -27,6 +27,7 @@ class ClientStudioGenerationTests(unittest.TestCase):
         self.assertEqual(payload["status"], "ok")
         self.assertGreaterEqual(len(payload["presets"]), 3)
         self.assertEqual(payload["defaults"]["presetId"], "aurora-orbit")
+        self.assertEqual(payload["defaults"]["autoApplyMs"], 125)
         self.assertTrue(any(source["id"] == "audio" for source in payload["sources"]))
 
     def test_scene_bundle_generates_a_valid_default_scene(self) -> None:
@@ -142,16 +143,9 @@ class ClientStudioServerTests(unittest.TestCase):
         self.assertEqual(payload["status"], "ok")
         self.assertEqual(payload["scene"]["sceneType"], "3d")
 
-    def test_apply_route_validates_then_submits_scene(self) -> None:
-        """Apply requests should validate before they submit into the live Halcyn API."""
+    def test_apply_route_submits_scene_once(self) -> None:
+        """Apply requests should submit directly to the live Halcyn API."""
 
-        validation_response = {
-            "ok": True,
-            "status": 200,
-            "reason": "OK",
-            "body": "{}",
-            "headers": {},
-        }
         submission_response = {
             "ok": True,
             "status": 202,
@@ -163,7 +157,7 @@ class ClientStudioServerTests(unittest.TestCase):
         with mock.patch.object(
             self.state,
             "run_api_request",
-            side_effect=[validation_response, submission_response],
+            return_value=submission_response,
         ) as patched:
             status, payload = self._post_json(
                 "/api/client-studio/apply",
@@ -172,9 +166,34 @@ class ClientStudioServerTests(unittest.TestCase):
 
         self.assertEqual(status, 202)
         self.assertEqual(payload["status"], "applied")
-        self.assertEqual(patched.call_count, 2)
-        self.assertEqual(patched.call_args_list[0].kwargs["path"], "/api/v1/scene/validate")
-        self.assertEqual(patched.call_args_list[1].kwargs["path"], "/api/v1/scene")
+        self.assertGreater(payload["networkBytes"], 0)
+        patched.assert_called_once()
+        self.assertEqual(patched.call_args.kwargs["path"], "/api/v1/scene")
+
+    def test_apply_route_surfaces_validation_failures_from_submission(self) -> None:
+        """The fast apply path should still expose renderer-side validation failures."""
+
+        failed_submission = {
+            "ok": False,
+            "status": 400,
+            "reason": "Bad Request",
+            "body": '{"status":"invalid-request"}',
+            "headers": {},
+        }
+
+        with mock.patch.object(
+            self.state,
+            "run_api_request",
+            return_value=failed_submission,
+        ):
+            status, payload = self._post_json(
+                "/api/client-studio/apply",
+                {"presetId": "aurora-orbit", "signals": {"epochSeconds": 12.0}},
+            )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["status"], "validation-failed")
+        self.assertEqual(payload["submission"]["status"], 400)
 
 
 if __name__ == "__main__":

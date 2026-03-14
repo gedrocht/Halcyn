@@ -553,49 +553,11 @@ class ControlPlaneState:
         return bundle
 
     def apply_client_scene(self, payload: dict[str, Any]) -> dict[str, Any]:
-        """Generate, validate, and submit one client-studio scene to the live renderer."""
+        """Generate and submit one client-studio scene to the live renderer."""
 
         bundle = build_scene_bundle(payload)
         target = bundle["target"]
-        scene_json = json.dumps(bundle["scene"], indent=2)
-
-        validation = self.run_api_request(
-            host=target["host"],
-            port=int(target["port"]),
-            method="POST",
-            path="/api/v1/scene/validate",
-            body=scene_json,
-            content_type="application/json",
-        )
-        if validation["status"] == 0:
-            self.log_buffer.add(
-                "ERROR",
-                "client-studio",
-                "Could not reach the live Halcyn API while validating a client-studio scene.",
-            )
-            return {
-                "status": "offline",
-                "preset": bundle["preset"],
-                "target": target,
-                "scene": bundle["scene"],
-                "analysis": bundle["analysis"],
-                "validation": validation,
-            }
-
-        if validation["status"] != 200:
-            self.log_buffer.add(
-                "WARNING",
-                "client-studio",
-                f"Rejected client-studio scene {bundle['preset']['id']} during validation.",
-            )
-            return {
-                "status": "validation-failed",
-                "preset": bundle["preset"],
-                "target": target,
-                "scene": bundle["scene"],
-                "analysis": bundle["analysis"],
-                "validation": validation,
-            }
+        scene_json = json.dumps(bundle["scene"], separators=(",", ":"))
 
         submission = self.run_api_request(
             host=target["host"],
@@ -605,24 +567,67 @@ class ControlPlaneState:
             body=scene_json,
             content_type="application/json",
         )
+        if submission["status"] == 0:
+            self.log_buffer.add(
+                "ERROR",
+                "client-studio",
+                "Could not reach the live Halcyn API while applying a client-studio scene.",
+            )
+            return {
+                "status": "offline",
+                "preset": bundle["preset"],
+                "target": target,
+                "scene": bundle["scene"],
+                "analysis": bundle["analysis"],
+                "submission": submission,
+            }
+
+        if submission["status"] == 400:
+            self.log_buffer.add(
+                "WARNING",
+                "client-studio",
+                f"Rejected client-studio scene {bundle['preset']['id']} during live submission.",
+            )
+            return {
+                "status": "validation-failed",
+                "preset": bundle["preset"],
+                "target": target,
+                "scene": bundle["scene"],
+                "analysis": bundle["analysis"],
+                "submission": submission,
+                "networkBytes": len(scene_json.encode("utf-8")),
+            }
+
         applied = submission["status"] in (200, 202)
+        if not applied:
+            self.log_buffer.add(
+                "ERROR",
+                "client-studio",
+                f"Failed to apply preset {bundle['preset']['id']} to the live renderer.",
+            )
+            return {
+                "status": "apply-failed",
+                "preset": bundle["preset"],
+                "target": target,
+                "scene": bundle["scene"],
+                "analysis": bundle["analysis"],
+                "submission": submission,
+                "networkBytes": len(scene_json.encode("utf-8")),
+            }
+
         self.log_buffer.add(
-            "INFO" if applied else "ERROR",
+            "INFO",
             "client-studio",
-            (
-                f"Applied preset {bundle['preset']['id']} to {target['host']}:{target['port']}."
-                if applied
-                else f"Failed to apply preset {bundle['preset']['id']} to the live renderer."
-            ),
+            f"Applied preset {bundle['preset']['id']} to {target['host']}:{target['port']}.",
         )
         return {
-            "status": "applied" if applied else "apply-failed",
+            "status": "applied",
             "preset": bundle["preset"],
             "target": target,
             "scene": bundle["scene"],
             "analysis": bundle["analysis"],
-            "validation": validation,
             "submission": submission,
+            "networkBytes": len(scene_json.encode("utf-8")),
         }
 
     def run_api_request(

@@ -11,7 +11,7 @@ from typing import Any
 DEFAULT_PRESET_ID = "aurora-orbit"
 DEFAULT_TARGET_HOST = "127.0.0.1"
 DEFAULT_TARGET_PORT = 8080
-DEFAULT_AUTO_APPLY_MS = 750
+DEFAULT_AUTO_APPLY_MS = 125
 
 
 @dataclass(frozen=True)
