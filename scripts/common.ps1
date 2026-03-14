@@ -15,6 +15,82 @@ function Assert-LastExitCode {
   }
 }
 
+function Test-HttpSuccess {
+  <#
+    .SYNOPSIS
+    Returns whether an HTTP GET request succeeds with a 2xx status code.
+  #>
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Url,
+    [int]$TimeoutSeconds = 2
+  )
+
+  try {
+    $response = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec $TimeoutSeconds
+    return $response.StatusCode -ge 200 -and $response.StatusCode -lt 300
+  }
+  catch {
+    return $false
+  }
+}
+
+function Get-ControlPlaneCompatibility {
+  <#
+    .SYNOPSIS
+    Checks whether a control-plane server is already available on the requested host and port.
+  #>
+  param(
+    [string]$BindHost = '127.0.0.1',
+    [int]$Port = 9001
+  )
+
+  $baseUrl = "http://$BindHost`:$Port"
+  $summaryUrl = "$baseUrl/api/system/summary"
+  $clientCatalogUrl = "$baseUrl/api/client-studio/catalog"
+
+  $summaryAvailable = Test-HttpSuccess -Url $summaryUrl
+  $clientStudioAvailable = $summaryAvailable -and (Test-HttpSuccess -Url $clientCatalogUrl)
+
+  return @{
+    BaseUrl = $baseUrl
+    SummaryAvailable = $summaryAvailable
+    ClientStudioAvailable = $clientStudioAvailable
+  }
+}
+
+function Start-BrowserWhenReady {
+  <#
+    .SYNOPSIS
+    Opens a browser window only after a URL begins returning a 2xx response.
+  #>
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Url,
+    [int]$TimeoutSeconds = 15
+  )
+
+  Start-Job -ScriptBlock {
+    param($JobUrl, $JobTimeoutSeconds)
+
+    $deadline = (Get-Date).AddSeconds($JobTimeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+      try {
+        $response = Invoke-WebRequest -Uri $JobUrl -UseBasicParsing -TimeoutSec 2
+        if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 300) {
+          Start-Process $JobUrl
+          break
+        }
+      }
+      catch {
+        # Keep polling until the server is ready or the timeout expires.
+      }
+
+      Start-Sleep -Milliseconds 250
+    }
+  } -ArgumentList $Url, $TimeoutSeconds | Out-Null
+}
+
 function Get-ProjectRoot {
   <#
     .SYNOPSIS

@@ -6,6 +6,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+. (Join-Path $PSScriptRoot 'common.ps1')
+
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $command = @(
   '-m',
@@ -18,8 +20,29 @@ $command = @(
   $projectRoot
 )
 
+$compatibility = Get-ControlPlaneCompatibility -BindHost $BindHost -Port $Port
+$clientUrl = "http://$BindHost`:$Port/client/"
+
+if ($compatibility.ClientStudioAvailable) {
+  if (-not $NoBrowser) {
+    Start-Process $clientUrl
+  }
+
+  Write-Host "Reusing the already-running Halcyn control plane at $($compatibility.BaseUrl)"
+  return
+}
+
+if ($compatibility.SummaryAvailable) {
+  throw @"
+Another Halcyn control plane is already running at $($compatibility.BaseUrl), but it does not expose Client Studio.
+
+Stop that older server and rerun this script, or choose a different port with:
+  .\scripts\client-studio.ps1 -Port 9010
+"@
+}
+
 if (-not $NoBrowser) {
-  Start-Process "http://$BindHost`:$Port/client/"
+  Start-BrowserWhenReady -Url $clientUrl
 }
 
 Push-Location $projectRoot
