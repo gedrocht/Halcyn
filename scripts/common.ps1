@@ -1,5 +1,20 @@
 $ErrorActionPreference = 'Stop'
 
+function Assert-LastExitCode {
+  <#
+    .SYNOPSIS
+    Stops the current script if the previous native command failed.
+  #>
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$StepName
+  )
+
+  if ($LASTEXITCODE -ne 0) {
+    throw "$StepName failed with exit code $LASTEXITCODE."
+  }
+}
+
 function Get-ProjectRoot {
   <#
     .SYNOPSIS
@@ -69,6 +84,25 @@ function Test-VisualStudio2022Available {
     .SYNOPSIS
     Detects whether a Visual Studio 2022 installation is present in one of the common locations.
   #>
+  $vswherePath = 'C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe'
+  if (Test-Path $vswherePath) {
+    try {
+      $installationPath = & $vswherePath -latest -products * -requires Microsoft.VisualStudio.Workload.NativeDesktop -property installationPath
+      if (-not [string]::IsNullOrWhiteSpace($installationPath)) {
+        $trimmedPath = $installationPath.Trim()
+        $devCmdCandidate = Join-Path $trimmedPath 'Common7\Tools\VsDevCmd.bat'
+        if (Test-Path $devCmdCandidate) {
+          return $devCmdCandidate
+        }
+
+        return $trimmedPath
+      }
+    }
+    catch {
+      # Fall back to the common install paths below if vswhere is unavailable or errors.
+    }
+  }
+
   $candidatePaths = @(
     'C:\Program Files\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat',
     'C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat',
@@ -144,6 +178,7 @@ Install it with:
   }
 
   & cmake @configureArgs
+  Assert-LastExitCode -StepName 'CMake configure'
 }
 
 function Invoke-HalcynBuild {
@@ -166,6 +201,7 @@ function Invoke-HalcynBuild {
   }
 
   & cmake @buildArgs
+  Assert-LastExitCode -StepName 'CMake build'
 }
 
 function Get-HalcynExecutablePath {
@@ -208,4 +244,5 @@ function Invoke-HalcynCtest {
   }
 
   & ctest @testArgs
+  Assert-LastExitCode -StepName 'CTest'
 }

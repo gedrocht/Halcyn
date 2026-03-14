@@ -24,6 +24,25 @@ function Write-ToolStatus {
   }
 }
 
+function Write-InstallHint {
+  <#
+    .SYNOPSIS
+    Prints one concise installation hint for a missing prerequisite.
+  #>
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Name,
+    [Parameter(Mandatory = $true)]
+    [bool]$IsAvailable,
+    [Parameter(Mandatory = $true)]
+    [string]$Hint
+  )
+
+  if (-not $IsAvailable) {
+    Write-Host ("  - {0}: {1}" -f $Name, $Hint)
+  }
+}
+
 $cmake = Get-Command cmake -ErrorAction SilentlyContinue
 $python = Get-Command python -ErrorAction SilentlyContinue
 $git = Get-Command git -ErrorAction SilentlyContinue
@@ -58,4 +77,21 @@ if (($null -ne $ninja -and $null -ne $compiler) -or $null -ne $visualStudio) {
 }
 else {
   Write-Host '  Install either Ninja plus a compiler, or Visual Studio 2022 Build Tools, then rerun this script.'
+}
+
+Write-Host ''
+Write-Host 'Install help for anything marked MISSING:'
+Write-InstallHint -Name 'ninja' -IsAvailable ($null -ne $ninja) -Hint 'Install Ninja from https://ninja-build.org/ or with winget: winget install Ninja-build.Ninja'
+Write-InstallHint -Name 'Visual Studio 2022 Build Tools' -IsAvailable ($null -ne $visualStudio) -Hint 'Install Build Tools from https://visualstudio.microsoft.com/downloads/ and include the Desktop development with C++ workload.'
+Write-InstallHint -Name 'cl.exe' -IsAvailable ($null -ne $cl) -Hint 'Install Visual Studio 2022 Build Tools with the Desktop development with C++ workload.'
+Write-InstallHint -Name 'clang++' -IsAvailable ($null -ne $clang) -Hint 'Optional alternative compiler. Install LLVM from https://llvm.org/ or with winget: winget install LLVM.LLVM'
+Write-InstallHint -Name 'g++' -IsAvailable ($null -ne $gcc) -Hint 'Optional alternative compiler. Install MSYS2/MinGW if you prefer GCC on Windows.'
+Write-InstallHint -Name 'doxygen' -IsAvailable ($null -ne $doxygen) -Hint 'Needed only for generated code docs. Install from https://www.doxygen.nl/download.html or with winget: winget install DimitriVanHeesch.Doxygen'
+Write-InstallHint -Name 'clang-format' -IsAvailable ($null -ne $clangFormat) -Hint 'Needed only for the format script. Install LLVM from https://llvm.org/ or with winget: winget install LLVM.LLVM'
+Write-InstallHint -Name 'python-jinja2' -IsAvailable $pythonJinja2 -Hint 'Install with: python -m pip install jinja2'
+
+if ($null -ne $visualStudio -and $null -eq $cl) {
+  Write-Host ''
+  Write-Host 'Note: Visual Studio was detected even though cl.exe is not on PATH in this shell.'
+  Write-Host 'CMake can still build with the Visual Studio generator, which is the normal path for this project.'
 }

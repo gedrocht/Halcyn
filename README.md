@@ -41,6 +41,41 @@ Halcyn is a C++20 application that accepts JSON scene descriptions over HTTP and
 3. Use the control plane dashboard to run bootstrap, build, tests, and app startup from the browser.
 4. In the API Lab or another terminal, send a sample scene with `.\scripts\post-sample-2d.ps1` or `.\scripts\post-sample-3d.ps1`.
 5. Open the docs site directly from the control plane or with `.\scripts\serve-docs.ps1`.
+6. For a full Windows setup and troubleshooting guide, see `INSTALL.md`.
+
+## PowerShell first-run note
+
+If Windows shows a security prompt before running the repository scripts, you can unblock this working tree once:
+
+```powershell
+Get-ChildItem -Path . -Recurse -File | Unblock-File
+```
+
+That removes the "downloaded from the internet" marker from files in the current repository so PowerShell stops prompting for those scripts.
+
+## Prerequisites
+
+The minimum setup for a local build on Windows is:
+
+- `cmake`
+- `python`
+- Python package `jinja2`
+- `git`
+- either `Visual Studio 2022 Build Tools` with `Desktop development with C++`, or `ninja` plus a working C++ compiler
+
+Optional extras:
+
+- `doxygen` for generated code docs
+- `clang-format` for the formatting script
+
+Helpful install routes:
+
+- Ninja: `winget install Ninja-build.Ninja`
+- LLVM and `clang-format`: `winget install LLVM.LLVM`
+- Doxygen: `winget install DimitriVanHeesch.Doxygen`
+- Python package: `python -m pip install jinja2`
+
+For the easiest Windows-native path, install Visual Studio 2022 Build Tools from `https://visualstudio.microsoft.com/downloads/` and select the `Desktop development with C++` workload.
 
 ## Supported JSON scene formats
 

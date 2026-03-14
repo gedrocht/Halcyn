@@ -27,6 +27,8 @@ set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(CATCH_INSTALL_DOCS OFF CACHE BOOL "" FORCE)
 set(CATCH_INSTALL_EXTRAS OFF CACHE BOOL "" FORCE)
+set(HTTPLIB_INSTALL OFF CACHE BOOL "" FORCE)
+set(HTTPLIB_TEST OFF CACHE BOOL "" FORCE)
 
 FetchContent_Declare(
   glfw
@@ -62,22 +64,10 @@ FetchContent_Declare(
   glad
   GIT_REPOSITORY https://github.com/Dav1dde/glad.git
   GIT_TAG v2.0.8
+  SOURCE_SUBDIR cmake
 )
 
-FetchContent_MakeAvailable(glfw glm nlohmann_json catch2)
-
-FetchContent_GetProperties(cpp_httplib)
-if(NOT cpp_httplib_POPULATED)
-  FetchContent_Populate(cpp_httplib)
-  add_library(cpp_httplib INTERFACE)
-  target_include_directories(cpp_httplib INTERFACE "${cpp_httplib_SOURCE_DIR}")
-endif()
-
-FetchContent_GetProperties(glad)
-if(NOT glad_POPULATED)
-  FetchContent_Populate(glad)
-  add_subdirectory("${glad_SOURCE_DIR}/cmake" glad_cmake)
-endif()
+FetchContent_MakeAvailable(glfw glm nlohmann_json cpp_httplib catch2 glad)
 
 find_package(OpenGL REQUIRED)
 
@@ -161,7 +151,7 @@ target_link_libraries(
   halcyn_api
   PUBLIC
     Halcyn::Core
-    cpp_httplib
+    httplib::httplib
 )
 
 set(HALCYN_RENDERER_HEADERS
@@ -182,14 +172,14 @@ target_link_libraries(
   PUBLIC
     Halcyn::Core
     glm::glm
-  PRIVATE
     glfw
     halcyn_glad
+  PRIVATE
     OpenGL::GL
 )
 target_compile_definitions(
   halcyn_renderer
-  PRIVATE
+  PUBLIC
     GLFW_INCLUDE_NONE
 )
 

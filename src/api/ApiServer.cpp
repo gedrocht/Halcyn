@@ -1,5 +1,7 @@
 #include "api/ApiServer.hpp"
 
+#include "domain/SceneValidation.hpp"
+
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
@@ -139,20 +141,6 @@ void ApiServer::ConfigureRoutes()
         core::LogLevel::Info,
         "http",
         request.method + " " + request.path + " -> " + std::to_string(response.status));
-    });
-
-  server_.set_error_logger(
-    [this](const httplib::Request& request, const httplib::Response& response)
-    {
-      if (runtimeLog_ == nullptr)
-      {
-        return;
-      }
-
-      runtimeLog_->Write(
-        core::LogLevel::Warning,
-        "http",
-        request.method + " " + request.path + " produced HTTP " + std::to_string(response.status));
     });
 
   server_.Get(
