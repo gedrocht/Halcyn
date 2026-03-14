@@ -1,24 +1,19 @@
 #include "domain/SceneFactory.hpp"
 
-namespace halcyn::domain
-{
-SceneDocument CreateDefaultSceneDocument()
-{
+namespace halcyn::domain {
+SceneDocument CreateDefaultSceneDocument() {
   return CreateSample2DSceneDocument();
 }
 
-SceneDocument CreateSample2DSceneDocument()
-{
+SceneDocument CreateSample2DSceneDocument() {
   Scene2D scene;
   scene.primitiveType = PrimitiveType::Triangles;
   scene.pointSize = 10.0F;
   scene.lineWidth = 3.0F;
   scene.clearColor = {0.05F, 0.07F, 0.11F, 1.0F};
-  scene.vertices = {
-    {-0.8F, -0.6F, 1.0F, 0.2F, 0.2F, 1.0F},
-    {0.0F, 0.7F, 0.2F, 0.9F, 0.7F, 1.0F},
-    {0.8F, -0.4F, 0.2F, 0.5F, 1.0F, 1.0F}
-  };
+  scene.vertices = {{-0.8F, -0.6F, 1.0F, 0.2F, 0.2F, 1.0F},
+                    {0.0F, 0.7F, 0.2F, 0.9F, 0.7F, 1.0F},
+                    {0.8F, -0.4F, 0.2F, 0.5F, 1.0F, 1.0F}};
 
   SceneDocument document;
   document.kind = SceneKind::TwoDimensional;
@@ -36,25 +31,17 @@ SceneDocument CreateSample2DSceneDocument()
   return document;
 }
 
-SceneDocument CreateSample3DSceneDocument()
-{
+SceneDocument CreateSample3DSceneDocument() {
   Scene3D scene;
   scene.primitiveType = PrimitiveType::Triangles;
   scene.clearColor = {0.04F, 0.05F, 0.08F, 1.0F};
   scene.camera.position = {2.3F, 1.8F, 2.6F};
   scene.camera.target = {0.0F, 0.0F, 0.0F};
-  scene.vertices = {
-    {-0.8F, -0.8F, 0.0F, 1.0F, 0.2F, 0.2F, 1.0F},
-    {0.8F, -0.8F, 0.0F, 0.2F, 1.0F, 0.2F, 1.0F},
-    {0.0F, 0.8F, 0.0F, 0.2F, 0.4F, 1.0F, 1.0F},
-    {0.0F, 0.0F, 1.2F, 1.0F, 0.9F, 0.2F, 1.0F}
-  };
-  scene.indices = {
-    0, 1, 2,
-    0, 1, 3,
-    1, 2, 3,
-    2, 0, 3
-  };
+  scene.vertices = {{-0.8F, -0.8F, 0.0F, 1.0F, 0.2F, 0.2F, 1.0F},
+                    {0.8F, -0.8F, 0.0F, 0.2F, 1.0F, 0.2F, 1.0F},
+                    {0.0F, 0.8F, 0.0F, 0.2F, 0.4F, 1.0F, 1.0F},
+                    {0.0F, 0.0F, 1.2F, 1.0F, 0.9F, 0.2F, 1.0F}};
+  scene.indices = {0, 1, 2, 0, 1, 3, 1, 2, 3, 2, 0, 3};
 
   SceneDocument document;
   document.kind = SceneKind::ThreeDimensional;
@@ -80,5 +67,4 @@ SceneDocument CreateSample3DSceneDocument()
 })";
   return document;
 }
-}  // namespace halcyn::domain
-
+} // namespace halcyn::domain

@@ -411,9 +411,15 @@ class ControlPlaneState:
                 if Path(candidate).exists():
                     return candidate
 
+            if command_name in {"clang-format", "clang++"}:
+                visual_studio_match = visual_studio_llvm_path(f"{command_name}.exe")
+                if visual_studio_match:
+                    return visual_studio_match
+
             winget_match = {
                 "ninja": winget_binary_path("Ninja-build.Ninja*", "ninja.exe"),
                 "clang-format": winget_binary_path("LLVM.LLVM*", "clang-format.exe"),
+                "clang++": winget_binary_path("LLVM.LLVM*", "clang++.exe"),
                 "doxygen": winget_binary_path("DimitriVanHeesch.Doxygen*", "doxygen.exe"),
             }.get(command_name, "")
             return winget_match or ""
@@ -439,6 +445,23 @@ class ControlPlaneState:
                         return {"available": True, "path": str(candidate)}
 
             return {"available": False, "path": ""}
+
+        def visual_studio_llvm_path(binary_name: str) -> str:
+            visual_studio = visual_studio_status()
+            if not visual_studio["available"]:
+                return ""
+
+            installation_root = Path(visual_studio["path"]).parents[2]
+            candidates = [
+                installation_root / "VC" / "Tools" / "Llvm" / "bin" / binary_name,
+                installation_root / "VC" / "Tools" / "Llvm" / "x64" / "bin" / binary_name,
+                installation_root / "VC" / "Tools" / "Llvm" / "ARM64" / "bin" / binary_name,
+            ]
+            for candidate in candidates:
+                if candidate.exists():
+                    return str(candidate)
+
+            return ""
 
         def visual_studio_status() -> dict[str, Any]:
             vswhere_path = Path(

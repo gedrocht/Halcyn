@@ -54,7 +54,7 @@ $visualStudio = Test-VisualStudio2022Available
 $compiler = Get-AvailableCompiler
 $cl = Get-Command cl -ErrorAction SilentlyContinue
 $visualStudioCl = Get-VisualStudioCompilerPath
-$clang = Get-Command clang++ -ErrorAction SilentlyContinue
+$clang = Get-ResolvedToolPath -ToolName 'clang++'
 $gcc = Get-Command g++ -ErrorAction SilentlyContinue
 
 Write-Host 'Halcyn prerequisite report'
@@ -66,7 +66,7 @@ Write-ToolStatus -Name 'git' -IsAvailable ($null -ne $git) -Details ($git.Source
 Write-ToolStatus -Name 'ninja' -IsAvailable (-not [string]::IsNullOrWhiteSpace($ninja)) -Details $ninja
 Write-ToolStatus -Name 'Visual Studio 2022' -IsAvailable ($null -ne $visualStudio) -Details $visualStudio
 Write-ToolStatus -Name 'cl.exe' -IsAvailable ($null -ne $cl -or $null -ne $visualStudioCl) -Details ($(if ($null -ne $cl) { $cl.Source } else { $visualStudioCl }))
-Write-ToolStatus -Name 'clang++' -IsAvailable ($null -ne $clang) -Details ($clang.Source)
+Write-ToolStatus -Name 'clang++' -IsAvailable (-not [string]::IsNullOrWhiteSpace($clang)) -Details $clang
 Write-ToolStatus -Name 'g++' -IsAvailable ($null -ne $gcc) -Details ($gcc.Source)
 Write-ToolStatus -Name 'doxygen' -IsAvailable (-not [string]::IsNullOrWhiteSpace($doxygen)) -Details $doxygen
 Write-ToolStatus -Name 'clang-format' -IsAvailable (-not [string]::IsNullOrWhiteSpace($clangFormat)) -Details $clangFormat
@@ -85,7 +85,7 @@ Write-Host 'Install help for anything marked MISSING:'
 Write-InstallHint -Name 'ninja' -IsAvailable (-not [string]::IsNullOrWhiteSpace($ninja)) -Hint 'Install Ninja from https://ninja-build.org/ or with winget: winget install Ninja-build.Ninja'
 Write-InstallHint -Name 'Visual Studio 2022 Build Tools' -IsAvailable ($null -ne $visualStudio) -Hint 'Install Build Tools from https://visualstudio.microsoft.com/downloads/ and include the Desktop development with C++ workload.'
 Write-InstallHint -Name 'cl.exe' -IsAvailable ($null -ne $cl -or $null -ne $visualStudioCl) -Hint 'Install Visual Studio 2022 Build Tools with the Desktop development with C++ workload.'
-Write-InstallHint -Name 'clang++' -IsAvailable ($null -ne $clang) -Hint 'Optional alternative compiler. Install LLVM from https://llvm.org/ or with winget: winget install LLVM.LLVM'
+Write-InstallHint -Name 'clang++' -IsAvailable (-not [string]::IsNullOrWhiteSpace($clang)) -Hint 'Optional alternative compiler. Install LLVM from https://llvm.org/ or with winget: winget install LLVM.LLVM'
 Write-InstallHint -Name 'g++' -IsAvailable ($null -ne $gcc) -Hint 'Optional alternative compiler. Install MSYS2/MinGW if you prefer GCC on Windows.'
 Write-InstallHint -Name 'doxygen' -IsAvailable (-not [string]::IsNullOrWhiteSpace($doxygen)) -Hint 'Needed only for generated code docs. Install from https://www.doxygen.nl/download.html or with winget: winget install DimitriVanHeesch.Doxygen'
 Write-InstallHint -Name 'clang-format' -IsAvailable (-not [string]::IsNullOrWhiteSpace($clangFormat)) -Hint 'Needed only for the format script. Install LLVM from https://llvm.org/ or with winget: winget install LLVM.LLVM'

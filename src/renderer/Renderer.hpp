@@ -11,13 +11,11 @@
 #include <memory>
 #include <string>
 
-namespace halcyn::renderer
-{
+namespace halcyn::renderer {
 /**
  * Holds the runtime settings for the render window and frame pacing.
  */
-struct RendererConfig
-{
+struct RendererConfig {
   /**
    * Sets the width of the render window in pixels.
    */
@@ -42,16 +40,13 @@ struct RendererConfig
 /**
  * Owns the OpenGL window, GPU buffers, shaders, and draw loop.
  */
-class Renderer
-{
+class Renderer {
 public:
   /**
    * Builds the renderer with access to the shared scene store.
    */
-  Renderer(
-    RendererConfig config,
-    std::shared_ptr<core::SceneStore> sceneStore,
-    std::shared_ptr<core::RuntimeLog> runtimeLog);
+  Renderer(RendererConfig config, std::shared_ptr<core::SceneStore> sceneStore,
+           std::shared_ptr<core::RuntimeLog> runtimeLog);
 
   /**
    * Releases OpenGL resources and shuts down GLFW.
@@ -153,13 +148,14 @@ private:
   GLuint ebo_ = 0;
 
   /**
-   * Tracks the last scene version uploaded to the GPU so unchanged frames avoid unnecessary uploads.
+   * Tracks the last scene version uploaded to the GPU so unchanged frames avoid unnecessary
+   * uploads.
    */
   std::uint64_t uploadedSceneVersion_ = 0;
 
   /**
    * Stores the last renderable scene uploaded to the GPU.
    */
-  domain::RenderScene uploadedRenderScene_ {};
+  domain::RenderScene uploadedRenderScene_{};
 };
-}  // namespace halcyn::renderer
+} // namespace halcyn::renderer

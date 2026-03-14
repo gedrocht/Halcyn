@@ -13,13 +13,11 @@
 #include <string>
 #include <thread>
 
-namespace halcyn::api
-{
+namespace halcyn::api {
 /**
  * Holds the runtime settings for the embedded HTTP API.
  */
-struct ApiServerConfig
-{
+struct ApiServerConfig {
   /**
    * Chooses which network interface the embedded HTTP server binds to.
    */
@@ -31,28 +29,28 @@ struct ApiServerConfig
   int port = 8080;
 
   /**
-   * Caps the maximum size of one incoming HTTP request body so oversized scene submissions fail cleanly.
+   * Caps the maximum size of one incoming HTTP request body so oversized scene submissions fail
+   * cleanly.
    */
   std::size_t maxPayloadBytes = domain::SceneLimits::kMaxRequestPayloadBytes;
 };
 
 /**
- * Runs a small HTTP server that accepts JSON scene submissions and publishes them into the shared scene store.
+ * Runs a small HTTP server that accepts JSON scene submissions and publishes them into the shared
+ * scene store.
  */
-class ApiServer
-{
+class ApiServer {
 public:
   /**
    * Builds the server with the shared state and codec objects it needs to handle requests.
    */
-  ApiServer(
-    ApiServerConfig config,
-    std::shared_ptr<core::SceneStore> sceneStore,
-    std::shared_ptr<domain::SceneJsonCodec> codec,
-    std::shared_ptr<core::RuntimeLog> runtimeLog);
+  ApiServer(ApiServerConfig config, std::shared_ptr<core::SceneStore> sceneStore,
+            std::shared_ptr<domain::SceneJsonCodec> codec,
+            std::shared_ptr<core::RuntimeLog> runtimeLog);
 
   /**
-   * Stops the server if it is still running. This keeps shutdown tidy even when the caller forgets to stop it.
+   * Stops the server if it is still running. This keeps shutdown tidy even when the caller forgets
+   * to stop it.
    */
   ~ApiServer();
 
@@ -72,7 +70,8 @@ public:
   [[nodiscard]] bool IsRunning() const;
 
   /**
-   * Returns the TCP port that the server successfully bound to. This is especially useful when callers request port 0.
+   * Returns the TCP port that the server successfully bound to. This is especially useful when
+   * callers request port 0.
    */
   [[nodiscard]] int GetBoundPort() const;
 
@@ -85,7 +84,8 @@ private:
   /**
    * Builds the JSON body returned to callers when validation fails.
    */
-  [[nodiscard]] std::string BuildValidationErrorResponse(const std::vector<domain::ValidationError>& errors) const;
+  [[nodiscard]] std::string
+  BuildValidationErrorResponse(const std::vector<domain::ValidationError>& errors) const;
 
   /**
    * Builds the JSON response returned by the log endpoint.
@@ -137,4 +137,4 @@ private:
    */
   std::atomic<int> boundPort_ = 0;
 };
-}  // namespace halcyn::api
+} // namespace halcyn::api

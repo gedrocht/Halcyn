@@ -9,25 +9,17 @@
 #include <string>
 #include <vector>
 
-namespace halcyn::core
-{
+namespace halcyn::core {
 /**
  * Describes the severity of one runtime log entry.
  */
-enum class LogLevel
-{
-  Debug,
-  Info,
-  Warning,
-  Error
-};
+enum class LogLevel { Debug, Info, Warning, Error };
 
 /**
- * Stores one runtime log event in a format that can be displayed in the console, returned by the API,
- * and shown in the browser-based control plane.
+ * Stores one runtime log event in a format that can be displayed in the console, returned by the
+ * API, and shown in the browser-based control plane.
  */
-struct RuntimeLogEntry
-{
+struct RuntimeLogEntry {
   std::uint64_t sequence = 0;
   LogLevel level = LogLevel::Info;
   std::string component;
@@ -38,8 +30,7 @@ struct RuntimeLogEntry
 /**
  * Keeps a bounded, thread-safe log buffer for the running application.
  */
-class RuntimeLog
-{
+class RuntimeLog {
 public:
   /**
    * Builds the log buffer with a configurable retention limit.
@@ -47,7 +38,8 @@ public:
   explicit RuntimeLog(std::size_t maxEntries = domain::SceneLimits::kMaxRuntimeLogEntries);
 
   /**
-   * Appends one new log entry and mirrors it to the console for users who are not using the web dashboard.
+   * Appends one new log entry and mirrors it to the console for users who are not using the web
+   * dashboard.
    */
   void Write(LogLevel level, std::string component, std::string message);
 
@@ -65,7 +57,8 @@ private:
   /**
    * Formats a UTC timestamp into an ISO-like string for console readability.
    */
-  [[nodiscard]] std::string FormatTimestampUtc(std::chrono::system_clock::time_point timestamp) const;
+  [[nodiscard]] std::string
+  FormatTimestampUtc(std::chrono::system_clock::time_point timestamp) const;
 
   /**
    * Protects the deque of log entries and the sequence counter.
@@ -92,5 +85,4 @@ private:
  * Converts a log level into the string used by API responses and documentation.
  */
 std::string ToString(LogLevel level);
-}  // namespace halcyn::core
-
+} // namespace halcyn::core

@@ -5,17 +5,16 @@
 
 #include <string>
 
-namespace halcyn::renderer
-{
+namespace halcyn::renderer {
 /**
  * Wraps an OpenGL shader program so the rest of the renderer can compile, link, and use GPU shaders
  * without scattering raw OpenGL object management code everywhere.
  */
-class ShaderProgram
-{
+class ShaderProgram {
 public:
   /**
-   * Creates a linked shader program from a vertex shader source string and a fragment shader source string.
+   * Creates a linked shader program from a vertex shader source string and a fragment shader source
+   * string.
    */
   ShaderProgram(const std::string& vertexShaderSource, const std::string& fragmentShaderSource);
 
@@ -58,5 +57,4 @@ private:
    */
   GLuint programId_ = 0;
 };
-}  // namespace halcyn::renderer
-
+} // namespace halcyn::renderer

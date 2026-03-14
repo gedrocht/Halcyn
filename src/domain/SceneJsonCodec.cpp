@@ -8,32 +8,22 @@
 #include <sstream>
 #include <utility>
 
-namespace halcyn::domain
-{
-namespace
-{
+namespace halcyn::domain {
+namespace {
 using json = nlohmann::json;
 
 template <typename NumberType>
-std::optional<NumberType> ReadNumber(
-  const json& node,
-  const char* key,
-  const std::string& basePath,
-  std::vector<ValidationError>& errors,
-  bool required = true)
-{
-  if (!node.contains(key))
-  {
-    if (required)
-    {
+std::optional<NumberType> ReadNumber(const json& node, const char* key, const std::string& basePath,
+                                     std::vector<ValidationError>& errors, bool required = true) {
+  if (!node.contains(key)) {
+    if (required) {
       errors.push_back({basePath + "." + key, "This numeric field is required."});
     }
 
     return std::nullopt;
   }
 
-  if (!node.at(key).is_number())
-  {
+  if (!node.at(key).is_number()) {
     errors.push_back({basePath + "." + key, "Expected a number."});
     return std::nullopt;
   }
@@ -41,20 +31,15 @@ std::optional<NumberType> ReadNumber(
   return node.at(key).get<NumberType>();
 }
 
-std::optional<std::string> ReadString(
-  const json& node,
-  const char* key,
-  const std::string& basePath,
-  std::vector<ValidationError>& errors)
-{
-  if (!node.contains(key))
-  {
+std::optional<std::string> ReadString(const json& node, const char* key,
+                                      const std::string& basePath,
+                                      std::vector<ValidationError>& errors) {
+  if (!node.contains(key)) {
     errors.push_back({basePath + "." + key, "This string field is required."});
     return std::nullopt;
   }
 
-  if (!node.at(key).is_string())
-  {
+  if (!node.at(key).is_string()) {
     errors.push_back({basePath + "." + key, "Expected a string."});
     return std::nullopt;
   }
@@ -62,11 +47,10 @@ std::optional<std::string> ReadString(
   return node.at(key).get<std::string>();
 }
 
-ColorRgba ReadColor(const json& node, const std::string& basePath, std::vector<ValidationError>& errors)
-{
+ColorRgba ReadColor(const json& node, const std::string& basePath,
+                    std::vector<ValidationError>& errors) {
   ColorRgba color;
-  if (!node.is_object())
-  {
+  if (!node.is_object()) {
     errors.push_back({basePath, "Expected an object with r, g, b, and optional a fields."});
     return color;
   }
@@ -78,11 +62,10 @@ ColorRgba ReadColor(const json& node, const std::string& basePath, std::vector<V
   return color;
 }
 
-Vector3Value ReadVector3(const json& node, const std::string& basePath, std::vector<ValidationError>& errors)
-{
+Vector3Value ReadVector3(const json& node, const std::string& basePath,
+                         std::vector<ValidationError>& errors) {
   Vector3Value vector;
-  if (!node.is_object())
-  {
+  if (!node.is_object()) {
     errors.push_back({basePath, "Expected an object with x, y, and z fields."});
     return vector;
   }
@@ -93,59 +76,46 @@ Vector3Value ReadVector3(const json& node, const std::string& basePath, std::vec
   return vector;
 }
 
-std::optional<Scene2D> Parse2DScene(const json& root, std::vector<ValidationError>& errors)
-{
+std::optional<Scene2D> Parse2DScene(const json& root, std::vector<ValidationError>& errors) {
   Scene2D scene;
-  if (root.contains("primitive"))
-  {
+  if (root.contains("primitive")) {
     const auto primitiveValue = ReadString(root, "primitive", "$", errors);
-    if (primitiveValue.has_value())
-    {
+    if (primitiveValue.has_value()) {
       const auto primitiveType = PrimitiveTypeFromString(*primitiveValue);
-      if (!primitiveType.has_value())
-      {
+      if (!primitiveType.has_value()) {
         errors.push_back({"$.primitive", "primitive must be one of: points, lines, triangles."});
-      }
-      else
-      {
+      } else {
         scene.primitiveType = *primitiveType;
       }
     }
   }
 
-  if (root.contains("pointSize"))
-  {
+  if (root.contains("pointSize")) {
     scene.pointSize = ReadNumber<float>(root, "pointSize", "$", errors).value_or(scene.pointSize);
   }
 
-  if (root.contains("lineWidth"))
-  {
+  if (root.contains("lineWidth")) {
     scene.lineWidth = ReadNumber<float>(root, "lineWidth", "$", errors).value_or(scene.lineWidth);
   }
 
-  if (root.contains("clearColor"))
-  {
+  if (root.contains("clearColor")) {
     scene.clearColor = ReadColor(root.at("clearColor"), "$.clearColor", errors);
   }
 
-  if (!root.contains("vertices"))
-  {
+  if (!root.contains("vertices")) {
     errors.push_back({"$.vertices", "A 2D scene requires a vertices array."});
     return std::nullopt;
   }
 
-  if (!root.at("vertices").is_array())
-  {
+  if (!root.at("vertices").is_array()) {
     errors.push_back({"$.vertices", "vertices must be an array."});
     return std::nullopt;
   }
 
-  for (std::size_t index = 0; index < root.at("vertices").size(); ++index)
-  {
+  for (std::size_t index = 0; index < root.at("vertices").size(); ++index) {
     const json& vertexNode = root.at("vertices")[index];
     const std::string path = "$.vertices[" + std::to_string(index) + "]";
-    if (!vertexNode.is_object())
-    {
+    if (!vertexNode.is_object()) {
       errors.push_back({path, "Each vertex must be an object."});
       continue;
     }
@@ -163,105 +133,78 @@ std::optional<Scene2D> Parse2DScene(const json& root, std::vector<ValidationErro
   return scene;
 }
 
-std::optional<Scene3D> Parse3DScene(const json& root, std::vector<ValidationError>& errors)
-{
+std::optional<Scene3D> Parse3DScene(const json& root, std::vector<ValidationError>& errors) {
   Scene3D scene;
-  if (root.contains("primitive"))
-  {
+  if (root.contains("primitive")) {
     const auto primitiveValue = ReadString(root, "primitive", "$", errors);
-    if (primitiveValue.has_value())
-    {
+    if (primitiveValue.has_value()) {
       const auto primitiveType = PrimitiveTypeFromString(*primitiveValue);
-      if (!primitiveType.has_value())
-      {
+      if (!primitiveType.has_value()) {
         errors.push_back({"$.primitive", "primitive must be one of: points, lines, triangles."});
-      }
-      else
-      {
+      } else {
         scene.primitiveType = *primitiveType;
       }
     }
   }
 
-  if (root.contains("pointSize"))
-  {
+  if (root.contains("pointSize")) {
     scene.pointSize = ReadNumber<float>(root, "pointSize", "$", errors).value_or(scene.pointSize);
   }
 
-  if (root.contains("lineWidth"))
-  {
+  if (root.contains("lineWidth")) {
     scene.lineWidth = ReadNumber<float>(root, "lineWidth", "$", errors).value_or(scene.lineWidth);
   }
 
-  if (root.contains("clearColor"))
-  {
+  if (root.contains("clearColor")) {
     scene.clearColor = ReadColor(root.at("clearColor"), "$.clearColor", errors);
   }
 
-  if (!root.contains("camera"))
-  {
+  if (!root.contains("camera")) {
     errors.push_back({"$.camera", "A 3D scene requires a camera object."});
-  }
-  else if (!root.at("camera").is_object())
-  {
+  } else if (!root.at("camera").is_object()) {
     errors.push_back({"$.camera", "camera must be an object."});
-  }
-  else
-  {
+  } else {
     const json& cameraNode = root.at("camera");
-    if (cameraNode.contains("position"))
-    {
+    if (cameraNode.contains("position")) {
       scene.camera.position = ReadVector3(cameraNode.at("position"), "$.camera.position", errors);
-    }
-    else
-    {
+    } else {
       errors.push_back({"$.camera.position", "position is required."});
     }
 
-    if (cameraNode.contains("target"))
-    {
+    if (cameraNode.contains("target")) {
       scene.camera.target = ReadVector3(cameraNode.at("target"), "$.camera.target", errors);
-    }
-    else
-    {
+    } else {
       errors.push_back({"$.camera.target", "target is required."});
     }
 
-    if (cameraNode.contains("up"))
-    {
+    if (cameraNode.contains("up")) {
       scene.camera.up = ReadVector3(cameraNode.at("up"), "$.camera.up", errors);
-    }
-    else
-    {
+    } else {
       errors.push_back({"$.camera.up", "up is required."});
     }
 
-    scene.camera.fovYDegrees =
-      ReadNumber<float>(cameraNode, "fovYDegrees", "$.camera", errors).value_or(scene.camera.fovYDegrees);
-    scene.camera.nearPlane =
-      ReadNumber<float>(cameraNode, "nearPlane", "$.camera", errors).value_or(scene.camera.nearPlane);
-    scene.camera.farPlane =
-      ReadNumber<float>(cameraNode, "farPlane", "$.camera", errors).value_or(scene.camera.farPlane);
+    scene.camera.fovYDegrees = ReadNumber<float>(cameraNode, "fovYDegrees", "$.camera", errors)
+                                   .value_or(scene.camera.fovYDegrees);
+    scene.camera.nearPlane = ReadNumber<float>(cameraNode, "nearPlane", "$.camera", errors)
+                                 .value_or(scene.camera.nearPlane);
+    scene.camera.farPlane = ReadNumber<float>(cameraNode, "farPlane", "$.camera", errors)
+                                .value_or(scene.camera.farPlane);
   }
 
-  if (!root.contains("vertices"))
-  {
+  if (!root.contains("vertices")) {
     errors.push_back({"$.vertices", "A 3D scene requires a vertices array."});
     return std::nullopt;
   }
 
-  if (!root.at("vertices").is_array())
-  {
+  if (!root.at("vertices").is_array()) {
     errors.push_back({"$.vertices", "vertices must be an array."});
     return std::nullopt;
   }
 
-  for (std::size_t index = 0; index < root.at("vertices").size(); ++index)
-  {
+  for (std::size_t index = 0; index < root.at("vertices").size(); ++index) {
     const json& vertexNode = root.at("vertices")[index];
     const std::string path = "$.vertices[" + std::to_string(index) + "]";
-    if (!vertexNode.is_object())
-    {
+    if (!vertexNode.is_object()) {
       errors.push_back({path, "Each vertex must be an object."});
       continue;
     }
@@ -277,20 +220,15 @@ std::optional<Scene3D> Parse3DScene(const json& root, std::vector<ValidationErro
     scene.vertices.push_back(vertex);
   }
 
-  if (root.contains("indices"))
-  {
-    if (!root.at("indices").is_array())
-    {
+  if (root.contains("indices")) {
+    if (!root.at("indices").is_array()) {
       errors.push_back({"$.indices", "indices must be an array when present."});
-    }
-    else
-    {
-      for (std::size_t index = 0; index < root.at("indices").size(); ++index)
-      {
+    } else {
+      for (std::size_t index = 0; index < root.at("indices").size(); ++index) {
         const json& indexNode = root.at("indices")[index];
-        if (!indexNode.is_number_unsigned())
-        {
-          errors.push_back({"$.indices[" + std::to_string(index) + "]", "Each index must be an unsigned integer."});
+        if (!indexNode.is_number_unsigned()) {
+          errors.push_back({"$.indices[" + std::to_string(index) + "]",
+                            "Each index must be an unsigned integer."});
           continue;
         }
 
@@ -302,33 +240,20 @@ std::optional<Scene3D> Parse3DScene(const json& root, std::vector<ValidationErro
   return scene;
 }
 
-json SerializeColor(const ColorRgba& color)
-{
-  return json {
-    {"r", color.r},
-    {"g", color.g},
-    {"b", color.b},
-    {"a", color.a}
-  };
+json SerializeColor(const ColorRgba& color) {
+  return json{{"r", color.r}, {"g", color.g}, {"b", color.b}, {"a", color.a}};
 }
 
-json SerializeVector3(const Vector3Value& vector)
-{
-  return json {
-    {"x", vector.x},
-    {"y", vector.y},
-    {"z", vector.z}
-  };
+json SerializeVector3(const Vector3Value& vector) {
+  return json{{"x", vector.x}, {"y", vector.y}, {"z", vector.z}};
 }
-}  // namespace
+} // namespace
 
-SceneParseResult SceneJsonCodec::Parse(const std::string& jsonText) const
-{
+SceneParseResult SceneJsonCodec::Parse(const std::string& jsonText) const {
   SceneParseResult result;
   std::vector<ValidationError> errors;
 
-  if (jsonText.size() > SceneLimits::kMaxRequestPayloadBytes)
-  {
+  if (jsonText.size() > SceneLimits::kMaxRequestPayloadBytes) {
     std::ostringstream builder;
     builder << "The request body is too large. The maximum supported size is "
             << SceneLimits::kMaxRequestPayloadBytes << " bytes.";
@@ -337,25 +262,20 @@ SceneParseResult SceneJsonCodec::Parse(const std::string& jsonText) const
   }
 
   json root;
-  try
-  {
+  try {
     root = json::parse(jsonText);
-  }
-  catch (const json::parse_error& error)
-  {
+  } catch (const json::parse_error& error) {
     result.errors.push_back({"$", std::string("JSON parsing failed: ") + error.what()});
     return result;
   }
 
-  if (!root.is_object())
-  {
+  if (!root.is_object()) {
     result.errors.push_back({"$", "The root JSON value must be an object."});
     return result;
   }
 
   const auto sceneType = ReadString(root, "sceneType", "$", errors);
-  if (!sceneType.has_value())
-  {
+  if (!sceneType.has_value()) {
     result.errors = std::move(errors);
     return result;
   }
@@ -363,38 +283,29 @@ SceneParseResult SceneJsonCodec::Parse(const std::string& jsonText) const
   SceneDocument document;
   document.originalJson = jsonText;
 
-  if (*sceneType == "2d")
-  {
+  if (*sceneType == "2d") {
     document.kind = SceneKind::TwoDimensional;
     const auto scene = Parse2DScene(root, errors);
-    if (scene.has_value())
-    {
+    if (scene.has_value()) {
       document.payload = *scene;
     }
-  }
-  else if (*sceneType == "3d")
-  {
+  } else if (*sceneType == "3d") {
     document.kind = SceneKind::ThreeDimensional;
     const auto scene = Parse3DScene(root, errors);
-    if (scene.has_value())
-    {
+    if (scene.has_value()) {
       document.payload = *scene;
     }
-  }
-  else
-  {
+  } else {
     errors.push_back({"$.sceneType", "sceneType must be either '2d' or '3d'."});
   }
 
-  if (!errors.empty())
-  {
+  if (!errors.empty()) {
     result.errors = std::move(errors);
     return result;
   }
 
   const auto semanticErrors = ValidateSceneDocument(document);
-  if (!semanticErrors.empty())
-  {
+  if (!semanticErrors.empty()) {
     result.errors = semanticErrors;
     return result;
   }
@@ -404,18 +315,16 @@ SceneParseResult SceneJsonCodec::Parse(const std::string& jsonText) const
   return result;
 }
 
-std::string SceneJsonCodec::Serialize(const SceneSnapshot& snapshot) const
-{
+std::string SceneJsonCodec::Serialize(const SceneSnapshot& snapshot) const {
   json root;
   root["version"] = snapshot.version;
   root["sceneType"] = ToString(snapshot.document.kind);
   root["sourceLabel"] = snapshot.sourceLabel;
-  root["updatedAtUtcSeconds"] = std::chrono::duration_cast<std::chrono::seconds>(
-                                   snapshot.updatedAtUtc.time_since_epoch())
-                                   .count();
+  root["updatedAtUtcSeconds"] =
+      std::chrono::duration_cast<std::chrono::seconds>(snapshot.updatedAtUtc.time_since_epoch())
+          .count();
 
-  if (snapshot.document.kind == SceneKind::TwoDimensional)
-  {
+  if (snapshot.document.kind == SceneKind::TwoDimensional) {
     const Scene2D& scene = std::get<Scene2D>(snapshot.document.payload);
     root["primitive"] = ToString(scene.primitiveType);
     root["pointSize"] = scene.pointSize;
@@ -423,49 +332,39 @@ std::string SceneJsonCodec::Serialize(const SceneSnapshot& snapshot) const
     root["clearColor"] = SerializeColor(scene.clearColor);
     root["vertices"] = json::array();
 
-    for (const Vertex2D& vertex : scene.vertices)
-    {
-      root["vertices"].push_back(json {
-        {"x", vertex.x},
-        {"y", vertex.y},
-        {"r", vertex.r},
-        {"g", vertex.g},
-        {"b", vertex.b},
-        {"a", vertex.a}
-      });
+    for (const Vertex2D& vertex : scene.vertices) {
+      root["vertices"].push_back(json{{"x", vertex.x},
+                                      {"y", vertex.y},
+                                      {"r", vertex.r},
+                                      {"g", vertex.g},
+                                      {"b", vertex.b},
+                                      {"a", vertex.a}});
     }
-  }
-  else
-  {
+  } else {
     const Scene3D& scene = std::get<Scene3D>(snapshot.document.payload);
     root["primitive"] = ToString(scene.primitiveType);
     root["pointSize"] = scene.pointSize;
     root["lineWidth"] = scene.lineWidth;
     root["clearColor"] = SerializeColor(scene.clearColor);
-    root["camera"] = json {
-      {"position", SerializeVector3(scene.camera.position)},
-      {"target", SerializeVector3(scene.camera.target)},
-      {"up", SerializeVector3(scene.camera.up)},
-      {"fovYDegrees", scene.camera.fovYDegrees},
-      {"nearPlane", scene.camera.nearPlane},
-      {"farPlane", scene.camera.farPlane}
-    };
+    root["camera"] = json{{"position", SerializeVector3(scene.camera.position)},
+                          {"target", SerializeVector3(scene.camera.target)},
+                          {"up", SerializeVector3(scene.camera.up)},
+                          {"fovYDegrees", scene.camera.fovYDegrees},
+                          {"nearPlane", scene.camera.nearPlane},
+                          {"farPlane", scene.camera.farPlane}};
     root["vertices"] = json::array();
-    for (const Vertex3D& vertex : scene.vertices)
-    {
-      root["vertices"].push_back(json {
-        {"x", vertex.x},
-        {"y", vertex.y},
-        {"z", vertex.z},
-        {"r", vertex.r},
-        {"g", vertex.g},
-        {"b", vertex.b},
-        {"a", vertex.a}
-      });
+    for (const Vertex3D& vertex : scene.vertices) {
+      root["vertices"].push_back(json{{"x", vertex.x},
+                                      {"y", vertex.y},
+                                      {"z", vertex.z},
+                                      {"r", vertex.r},
+                                      {"g", vertex.g},
+                                      {"b", vertex.b},
+                                      {"a", vertex.a}});
     }
     root["indices"] = scene.indices;
   }
 
   return root.dump(2);
 }
-}  // namespace halcyn::domain
+} // namespace halcyn::domain

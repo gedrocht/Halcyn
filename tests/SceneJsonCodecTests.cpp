@@ -4,10 +4,8 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
-namespace halcyn::tests
-{
-TEST_CASE("SceneJsonCodec parses a valid 2D scene", "[json][2d]")
-{
+namespace halcyn::tests {
+TEST_CASE("SceneJsonCodec parses a valid 2D scene", "[json][2d]") {
   const std::string jsonText = R"({
     "sceneType": "2d",
     "primitive": "triangles",
@@ -39,8 +37,7 @@ TEST_CASE("SceneJsonCodec parses a valid 2D scene", "[json][2d]")
   CHECK(renderScene.vertices[2].b == Catch::Approx(1.0F));
 }
 
-TEST_CASE("SceneJsonCodec parses a valid indexed 3D scene", "[json][3d]")
-{
+TEST_CASE("SceneJsonCodec parses a valid indexed 3D scene", "[json][3d]") {
   const std::string jsonText = R"({
     "sceneType": "3d",
     "primitive": "triangles",
@@ -77,8 +74,7 @@ TEST_CASE("SceneJsonCodec parses a valid indexed 3D scene", "[json][3d]")
   CHECK(renderScene.indices[1] == 1);
 }
 
-TEST_CASE("SceneJsonCodec rejects malformed scenes with readable errors", "[json][validation]")
-{
+TEST_CASE("SceneJsonCodec rejects malformed scenes with readable errors", "[json][validation]") {
   const std::string jsonText = R"({
     "sceneType": "3d",
     "primitive": "triangles",
@@ -103,15 +99,12 @@ TEST_CASE("SceneJsonCodec rejects malformed scenes with readable errors", "[json
 
   bool foundFovError = false;
   bool foundNearPlaneError = false;
-  for (const auto& error : result.errors)
-  {
-    if (error.path == "$.camera.fovYDegrees")
-    {
+  for (const auto& error : result.errors) {
+    if (error.path == "$.camera.fovYDegrees") {
       foundFovError = true;
     }
 
-    if (error.path == "$.camera.nearPlane")
-    {
+    if (error.path == "$.camera.nearPlane") {
       foundNearPlaneError = true;
     }
   }
@@ -119,4 +112,4 @@ TEST_CASE("SceneJsonCodec rejects malformed scenes with readable errors", "[json
   CHECK(foundFovError);
   CHECK(foundNearPlaneError);
 }
-}  // namespace halcyn::tests
+} // namespace halcyn::tests

@@ -7,10 +7,8 @@
 #include <catch2/catch_test_macros.hpp>
 #include <httplib.h>
 
-namespace halcyn::tests
-{
-TEST_CASE("ApiServer starts on an ephemeral port and exposes health information", "[api]")
-{
+namespace halcyn::tests {
+TEST_CASE("ApiServer starts on an ephemeral port and exposes health information", "[api]") {
   auto store = std::make_shared<core::SceneStore>(domain::CreateSample2DSceneDocument());
   auto codec = std::make_shared<domain::SceneJsonCodec>();
   auto runtimeLog = std::make_shared<core::RuntimeLog>(100);
@@ -38,8 +36,7 @@ TEST_CASE("ApiServer starts on an ephemeral port and exposes health information"
   CHECK_FALSE(server.IsRunning());
 }
 
-TEST_CASE("ApiServer validates scenes without activating them", "[api]")
-{
+TEST_CASE("ApiServer validates scenes without activating them", "[api]") {
   auto store = std::make_shared<core::SceneStore>(domain::CreateSample2DSceneDocument());
   auto codec = std::make_shared<domain::SceneJsonCodec>();
   auto runtimeLog = std::make_shared<core::RuntimeLog>(100);
@@ -66,7 +63,7 @@ TEST_CASE("ApiServer validates scenes without activating them", "[api]")
   })";
 
   const auto validateResponse =
-    client.Post("/api/v1/scene/validate", validScene, "application/json");
+      client.Post("/api/v1/scene/validate", validScene, "application/json");
   REQUIRE(validateResponse);
   CHECK(validateResponse->status == 200);
   CHECK(validateResponse->body.find("\"status\": \"valid\"") != std::string::npos);
@@ -77,8 +74,7 @@ TEST_CASE("ApiServer validates scenes without activating them", "[api]")
   server.Stop();
 }
 
-TEST_CASE("ApiServer rejects invalid media types and invalid scenes", "[api]")
-{
+TEST_CASE("ApiServer rejects invalid media types and invalid scenes", "[api]") {
   auto store = std::make_shared<core::SceneStore>(domain::CreateSample2DSceneDocument());
   auto codec = std::make_shared<domain::SceneJsonCodec>();
   auto runtimeLog = std::make_shared<core::RuntimeLog>(100);
@@ -98,15 +94,12 @@ TEST_CASE("ApiServer rejects invalid media types and invalid scenes", "[api]")
   REQUIRE(badMediaTypeResponse);
   CHECK(badMediaTypeResponse->status == 415);
 
-  const auto invalidSceneResponse = client.Post(
-    "/api/v1/scene",
-    R"({"sceneType":"3d","vertices":[]})",
-    "application/json");
+  const auto invalidSceneResponse =
+      client.Post("/api/v1/scene", R"({"sceneType":"3d","vertices":[]})", "application/json");
   REQUIRE(invalidSceneResponse);
   CHECK(invalidSceneResponse->status == 400);
   CHECK(invalidSceneResponse->body.find("\"invalid-request\"") != std::string::npos);
 
   server.Stop();
 }
-}  // namespace halcyn::tests
-
+} // namespace halcyn::tests

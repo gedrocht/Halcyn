@@ -1,7 +1,7 @@
 #pragma once
 
-#include "core/RuntimeLog.hpp"
 #include "api/ApiServer.hpp"
+#include "core/RuntimeLog.hpp"
 #include "core/SceneStore.hpp"
 #include "domain/SceneJsonCodec.hpp"
 #include "renderer/Renderer.hpp"
@@ -11,25 +11,24 @@
 #include <string>
 #include <vector>
 
-namespace halcyn::app
-{
+namespace halcyn::app {
 /**
  * Holds the top-level runtime settings for the whole application.
  */
-struct ApplicationConfig
-{
+struct ApplicationConfig {
   /**
    * Stores every window and frame-pacing setting used by the renderer.
    */
-  renderer::RendererConfig renderer {};
+  renderer::RendererConfig renderer{};
 
   /**
    * Stores every host, port, and payload-size setting used by the embedded HTTP API.
    */
-  api::ApiServerConfig api {};
+  api::ApiServerConfig api{};
 
   /**
-   * Optionally points at a JSON file that should be loaded before the app starts accepting live API traffic.
+   * Optionally points at a JSON file that should be loaded before the app starts accepting live API
+   * traffic.
    */
   std::optional<std::string> initialSceneFile;
 
@@ -47,8 +46,7 @@ struct ApplicationConfig
 /**
  * Coordinates the API server, the renderer, and the scene store.
  */
-class Application
-{
+class Application {
 public:
   /**
    * Builds the application with the requested runtime settings.
@@ -72,7 +70,8 @@ private:
   [[nodiscard]] domain::SceneDocument LoadSceneFromFile(const std::string& filePath) const;
 
   /**
-   * Prints a short startup summary so beginners can immediately see the important URLs and settings.
+   * Prints a short startup summary so beginners can immediately see the important URLs and
+   * settings.
    */
   void PrintStartupSummary(int listeningPort) const;
 
@@ -91,4 +90,4 @@ ApplicationConfig ParseCommandLineArguments(const std::vector<std::string>& argu
  * Prints a concise command-line help message.
  */
 void PrintHelpText();
-}  // namespace halcyn::app
+} // namespace halcyn::app

@@ -3,10 +3,8 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-namespace halcyn::tests
-{
-TEST_CASE("SceneStore exposes the initial bootstrap scene", "[scene-store]")
-{
+namespace halcyn::tests {
+TEST_CASE("SceneStore exposes the initial bootstrap scene", "[scene-store]") {
   halcyn::core::SceneStore store(halcyn::domain::CreateSample2DSceneDocument());
   const auto snapshot = store.GetCurrent();
 
@@ -16,10 +14,10 @@ TEST_CASE("SceneStore exposes the initial bootstrap scene", "[scene-store]")
   CHECK(snapshot->document.kind == halcyn::domain::SceneKind::TwoDimensional);
 }
 
-TEST_CASE("SceneStore replaces the active scene and increments the version", "[scene-store]")
-{
+TEST_CASE("SceneStore replaces the active scene and increments the version", "[scene-store]") {
   halcyn::core::SceneStore store(halcyn::domain::CreateSample2DSceneDocument());
-  const auto updatedSnapshot = store.Replace(halcyn::domain::CreateSample3DSceneDocument(), "unit-test");
+  const auto updatedSnapshot =
+      store.Replace(halcyn::domain::CreateSample3DSceneDocument(), "unit-test");
 
   REQUIRE(updatedSnapshot);
   CHECK(updatedSnapshot->version == 2);
@@ -29,4 +27,4 @@ TEST_CASE("SceneStore replaces the active scene and increments the version", "[s
   const auto currentSnapshot = store.GetCurrent();
   CHECK(currentSnapshot->version == updatedSnapshot->version);
 }
-}  // namespace halcyn::tests
+} // namespace halcyn::tests

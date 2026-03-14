@@ -13,10 +13,8 @@
 #include <thread>
 #include <utility>
 
-namespace halcyn::renderer
-{
-namespace
-{
+namespace halcyn::renderer {
+namespace {
 constexpr const char* kVertexShaderSource = R"(
 #version 330 core
 layout (location = 0) in vec3 aPosition;
@@ -46,53 +44,41 @@ void main()
   fragColor = vColor;
 }
 )";
-}  // namespace
+} // namespace
 
-Renderer::Renderer(
-  RendererConfig config,
-  std::shared_ptr<core::SceneStore> sceneStore,
-  std::shared_ptr<core::RuntimeLog> runtimeLog)
-  : config_(std::move(config)),
-    sceneStore_(std::move(sceneStore)),
-    runtimeLog_(std::move(runtimeLog))
-{
-}
+Renderer::Renderer(RendererConfig config, std::shared_ptr<core::SceneStore> sceneStore,
+                   std::shared_ptr<core::RuntimeLog> runtimeLog)
+    : config_(std::move(config)), sceneStore_(std::move(sceneStore)),
+      runtimeLog_(std::move(runtimeLog)) {}
 
-Renderer::~Renderer()
-{
+Renderer::~Renderer() {
   DestroyOpenGlResources();
 }
 
-void Renderer::Run()
-{
+void Renderer::Run() {
   InitializeWindow();
   InitializeOpenGlResources();
 
-  if (runtimeLog_ != nullptr)
-  {
+  if (runtimeLog_ != nullptr) {
     runtimeLog_->Write(core::LogLevel::Info, "renderer", "Render loop started.");
   }
 
   const auto frameDuration = std::chrono::duration_cast<std::chrono::steady_clock::duration>(
-    std::chrono::duration<double>(1.0 / static_cast<double>(config_.targetFramesPerSecond)));
+      std::chrono::duration<double>(1.0 / static_cast<double>(config_.targetFramesPerSecond)));
 
-  while (!glfwWindowShouldClose(window_))
-  {
+  while (!glfwWindowShouldClose(window_)) {
     const auto frameStart = std::chrono::steady_clock::now();
 
     const auto snapshot = sceneStore_->GetCurrent();
-    if (snapshot->version != uploadedSceneVersion_)
-    {
+    if (snapshot->version != uploadedSceneVersion_) {
       uploadedRenderScene_ = domain::BuildRenderScene(snapshot->document);
       UploadSceneToGpu(uploadedRenderScene_);
       uploadedSceneVersion_ = snapshot->version;
 
-      if (runtimeLog_ != nullptr)
-      {
-        runtimeLog_->Write(
-          core::LogLevel::Info,
-          "renderer",
-          "Uploaded scene version " + std::to_string(snapshot->version) + " to GPU buffers.");
+      if (runtimeLog_ != nullptr) {
+        runtimeLog_->Write(core::LogLevel::Info, "renderer",
+                           "Uploaded scene version " + std::to_string(snapshot->version) +
+                               " to GPU buffers.");
       }
     }
 
@@ -101,22 +87,18 @@ void Renderer::Run()
     glfwPollEvents();
 
     const auto nextFrameStart = frameStart + frameDuration;
-    if (std::chrono::steady_clock::now() < nextFrameStart)
-    {
+    if (std::chrono::steady_clock::now() < nextFrameStart) {
       std::this_thread::sleep_until(nextFrameStart);
     }
   }
 
-  if (runtimeLog_ != nullptr)
-  {
+  if (runtimeLog_ != nullptr) {
     runtimeLog_->Write(core::LogLevel::Info, "renderer", "Render loop stopped.");
   }
 }
 
-void Renderer::InitializeWindow()
-{
-  if (glfwInit() != GLFW_TRUE)
-  {
+void Renderer::InitializeWindow() {
+  if (glfwInit() != GLFW_TRUE) {
     throw std::runtime_error("GLFW failed to initialize. The renderer cannot create a GPU window.");
   }
 
@@ -125,18 +107,18 @@ void Renderer::InitializeWindow()
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
   glfwWindowHint(GLFW_DEPTH_BITS, 24);
 
-  window_ = glfwCreateWindow(config_.windowWidth, config_.windowHeight, config_.windowTitle.c_str(), nullptr, nullptr);
-  if (window_ == nullptr)
-  {
+  window_ = glfwCreateWindow(config_.windowWidth, config_.windowHeight, config_.windowTitle.c_str(),
+                             nullptr, nullptr);
+  if (window_ == nullptr) {
     glfwTerminate();
-    throw std::runtime_error("GLFW could not create the window. Check that the machine supports OpenGL 3.3.");
+    throw std::runtime_error(
+        "GLFW could not create the window. Check that the machine supports OpenGL 3.3.");
   }
 
   glfwMakeContextCurrent(window_);
   glfwSwapInterval(1);
 
-  if (gladLoadGL(reinterpret_cast<GLADloadfunc>(glfwGetProcAddress)) == 0)
-  {
+  if (gladLoadGL(reinterpret_cast<GLADloadfunc>(glfwGetProcAddress)) == 0) {
     glfwDestroyWindow(window_);
     window_ = nullptr;
     glfwTerminate();
@@ -144,8 +126,7 @@ void Renderer::InitializeWindow()
   }
 }
 
-void Renderer::InitializeOpenGlResources()
-{
+void Renderer::InitializeOpenGlResources() {
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_PROGRAM_POINT_SIZE);
@@ -161,97 +142,70 @@ void Renderer::InitializeOpenGlResources()
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_);
 
   glEnableVertexAttribArray(0);
-  glVertexAttribPointer(
-    0,
-    3,
-    GL_FLOAT,
-    GL_FALSE,
-    sizeof(domain::RenderVertex),
-    reinterpret_cast<void*>(offsetof(domain::RenderVertex, x)));
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(domain::RenderVertex),
+                        reinterpret_cast<void*>(offsetof(domain::RenderVertex, x)));
 
   glEnableVertexAttribArray(1);
-  glVertexAttribPointer(
-    1,
-    4,
-    GL_FLOAT,
-    GL_FALSE,
-    sizeof(domain::RenderVertex),
-    reinterpret_cast<void*>(offsetof(domain::RenderVertex, r)));
+  glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(domain::RenderVertex),
+                        reinterpret_cast<void*>(offsetof(domain::RenderVertex, r)));
 
   glBindVertexArray(0);
 }
 
-void Renderer::DestroyOpenGlResources()
-{
-  if (ebo_ != 0)
-  {
+void Renderer::DestroyOpenGlResources() {
+  if (ebo_ != 0) {
     glDeleteBuffers(1, &ebo_);
     ebo_ = 0;
   }
 
-  if (vbo_ != 0)
-  {
+  if (vbo_ != 0) {
     glDeleteBuffers(1, &vbo_);
     vbo_ = 0;
   }
 
-  if (vao_ != 0)
-  {
+  if (vao_ != 0) {
     glDeleteVertexArrays(1, &vao_);
     vao_ = 0;
   }
 
   shaderProgram_.reset();
 
-  if (window_ != nullptr)
-  {
+  if (window_ != nullptr) {
     glfwDestroyWindow(window_);
     window_ = nullptr;
     glfwTerminate();
   }
 }
 
-void Renderer::UploadSceneToGpu(const domain::RenderScene& renderScene)
-{
+void Renderer::UploadSceneToGpu(const domain::RenderScene& renderScene) {
   glBindVertexArray(vao_);
 
   glBindBuffer(GL_ARRAY_BUFFER, vbo_);
-  glBufferData(
-    GL_ARRAY_BUFFER,
-    static_cast<GLsizeiptr>(renderScene.vertices.size() * sizeof(domain::RenderVertex)),
-    renderScene.vertices.data(),
-    GL_DYNAMIC_DRAW);
+  glBufferData(GL_ARRAY_BUFFER,
+               static_cast<GLsizeiptr>(renderScene.vertices.size() * sizeof(domain::RenderVertex)),
+               renderScene.vertices.data(), GL_DYNAMIC_DRAW);
 
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_);
-  glBufferData(
-    GL_ELEMENT_ARRAY_BUFFER,
-    static_cast<GLsizeiptr>(renderScene.indices.size() * sizeof(std::uint32_t)),
-    renderScene.indices.data(),
-    GL_DYNAMIC_DRAW);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+               static_cast<GLsizeiptr>(renderScene.indices.size() * sizeof(std::uint32_t)),
+               renderScene.indices.data(), GL_DYNAMIC_DRAW);
 
   glBindVertexArray(0);
 }
 
-void Renderer::DrawScene(const domain::RenderScene& renderScene) const
-{
+void Renderer::DrawScene(const domain::RenderScene& renderScene) const {
   int framebufferWidth = 0;
   int framebufferHeight = 0;
   glfwGetFramebufferSize(window_, &framebufferWidth, &framebufferHeight);
   glViewport(0, 0, framebufferWidth, framebufferHeight);
 
-  glClearColor(
-    renderScene.clearColor.r,
-    renderScene.clearColor.g,
-    renderScene.clearColor.b,
-    renderScene.clearColor.a);
+  glClearColor(renderScene.clearColor.r, renderScene.clearColor.g, renderScene.clearColor.b,
+               renderScene.clearColor.a);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-  if (renderScene.kind == domain::SceneKind::ThreeDimensional)
-  {
+  if (renderScene.kind == domain::SceneKind::ThreeDimensional) {
     glEnable(GL_DEPTH_TEST);
-  }
-  else
-  {
+  } else {
     glDisable(GL_DEPTH_TEST);
   }
 
@@ -262,36 +216,27 @@ void Renderer::DrawScene(const domain::RenderScene& renderScene) const
   glLineWidth(renderScene.lineWidth);
   glBindVertexArray(vao_);
 
-  if (!renderScene.indices.empty())
-  {
-    glDrawElements(
-      ToOpenGlPrimitive(renderScene.primitiveType),
-      static_cast<GLsizei>(renderScene.indices.size()),
-      GL_UNSIGNED_INT,
-      nullptr);
-  }
-  else
-  {
-    glDrawArrays(ToOpenGlPrimitive(renderScene.primitiveType), 0, static_cast<GLsizei>(renderScene.vertices.size()));
+  if (!renderScene.indices.empty()) {
+    glDrawElements(ToOpenGlPrimitive(renderScene.primitiveType),
+                   static_cast<GLsizei>(renderScene.indices.size()), GL_UNSIGNED_INT, nullptr);
+  } else {
+    glDrawArrays(ToOpenGlPrimitive(renderScene.primitiveType), 0,
+                 static_cast<GLsizei>(renderScene.vertices.size()));
   }
 
   glBindVertexArray(0);
 }
 
-glm::mat4 Renderer::BuildSceneMatrix(const domain::RenderScene& renderScene) const
-{
-  if (renderScene.kind == domain::SceneKind::TwoDimensional)
-  {
+glm::mat4 Renderer::BuildSceneMatrix(const domain::RenderScene& renderScene) const {
+  if (renderScene.kind == domain::SceneKind::TwoDimensional) {
     return Build2DSceneMatrix(renderScene);
   }
 
   return Build3DSceneMatrix(renderScene);
 }
 
-glm::mat4 Renderer::Build2DSceneMatrix(const domain::RenderScene& renderScene) const
-{
-  if (renderScene.vertices.empty())
-  {
+glm::mat4 Renderer::Build2DSceneMatrix(const domain::RenderScene& renderScene) const {
+  if (renderScene.vertices.empty()) {
     return glm::mat4(1.0F);
   }
 
@@ -300,8 +245,7 @@ glm::mat4 Renderer::Build2DSceneMatrix(const domain::RenderScene& renderScene) c
   float minY = std::numeric_limits<float>::max();
   float maxY = std::numeric_limits<float>::lowest();
 
-  for (const domain::RenderVertex& vertex : renderScene.vertices)
-  {
+  for (const domain::RenderVertex& vertex : renderScene.vertices) {
     minX = std::min(minX, vertex.x);
     maxX = std::max(maxX, vertex.x);
     minY = std::min(minY, vertex.y);
@@ -311,15 +255,13 @@ glm::mat4 Renderer::Build2DSceneMatrix(const domain::RenderScene& renderScene) c
   float width = maxX - minX;
   float height = maxY - minY;
 
-  if (width < 0.001F)
-  {
+  if (width < 0.001F) {
     width = 2.0F;
     minX -= 1.0F;
     maxX += 1.0F;
   }
 
-  if (height < 0.001F)
-  {
+  if (height < 0.001F) {
     height = 2.0F;
     minY -= 1.0F;
     maxY += 1.0F;
@@ -337,21 +279,18 @@ glm::mat4 Renderer::Build2DSceneMatrix(const domain::RenderScene& renderScene) c
   int framebufferHeight = 1;
   glfwGetFramebufferSize(window_, &framebufferWidth, &framebufferHeight);
 
-  const float windowAspect =
-    static_cast<float>(std::max(framebufferWidth, 1)) / static_cast<float>(std::max(framebufferHeight, 1));
+  const float windowAspect = static_cast<float>(std::max(framebufferWidth, 1)) /
+                             static_cast<float>(std::max(framebufferHeight, 1));
   const float sceneWidth = maxX - minX;
   const float sceneHeight = maxY - minY;
   const float sceneAspect = sceneWidth / sceneHeight;
 
-  if (sceneAspect < windowAspect)
-  {
+  if (sceneAspect < windowAspect) {
     const float targetWidth = sceneHeight * windowAspect;
     const float expandBy = (targetWidth - sceneWidth) * 0.5F;
     minX -= expandBy;
     maxX += expandBy;
-  }
-  else
-  {
+  } else {
     const float targetHeight = sceneWidth / windowAspect;
     const float expandBy = (targetHeight - sceneHeight) * 0.5F;
     minY -= expandBy;
@@ -361,46 +300,38 @@ glm::mat4 Renderer::Build2DSceneMatrix(const domain::RenderScene& renderScene) c
   return glm::ortho(minX, maxX, minY, maxY, -10.0F, 10.0F);
 }
 
-glm::mat4 Renderer::Build3DSceneMatrix(const domain::RenderScene& renderScene) const
-{
+glm::mat4 Renderer::Build3DSceneMatrix(const domain::RenderScene& renderScene) const {
   int framebufferWidth = 1;
   int framebufferHeight = 1;
   glfwGetFramebufferSize(window_, &framebufferWidth, &framebufferHeight);
-  const float aspect =
-    static_cast<float>(std::max(framebufferWidth, 1)) / static_cast<float>(std::max(framebufferHeight, 1));
+  const float aspect = static_cast<float>(std::max(framebufferWidth, 1)) /
+                       static_cast<float>(std::max(framebufferHeight, 1));
 
-  const glm::vec3 cameraPosition(
-    renderScene.camera.position.x,
-    renderScene.camera.position.y,
-    renderScene.camera.position.z);
-  const glm::vec3 cameraTarget(
-    renderScene.camera.target.x,
-    renderScene.camera.target.y,
-    renderScene.camera.target.z);
-  const glm::vec3 cameraUp(renderScene.camera.up.x, renderScene.camera.up.y, renderScene.camera.up.z);
+  const glm::vec3 cameraPosition(renderScene.camera.position.x, renderScene.camera.position.y,
+                                 renderScene.camera.position.z);
+  const glm::vec3 cameraTarget(renderScene.camera.target.x, renderScene.camera.target.y,
+                               renderScene.camera.target.z);
+  const glm::vec3 cameraUp(renderScene.camera.up.x, renderScene.camera.up.y,
+                           renderScene.camera.up.z);
 
-  const glm::mat4 projection = glm::perspective(
-    glm::radians(renderScene.camera.fovYDegrees),
-    aspect,
-    renderScene.camera.nearPlane,
-    renderScene.camera.farPlane);
+  const glm::mat4 projection =
+      glm::perspective(glm::radians(renderScene.camera.fovYDegrees), aspect,
+                       renderScene.camera.nearPlane, renderScene.camera.farPlane);
   const glm::mat4 view = glm::lookAt(cameraPosition, cameraTarget, cameraUp);
   const glm::mat4 model(1.0F);
   return projection * view * model;
 }
 
-GLenum Renderer::ToOpenGlPrimitive(domain::PrimitiveType primitiveType) const
-{
-  switch (primitiveType)
-  {
-    case domain::PrimitiveType::Points:
-      return GL_POINTS;
-    case domain::PrimitiveType::Lines:
-      return GL_LINES;
-    case domain::PrimitiveType::Triangles:
-      return GL_TRIANGLES;
+GLenum Renderer::ToOpenGlPrimitive(domain::PrimitiveType primitiveType) const {
+  switch (primitiveType) {
+  case domain::PrimitiveType::Points:
+    return GL_POINTS;
+  case domain::PrimitiveType::Lines:
+    return GL_LINES;
+  case domain::PrimitiveType::Triangles:
+    return GL_TRIANGLES;
   }
 
   return GL_TRIANGLES;
 }
-}  // namespace halcyn::renderer
+} // namespace halcyn::renderer

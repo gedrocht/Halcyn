@@ -5,10 +5,9 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-namespace halcyn::tests
-{
-TEST_CASE("ValidateSceneDocument rejects degenerate 3D camera definitions", "[validation][camera]")
-{
+namespace halcyn::tests {
+TEST_CASE("ValidateSceneDocument rejects degenerate 3D camera definitions",
+          "[validation][camera]") {
   auto document = domain::CreateSample3DSceneDocument();
   auto& scene = std::get<domain::Scene3D>(document.payload);
 
@@ -20,15 +19,12 @@ TEST_CASE("ValidateSceneDocument rejects degenerate 3D camera definitions", "[va
 
   bool foundTargetError = false;
   bool foundUpError = false;
-  for (const auto& error : errors)
-  {
-    if (error.path == "$.camera.target")
-    {
+  for (const auto& error : errors) {
+    if (error.path == "$.camera.target") {
       foundTargetError = true;
     }
 
-    if (error.path == "$.camera.up")
-    {
+    if (error.path == "$.camera.up") {
       foundUpError = true;
     }
   }
@@ -37,8 +33,7 @@ TEST_CASE("ValidateSceneDocument rejects degenerate 3D camera definitions", "[va
   CHECK(foundUpError);
 }
 
-TEST_CASE("ValidateSceneDocument enforces scene size limits", "[validation][limits]")
-{
+TEST_CASE("ValidateSceneDocument enforces scene size limits", "[validation][limits]") {
   domain::SceneDocument document;
   document.kind = domain::SceneKind::TwoDimensional;
 
@@ -53,8 +48,7 @@ TEST_CASE("ValidateSceneDocument enforces scene size limits", "[validation][limi
   CHECK(errors.front().path == "$.vertices");
 }
 
-TEST_CASE("SceneJsonCodec rejects oversized payloads before parsing", "[json][limits]")
-{
+TEST_CASE("SceneJsonCodec rejects oversized payloads before parsing", "[json][limits]") {
   const domain::SceneJsonCodec codec;
   const std::string oversizedPayload(domain::SceneLimits::kMaxRequestPayloadBytes + 1U, 'x');
 
@@ -64,4 +58,4 @@ TEST_CASE("SceneJsonCodec rejects oversized payloads before parsing", "[json][li
   REQUIRE_FALSE(result.errors.empty());
   CHECK(result.errors.front().path == "$");
 }
-}  // namespace halcyn::tests
+} // namespace halcyn::tests

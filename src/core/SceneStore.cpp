@@ -2,10 +2,8 @@
 
 #include <utility>
 
-namespace halcyn::core
-{
-SceneStore::SceneStore(domain::SceneDocument initialScene)
-{
+namespace halcyn::core {
+SceneStore::SceneStore(domain::SceneDocument initialScene) {
   currentSnapshot_ = std::make_shared<domain::SceneSnapshot>();
   currentSnapshot_->version = nextVersion_++;
   currentSnapshot_->document = std::move(initialScene);
@@ -13,10 +11,8 @@ SceneStore::SceneStore(domain::SceneDocument initialScene)
   currentSnapshot_->updatedAtUtc = std::chrono::system_clock::now();
 }
 
-std::shared_ptr<const domain::SceneSnapshot> SceneStore::Replace(
-  domain::SceneDocument document,
-  std::string sourceLabel)
-{
+std::shared_ptr<const domain::SceneSnapshot> SceneStore::Replace(domain::SceneDocument document,
+                                                                 std::string sourceLabel) {
   auto snapshot = std::make_shared<domain::SceneSnapshot>();
   snapshot->version = 0;
   snapshot->document = std::move(document);
@@ -29,9 +25,8 @@ std::shared_ptr<const domain::SceneSnapshot> SceneStore::Replace(
   return currentSnapshot_;
 }
 
-std::shared_ptr<const domain::SceneSnapshot> SceneStore::GetCurrent() const
-{
+std::shared_ptr<const domain::SceneSnapshot> SceneStore::GetCurrent() const {
   std::scoped_lock lock(mutex_);
   return currentSnapshot_;
 }
-}  // namespace halcyn::core
+} // namespace halcyn::core

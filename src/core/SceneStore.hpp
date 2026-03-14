@@ -6,14 +6,12 @@
 #include <mutex>
 #include <string>
 
-namespace halcyn::core
-{
+namespace halcyn::core {
 /**
- * Stores the latest validated scene in a thread-safe way so the API thread can publish updates while the
- * render thread reads snapshots without stepping on partial writes.
+ * Stores the latest validated scene in a thread-safe way so the API thread can publish updates
+ * while the render thread reads snapshots without stepping on partial writes.
  */
-class SceneStore
-{
+class SceneStore {
 public:
   /**
    * Builds the store with an initial scene so the renderer always has something valid to draw.
@@ -21,11 +19,11 @@ public:
   explicit SceneStore(domain::SceneDocument initialScene);
 
   /**
-   * Replaces the currently active scene with a new validated document and returns the newly created snapshot.
+   * Replaces the currently active scene with a new validated document and returns the newly created
+   * snapshot.
    */
-  [[nodiscard]] std::shared_ptr<const domain::SceneSnapshot> Replace(
-    domain::SceneDocument document,
-    std::string sourceLabel);
+  [[nodiscard]] std::shared_ptr<const domain::SceneSnapshot> Replace(domain::SceneDocument document,
+                                                                     std::string sourceLabel);
 
   /**
    * Returns the current immutable scene snapshot.
@@ -48,5 +46,4 @@ private:
    */
   std::shared_ptr<domain::SceneSnapshot> currentSnapshot_;
 };
-}  // namespace halcyn::core
-
+} // namespace halcyn::core

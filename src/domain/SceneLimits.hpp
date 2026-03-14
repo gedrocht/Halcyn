@@ -2,17 +2,17 @@
 
 #include <cstddef>
 
-namespace halcyn::domain
-{
+namespace halcyn::domain {
 /**
  * Groups the safety and usability limits enforced by the app.
  *
  * These limits exist for two reasons:
- * 1. They protect the program from unexpectedly huge requests that would be confusing for beginners to debug.
- * 2. They make the API contract concrete enough that the web tooling can explain what "too large" means.
+ * 1. They protect the program from unexpectedly huge requests that would be confusing for beginners
+ * to debug.
+ * 2. They make the API contract concrete enough that the web tooling can explain what "too large"
+ * means.
  */
-struct SceneLimits
-{
+struct SceneLimits {
   /**
    * Caps the raw HTTP request body size accepted by the scene submission endpoints.
    */
@@ -33,5 +33,4 @@ struct SceneLimits
    */
   static constexpr std::size_t kMaxRuntimeLogEntries = 1'500U;
 };
-}  // namespace halcyn::domain
-
+} // namespace halcyn::domain

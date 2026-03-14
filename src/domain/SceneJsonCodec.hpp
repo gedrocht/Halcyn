@@ -5,14 +5,12 @@
 #include <memory>
 #include <string>
 
-namespace halcyn::domain
-{
+namespace halcyn::domain {
 /**
- * Parses JSON submitted by API clients into validated in-memory scene objects and can serialize a stored scene back
- * into JSON for diagnostics.
+ * Parses JSON submitted by API clients into validated in-memory scene objects and can serialize a
+ * stored scene back into JSON for diagnostics.
  */
-class SceneJsonCodec
-{
+class SceneJsonCodec {
 public:
   /**
    * Parses raw JSON text into a validated scene document.
@@ -24,5 +22,4 @@ public:
    */
   [[nodiscard]] std::string Serialize(const SceneSnapshot& snapshot) const;
 };
-}  // namespace halcyn::domain
-
+} // namespace halcyn::domain

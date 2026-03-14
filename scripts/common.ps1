@@ -106,9 +106,28 @@ function Get-ResolvedToolPath {
     }
   }
 
+  if ($ToolName -in @('clang-format', 'clang++')) {
+    $visualStudio = Test-VisualStudio2022Available
+    if ($null -ne $visualStudio) {
+      $installationRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $visualStudio))
+      $vsLlvmCandidates = @(
+        (Join-Path -Path $installationRoot -ChildPath ("VC\Tools\Llvm\bin\{0}.exe" -f $ToolName))
+        (Join-Path -Path $installationRoot -ChildPath ("VC\Tools\Llvm\x64\bin\{0}.exe" -f $ToolName))
+        (Join-Path -Path $installationRoot -ChildPath ("VC\Tools\Llvm\ARM64\bin\{0}.exe" -f $ToolName))
+      )
+
+      foreach ($candidatePath in $vsLlvmCandidates) {
+        if (Test-Path $candidatePath) {
+          return $candidatePath
+        }
+      }
+    }
+  }
+
   $wingetMatch = switch ($ToolName) {
     'ninja' { Get-WingetInstalledBinaryPath -PackagePattern 'Ninja-build.Ninja*' -BinaryName 'ninja.exe' }
     'clang-format' { Get-WingetInstalledBinaryPath -PackagePattern 'LLVM.LLVM*' -BinaryName 'clang-format.exe' }
+    'clang++' { Get-WingetInstalledBinaryPath -PackagePattern 'LLVM.LLVM*' -BinaryName 'clang++.exe' }
     'doxygen' { Get-WingetInstalledBinaryPath -PackagePattern 'DimitriVanHeesch.Doxygen*' -BinaryName 'doxygen.exe' }
     default { $null }
   }
