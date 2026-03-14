@@ -1,7 +1,7 @@
 param(
   [ValidateSet('Debug', 'Release')]
   [string]$Configuration = 'Debug',
-  [string]$Host = '127.0.0.1',
+  [string]$ApiHost = '127.0.0.1',
   [int]$Port = 8080,
   [ValidateSet('default', '2d', '3d')]
   [string]$Sample = 'default',
@@ -24,7 +24,7 @@ if (-not (Test-Path $executable)) {
 }
 
 $arguments = @(
-  '--host', $Host,
+  '--host', $ApiHost,
   '--port', $Port,
   '--width', $Width,
   '--height', $Height,

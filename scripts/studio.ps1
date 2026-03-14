@@ -1,5 +1,5 @@
 param(
-  [string]$Host = '127.0.0.1',
+  [string]$BindHost = '127.0.0.1',
   [int]$Port = 9001,
   [switch]$NoBrowser
 )
@@ -11,7 +11,7 @@ $command = @(
   '-m',
   'control_plane.server',
   '--host',
-  $Host,
+  $BindHost,
   '--port',
   $Port,
   '--project-root',
@@ -19,7 +19,7 @@ $command = @(
 )
 
 if (-not $NoBrowser) {
-  Start-Process "http://$Host`:$Port"
+  Start-Process "http://$BindHost`:$Port"
 }
 
 Push-Location $projectRoot
@@ -29,4 +29,3 @@ try {
 finally {
   Pop-Location
 }
-
