@@ -1,13 +1,11 @@
 """Runtime services for the Halcyn browser-based control plane.
 
-This module keeps the control-plane logic separate from raw HTTP request handling so it stays testable.
+This module keeps the control-plane logic separate from raw HTTP request
+handling so it stays testable.
 """
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
-from pathlib import Path
 import json
 import shutil
 import subprocess
@@ -15,6 +13,9 @@ import threading
 import urllib.error
 import urllib.request
 from collections import deque
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 
@@ -186,12 +187,16 @@ class ControlPlaneState:
                     text=True,
                     bufsize=1,
                 )
-            except Exception as error:  # pragma: no cover - this is hard to trigger reliably in unit tests.
+            except Exception as error:  # pragma: no cover - startup failures vary by machine.
                 job.status = "failed"
                 job.finished_at_utc = utc_now_iso()
                 job.exit_code = -1
                 self._append_job_output(job, f"Failed to start process: {error}")
-                self.log_buffer.add("ERROR", "jobs", f"{kind} job {job.job_id} failed to start: {error}")
+                self.log_buffer.add(
+                    "ERROR",
+                    "jobs",
+                    f"{kind} job {job.job_id} failed to start: {error}",
+                )
                 return
 
             assert process.stdout is not None
@@ -215,7 +220,11 @@ class ControlPlaneState:
     def start_bootstrap_job(self) -> JobRecord:
         """Start the prerequisite report job."""
 
-        return self._start_job("bootstrap", self._script_command("bootstrap.ps1"), self.project_root)
+        return self._start_job(
+            "bootstrap",
+            self._script_command("bootstrap.ps1"),
+            self.project_root,
+        )
 
     def start_build_job(self, configuration: str) -> JobRecord:
         """Start a build job for the chosen configuration."""
@@ -308,7 +317,11 @@ class ControlPlaneState:
             )
             self._app_process = process
             self._app_record.pid = process.pid
-            self.log_buffer.add("INFO", "app", f"Started Halcyn app process tree via PID {process.pid}.")
+            self.log_buffer.add(
+                "INFO",
+                "app",
+                f"Started Halcyn app process tree via PID {process.pid}.",
+            )
 
             def monitor() -> None:
                 """Monitor the app process and keep the web UI state in sync."""
@@ -351,7 +364,11 @@ class ControlPlaneState:
             )
             self._app_record.status = "stopping"
             self._app_record.stopped_at_utc = utc_now_iso()
-            self.log_buffer.add("INFO", "app", f"Requested stop for app process tree rooted at PID {process.pid}.")
+            self.log_buffer.add(
+                "INFO",
+                "app",
+                f"Requested stop for app process tree rooted at PID {process.pid}.",
+            )
             return self._app_record
 
     def app_status(self) -> dict[str, Any]:
@@ -369,13 +386,44 @@ class ControlPlaneState:
             path = shutil.which(command_name)
             return {"available": path is not None, "path": path or ""}
 
-        visual_studio_candidates = [
-            Path(r"C:\Program Files\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat"),
-            Path(r"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat"),
-            Path(r"C:\Program Files\Microsoft Visual Studio\2022\Professional\Common7\Tools\VsDevCmd.bat"),
-            Path(r"C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat"),
-        ]
-        visual_studio_path = next((str(path) for path in visual_studio_candidates if path.exists()), "")
+        def visual_studio_status() -> dict[str, Any]:
+            vswhere_path = Path(
+                r"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
+            )
+            if vswhere_path.exists():
+                result = subprocess.run(
+                    [
+                        str(vswhere_path),
+                        "-latest",
+                        "-products",
+                        "*",
+                        "-requires",
+                        "Microsoft.VisualStudio.Workload.NativeDesktop",
+                        "-property",
+                        "installationPath",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                installation_path = result.stdout.strip()
+                if result.returncode == 0 and installation_path:
+                    dev_cmd = Path(installation_path) / "Common7" / "Tools" / "VsDevCmd.bat"
+                    resolved_path = str(dev_cmd if dev_cmd.exists() else Path(installation_path))
+                    return {"available": True, "path": resolved_path}
+
+            visual_studio_root = Path(r"C:\Program Files\Microsoft Visual Studio\2022")
+            visual_studio_candidates = [
+                visual_studio_root / "BuildTools" / "Common7" / "Tools" / "VsDevCmd.bat",
+                visual_studio_root / "Community" / "Common7" / "Tools" / "VsDevCmd.bat",
+                visual_studio_root / "Professional" / "Common7" / "Tools" / "VsDevCmd.bat",
+                visual_studio_root / "Enterprise" / "Common7" / "Tools" / "VsDevCmd.bat",
+            ]
+            visual_studio_path = next(
+                (str(path) for path in visual_studio_candidates if path.exists()),
+                "",
+            )
+            return {"available": bool(visual_studio_path), "path": visual_studio_path}
 
         python_jinja2_available = False
         python_path = shutil.which("python")
@@ -399,7 +447,7 @@ class ControlPlaneState:
             "doxygen": command_status("doxygen"),
             "clang_format": command_status("clang-format"),
             "python_jinja2": {"available": python_jinja2_available, "path": ""},
-            "visual_studio_2022": {"available": bool(visual_studio_path), "path": visual_studio_path},
+            "visual_studio_2022": visual_studio_status(),
         }
 
     def recent_jobs(self, limit: int = 25) -> list[dict[str, Any]]:
@@ -427,7 +475,11 @@ class ControlPlaneState:
         if body:
             request.add_header("Content-Type", content_type or "application/json")
 
-        self.log_buffer.add("INFO", "playground", f"Forwarding {method.upper()} {normalized_path} to the Halcyn API.")
+        self.log_buffer.add(
+            "INFO",
+            "playground",
+            f"Forwarding {method.upper()} {normalized_path} to the Halcyn API.",
+        )
 
         try:
             with urllib.request.urlopen(request, timeout=10) as response:

@@ -1,0 +1,21 @@
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+  "B",
+  "E",
+  "F",
+  "I",
+  "N",
+  "UP",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["control_plane"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false

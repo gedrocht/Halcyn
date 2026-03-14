@@ -172,6 +172,8 @@ Install it with:
   New-Item -ItemType Directory -Force -Path $buildDirectory | Out-Null
 
   $configureArgs = @(
+    '-Wno-dev',
+    '-Wno-deprecated',
     '-S', $projectRoot,
     '-B', $buildDirectory,
     '-G', $generator,
@@ -179,10 +181,7 @@ Install it with:
   )
 
   if ($null -ne $python) {
-    $configureArgs += @(
-      '-D', "Python_EXECUTABLE=$($python.Source)",
-      '-D', "Python3_EXECUTABLE=$($python.Source)"
-    )
+    $configureArgs += @('-D', "Python_EXECUTABLE=$($python.Source)")
   }
 
   if ($generator -eq 'Ninja') {

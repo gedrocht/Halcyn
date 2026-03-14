@@ -158,6 +158,9 @@ Example:
 - `.\scripts\run.ps1`
 - `.\scripts\test.ps1`
 - `.\scripts\check-all.ps1`
+- `.\scripts\lint-control-plane.ps1`
+- `.\scripts\coverage-control-plane.ps1`
+- `.\scripts\verify-format.ps1`
 - `.\scripts\package.ps1`
 - `.\scripts\studio.ps1`
 - `.\scripts\test-control-plane.ps1`
@@ -196,6 +199,12 @@ Run `.\scripts\generate-code-docs.ps1` after installing Doxygen. Generated HTML 
 ## Packaging
 
 Run `.\scripts\package.ps1` to produce a versioned ZIP file under `artifacts/`. Each package includes the executable, examples, docs, and a `build-manifest.json` file with build metadata.
+
+## Quality gates
+
+- C++ warnings are treated as build failures by default.
+- GitHub Actions lint the control plane, run coverage for it, build the native project, and run the native tests.
+- The Pages workflow now publishes the static docs site together with generated Doxygen output.
 
 ## Notes about GPU rendering
 

@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from http import HTTPStatus
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
 import json
 import mimetypes
 import urllib.parse
+from http import HTTPStatus
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
 from control_plane.runtime import ControlPlaneState
 
@@ -72,7 +72,10 @@ class ControlPlaneRequestHandler(BaseHTTPRequestHandler):
 
         if path.startswith("/static/"):
             relative_path = path.removeprefix("/static/")
-            file_path = self._safe_relative_file(self.project_root / "control_plane" / "static", relative_path)
+            file_path = self._safe_relative_file(
+                self.project_root / "control_plane" / "static",
+                relative_path,
+            )
             if file_path is None:
                 self.send_error(HTTPStatus.NOT_FOUND, "Invalid static asset path.")
                 return
@@ -119,28 +122,46 @@ class ControlPlaneRequestHandler(BaseHTTPRequestHandler):
         try:
             payload = self._read_json_body()
         except json.JSONDecodeError as error:
-            return self._send_json({"status": "invalid-json", "message": str(error)}, HTTPStatus.BAD_REQUEST)
+            return self._send_json(
+                {"status": "invalid-json", "message": str(error)},
+                HTTPStatus.BAD_REQUEST,
+            )
 
         try:
             if path == "/api/jobs/bootstrap":
                 job = self.state.start_bootstrap_job()
-                return self._send_json({"status": "accepted", "job": job.to_dict()}, HTTPStatus.ACCEPTED)
+                return self._send_json(
+                    {"status": "accepted", "job": job.to_dict()},
+                    HTTPStatus.ACCEPTED,
+                )
 
             if path == "/api/jobs/build":
                 job = self.state.start_build_job(payload.get("configuration", "Debug"))
-                return self._send_json({"status": "accepted", "job": job.to_dict()}, HTTPStatus.ACCEPTED)
+                return self._send_json(
+                    {"status": "accepted", "job": job.to_dict()},
+                    HTTPStatus.ACCEPTED,
+                )
 
             if path == "/api/jobs/test":
                 job = self.state.start_test_job(payload.get("configuration", "Debug"))
-                return self._send_json({"status": "accepted", "job": job.to_dict()}, HTTPStatus.ACCEPTED)
+                return self._send_json(
+                    {"status": "accepted", "job": job.to_dict()},
+                    HTTPStatus.ACCEPTED,
+                )
 
             if path == "/api/jobs/format":
                 job = self.state.start_format_job()
-                return self._send_json({"status": "accepted", "job": job.to_dict()}, HTTPStatus.ACCEPTED)
+                return self._send_json(
+                    {"status": "accepted", "job": job.to_dict()},
+                    HTTPStatus.ACCEPTED,
+                )
 
             if path == "/api/jobs/generate-code-docs":
                 job = self.state.start_code_docs_job()
-                return self._send_json({"status": "accepted", "job": job.to_dict()}, HTTPStatus.ACCEPTED)
+                return self._send_json(
+                    {"status": "accepted", "job": job.to_dict()},
+                    HTTPStatus.ACCEPTED,
+                )
 
             if path == "/api/app/start":
                 app_record = self.state.start_app(
@@ -154,11 +175,17 @@ class ControlPlaneRequestHandler(BaseHTTPRequestHandler):
                     fps=int(payload.get("fps", 60)),
                     title=payload.get("title", "Halcyn"),
                 )
-                return self._send_json({"status": "accepted", "app": app_record.to_dict()}, HTTPStatus.ACCEPTED)
+                return self._send_json(
+                    {"status": "accepted", "app": app_record.to_dict()},
+                    HTTPStatus.ACCEPTED,
+                )
 
             if path == "/api/app/stop":
                 app_record = self.state.stop_app()
-                return self._send_json({"status": "accepted", "app": app_record.to_dict()}, HTTPStatus.ACCEPTED)
+                return self._send_json(
+                    {"status": "accepted", "app": app_record.to_dict()},
+                    HTTPStatus.ACCEPTED,
+                )
 
             if path == "/api/app/smoke":
                 result = self.state.run_smoke_checks(
@@ -183,10 +210,20 @@ class ControlPlaneRequestHandler(BaseHTTPRequestHandler):
                 HTTPStatus.NOT_FOUND,
             )
         except RuntimeError as error:
-            return self._send_json({"status": "rejected", "message": str(error)}, HTTPStatus.CONFLICT)
+            return self._send_json(
+                {"status": "rejected", "message": str(error)},
+                HTTPStatus.CONFLICT,
+            )
         except Exception as error:  # pragma: no cover - this protects the control plane itself.
-            self.state.log_buffer.add("ERROR", "control-plane", f"Unhandled control-plane error: {error}")
-            return self._send_json({"status": "error", "message": str(error)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+            self.state.log_buffer.add(
+                "ERROR",
+                "control-plane",
+                f"Unhandled control-plane error: {error}",
+            )
+            return self._send_json(
+                {"status": "error", "message": str(error)},
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+            )
 
     def log_message(self, format: str, *args: object) -> None:
         """Silence the default per-request console logging in favor of the structured log buffer."""

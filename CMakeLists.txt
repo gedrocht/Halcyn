@@ -18,6 +18,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 option(HALCYN_ENABLE_TESTS "Build the Halcyn unit test target." ON)
+option(HALCYN_WARNINGS_AS_ERRORS "Treat compiler warnings as build failures for Halcyn targets." ON)
 
 # Prevent dependency projects from building their own examples or tests. This keeps
 # configure and build output focused on the app itself.
@@ -88,9 +89,16 @@ function(halcyn_configure_target target_name)
   )
 
   if(MSVC)
-    target_compile_options("${target_name}" PRIVATE /W4 /permissive- /EHsc /Zc:__cplusplus)
+    target_compile_options("${target_name}" PRIVATE /W4 /WX /permissive- /EHsc /Zc:__cplusplus)
   else()
     target_compile_options("${target_name}" PRIVATE -Wall -Wextra -Wpedantic)
+    if(HALCYN_WARNINGS_AS_ERRORS)
+      target_compile_options("${target_name}" PRIVATE -Werror)
+    endif()
+  endif()
+
+  if(HALCYN_WARNINGS_AS_ERRORS)
+    set_target_properties("${target_name}" PROPERTIES COMPILE_WARNING_AS_ERROR ON)
   endif()
 endfunction()
 

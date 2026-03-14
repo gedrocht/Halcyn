@@ -32,10 +32,23 @@ jobs:
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
+      - name: Install Doxygen
+        run: sudo apt-get update && sudo apt-get install -y doxygen
+
+      - name: Generate code documentation
+        run: doxygen Doxyfile
+
+      - name: Assemble publish directory
+        run: |
+          rm -rf .pages
+          mkdir -p .pages/generated-code-docs
+          cp -R docs/site/. .pages/
+          cp -R docs/generated/code-reference/. .pages/generated-code-docs/
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs/site
+          path: .pages
 
       - name: Deploy to GitHub Pages
         id: deployment
