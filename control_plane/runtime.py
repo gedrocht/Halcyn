@@ -18,6 +18,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from control_plane.client_studio import build_catalog_payload, build_scene_bundle
+
 
 def utc_now_iso() -> str:
     """Return the current UTC time in a browser-friendly ISO 8601 format."""
@@ -280,7 +282,7 @@ class ControlPlaneState:
                 "run.ps1",
                 "-Configuration",
                 configuration,
-                "-Host",
+                "-ApiHost",
                 host,
                 "-Port",
                 str(port),
@@ -534,6 +536,95 @@ class ControlPlaneState:
             jobs = list(self._jobs.values())[-max(1, limit):]
             return [job.to_dict() for job in jobs]
 
+    def client_studio_catalog(self) -> dict[str, Any]:
+        """Return the preset and input metadata for the browser-based client studio."""
+
+        return build_catalog_payload()
+
+    def preview_client_scene(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Generate one browser-authored scene without touching the live renderer."""
+
+        bundle = build_scene_bundle(payload)
+        self.log_buffer.add(
+            "INFO",
+            "client-studio",
+            f"Generated preview for preset {bundle['preset']['id']}.",
+        )
+        return bundle
+
+    def apply_client_scene(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Generate, validate, and submit one client-studio scene to the live renderer."""
+
+        bundle = build_scene_bundle(payload)
+        target = bundle["target"]
+        scene_json = json.dumps(bundle["scene"], indent=2)
+
+        validation = self.run_api_request(
+            host=target["host"],
+            port=int(target["port"]),
+            method="POST",
+            path="/api/v1/scene/validate",
+            body=scene_json,
+            content_type="application/json",
+        )
+        if validation["status"] == 0:
+            self.log_buffer.add(
+                "ERROR",
+                "client-studio",
+                "Could not reach the live Halcyn API while validating a client-studio scene.",
+            )
+            return {
+                "status": "offline",
+                "preset": bundle["preset"],
+                "target": target,
+                "scene": bundle["scene"],
+                "analysis": bundle["analysis"],
+                "validation": validation,
+            }
+
+        if validation["status"] != 200:
+            self.log_buffer.add(
+                "WARNING",
+                "client-studio",
+                f"Rejected client-studio scene {bundle['preset']['id']} during validation.",
+            )
+            return {
+                "status": "validation-failed",
+                "preset": bundle["preset"],
+                "target": target,
+                "scene": bundle["scene"],
+                "analysis": bundle["analysis"],
+                "validation": validation,
+            }
+
+        submission = self.run_api_request(
+            host=target["host"],
+            port=int(target["port"]),
+            method="POST",
+            path="/api/v1/scene",
+            body=scene_json,
+            content_type="application/json",
+        )
+        applied = submission["status"] in (200, 202)
+        self.log_buffer.add(
+            "INFO" if applied else "ERROR",
+            "client-studio",
+            (
+                f"Applied preset {bundle['preset']['id']} to {target['host']}:{target['port']}."
+                if applied
+                else f"Failed to apply preset {bundle['preset']['id']} to the live renderer."
+            ),
+        )
+        return {
+            "status": "applied" if applied else "apply-failed",
+            "preset": bundle["preset"],
+            "target": target,
+            "scene": bundle["scene"],
+            "analysis": bundle["analysis"],
+            "validation": validation,
+            "submission": submission,
+        }
+
     def run_api_request(
         self,
         host: str,
@@ -641,6 +732,8 @@ class ControlPlaneState:
                 "codeDocsGuide": "/docs/code-docs.html",
                 "fieldReference": "/docs/field-reference.html",
                 "controlCenter": "/docs/control-center.html",
+                "clientStudioGuide": "/docs/client-studio.html",
                 "generatedCodeDocs": "/generated-code-docs/index.html",
+                "clientStudio": "/client/",
             },
         }
