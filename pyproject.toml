@@ -19,3 +19,12 @@ source = ["control_plane"]
 [tool.coverage.report]
 show_missing = true
 skip_covered = false
+
+[tool.mypy]
+python_version = "3.10"
+files = ["control_plane"]
+check_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_unreachable = true
+pretty = true

@@ -12,10 +12,11 @@ from collections.abc import Callable
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import ClassVar, cast
 from unittest import mock
 
 from control_plane.runtime import ControlPlaneState, JobRecord, ManagedProcess
-from control_plane.server import create_server
+from control_plane.server import ControlPlaneRequestHandler, create_server
 
 
 class _OkHandler(BaseHTTPRequestHandler):
@@ -58,11 +59,18 @@ class _FakeProcess:
 class ControlPlaneServerTests(unittest.TestCase):
     """Exercise the HTTP surface of the control plane without needing the C++ toolchain."""
 
+    project_root: ClassVar[Path]
+    server: ClassVar[ThreadingHTTPServer]
+    state: ClassVar[ControlPlaneState]
+    thread: ClassVar[threading.Thread]
+    base_url: ClassVar[str]
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.project_root = Path(__file__).resolve().parents[2]
         cls.server = create_server("127.0.0.1", 0, cls.project_root)
-        cls.state = cls.server.RequestHandlerClass.state
+        handler_class = cast(type[ControlPlaneRequestHandler], cls.server.RequestHandlerClass)
+        cls.state = handler_class.state
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
         cls.base_url = f"http://127.0.0.1:{cls.server.server_address[1]}"
@@ -105,6 +113,14 @@ class ControlPlaneServerTests(unittest.TestCase):
         self.assertIn("app", payload)
         self.assertIn("jobs", payload)
 
+    def test_docs_route_serves_static_docs(self) -> None:
+        """The static docs site should be reachable through the control plane."""
+
+        with urllib.request.urlopen(f"{self.base_url}/docs/index.html", timeout=5) as response:
+            body = response.read().decode("utf-8")
+
+        self.assertIn("Halcyn", body)
+
     def test_jobs_logs_and_app_status_endpoints_return_payloads(self) -> None:
         """The diagnostic endpoints should return structured JSON payloads."""
 
@@ -124,6 +140,14 @@ class ControlPlaneServerTests(unittest.TestCase):
 
         with self.assertRaises(urllib.error.HTTPError) as context:
             urllib.request.urlopen(f"{self.base_url}/static/../server.py", timeout=5)
+
+        self.assertEqual(context.exception.code, 404)
+
+    def test_path_traversal_for_generated_docs_is_rejected(self) -> None:
+        """Generated docs traversal attempts should not escape the docs directory."""
+
+        with self.assertRaises(urllib.error.HTTPError) as context:
+            urllib.request.urlopen(f"{self.base_url}/generated-code-docs/../README.md", timeout=5)
 
         self.assertEqual(context.exception.code, 404)
 
@@ -192,6 +216,46 @@ class ControlPlaneServerTests(unittest.TestCase):
             status, payload = self._post_json("/api/app/stop", {})
         self.assertEqual(status, 202)
         self.assertEqual(payload["app"]["name"], "halcyn_app")
+
+    def test_runtime_errors_are_reported_as_conflicts(self) -> None:
+        """Expected runtime rejections should be surfaced as 409 responses."""
+
+        with mock.patch.object(
+            self.state,
+            "start_app",
+            side_effect=RuntimeError("already running"),
+        ):
+            request = urllib.request.Request(
+                f"{self.base_url}/api/app/start",
+                data=b"{}",
+                method="POST",
+                headers={"Content-Type": "application/json"},
+            )
+
+            with self.assertRaises(urllib.error.HTTPError) as context:
+                urllib.request.urlopen(request, timeout=5)
+
+        self.assertEqual(context.exception.code, 409)
+        payload = json.loads(context.exception.read().decode("utf-8"))
+        self.assertEqual(payload["status"], "rejected")
+
+    def test_unhandled_server_errors_are_reported_as_internal_errors(self) -> None:
+        """Unexpected handler failures should return a structured 500 response."""
+
+        with mock.patch.object(self.state, "start_build_job", side_effect=ValueError("boom")):
+            request = urllib.request.Request(
+                f"{self.base_url}/api/jobs/build",
+                data=b"{}",
+                method="POST",
+                headers={"Content-Type": "application/json"},
+            )
+
+            with self.assertRaises(urllib.error.HTTPError) as context:
+                urllib.request.urlopen(request, timeout=5)
+
+        self.assertEqual(context.exception.code, 500)
+        payload = json.loads(context.exception.read().decode("utf-8"))
+        self.assertEqual(payload["status"], "error")
 
     def test_smoke_and_playground_routes_forward_results(self) -> None:
         """The API lab and smoke routes should surface the state-layer responses."""
@@ -325,6 +389,13 @@ class ControlPlaneStateTests(unittest.TestCase):
         patched_run.assert_called_once()
         self.assertEqual(record.status, "stopping")
 
+    def test_stop_app_is_idempotent_when_nothing_is_running(self) -> None:
+        """Stopping an already stopped app should not fail or fabricate a process."""
+
+        record = self.state.stop_app()
+        self.assertEqual(record.status, "stopped")
+        self.assertIsNone(record.pid)
+
     def test_app_status_reports_live_process(self) -> None:
         """app_status should expose whether the managed process is currently alive."""
 
@@ -361,6 +432,40 @@ class ControlPlaneStateTests(unittest.TestCase):
 
         self.assertTrue(tools["visual_studio_2022"]["available"])
         self.assertIn("VsDevCmd.bat", tools["visual_studio_2022"]["path"])
+
+    def test_available_tools_reports_visual_studio_compiler_when_cl_is_not_on_path(self) -> None:
+        """The tool summary should still surface cl.exe from a Visual Studio install."""
+
+        def fake_run(args: list[str], **_: object) -> mock.Mock:
+            if "vswhere.exe" in args[0]:
+                return mock.Mock(returncode=0, stdout="D:\\VS\n")
+            return mock.Mock(returncode=0, stdout="")
+
+        def fake_exists(path: Path) -> bool:
+            path_text = str(path)
+            return any(
+                marker in path_text
+                for marker in [
+                    "vswhere.exe",
+                    "D:\\VS\\Common7\\Tools\\VsDevCmd.bat",
+                    "D:\\VS\\VC\\Tools\\MSVC\\14.44.35207\\bin\\Hostx64\\x64\\cl.exe",
+                ]
+            )
+
+        with mock.patch(
+            "control_plane.runtime.shutil.which",
+            side_effect=lambda command: "python" if command == "python" else None,
+        ):
+            with mock.patch("control_plane.runtime.subprocess.run", side_effect=fake_run):
+                with mock.patch("pathlib.Path.exists", fake_exists):
+                    with mock.patch(
+                        "pathlib.Path.glob",
+                        return_value=[Path(r"D:\VS\VC\Tools\MSVC\14.44.35207")],
+                    ):
+                        tools = self.state.available_tools()
+
+        self.assertTrue(tools["cl"]["available"])
+        self.assertTrue(tools["cl"]["path"].endswith("cl.exe"))
 
     def test_run_api_request_reports_connection_errors_cleanly(self) -> None:
         """API proxy failures should return a browser-friendly error payload instead of raising."""

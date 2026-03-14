@@ -2,7 +2,8 @@ param(
   [ValidateSet('Debug', 'Release')]
   [string]$Configuration = 'Release',
   [string]$OutputDirectory = 'artifacts',
-  [string]$VersionLabel = ''
+  [string]$VersionLabel = '',
+  [switch]$SkipBuild
 )
 
 $ErrorActionPreference = 'Stop'
@@ -36,7 +37,9 @@ function Get-GitValue {
 $projectRoot = Get-ProjectRoot
 $outputRoot = Join-Path $projectRoot $OutputDirectory
 
-& (Join-Path $PSScriptRoot 'build.ps1') -Configuration $Configuration
+if (-not $SkipBuild) {
+  & (Join-Path $PSScriptRoot 'build.ps1') -Configuration $Configuration
+}
 
 $executable = Get-HalcynExecutablePath -Configuration $Configuration
 if (-not (Test-Path $executable)) {
@@ -86,11 +89,16 @@ $manifest = @{
   generatedAtUtc = (Get-Date).ToUniversalTime().ToString('o')
   gitCommit = Get-GitValue -Arguments @('rev-parse', '--short', 'HEAD')
   gitBranch = Get-GitValue -Arguments @('branch', '--show-current')
+  gitDirty = [bool](Get-GitValue -Arguments @('status', '--porcelain'))
   executable = 'halcyn_app.exe'
 }
 
 $manifest | ConvertTo-Json -Depth 5 | Set-Content -Encoding UTF8 (Join-Path $packageDirectory 'build-manifest.json')
 
 Compress-Archive -Path (Join-Path $packageDirectory '*') -DestinationPath $zipPath
+$hash = Get-FileHash -Algorithm SHA256 $zipPath
+$checksumPath = "$zipPath.sha256"
+"$($hash.Hash.ToLowerInvariant()) *$(Split-Path -Leaf $zipPath)" | Set-Content -Encoding ASCII $checksumPath
 
 Write-Host "Package created at $zipPath"
+Write-Host "SHA256 checksum written to $checksumPath"

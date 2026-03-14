@@ -1,5 +1,9 @@
 # Halcyn
 
+[![CI](https://github.com/gedrocht/Halcyn/actions/workflows/ci.yml/badge.svg)](https://github.com/gedrocht/Halcyn/actions/workflows/ci.yml)
+[![Pages](https://github.com/gedrocht/Halcyn/actions/workflows/pages.yml/badge.svg)](https://github.com/gedrocht/Halcyn/actions/workflows/pages.yml)
+[![CodeQL](https://github.com/gedrocht/Halcyn/actions/workflows/codeql.yml/badge.svg)](https://github.com/gedrocht/Halcyn/actions/workflows/codeql.yml)
+
 Halcyn is a C++20 application that accepts JSON scene descriptions over HTTP and renders them in a GPU-backed OpenGL window at a 60 FPS target. It supports both 2D and 3D payloads, includes unit tests, ships with example scenes and helper scripts, and now includes a browser-based control plane for build, run, test, docs, logs, and API workflows.
 
 ## What you get
@@ -160,6 +164,7 @@ Example:
 - `.\scripts\check-all.ps1`
 - `.\scripts\lint-control-plane.ps1`
 - `.\scripts\coverage-control-plane.ps1`
+- `.\scripts\typecheck-control-plane.ps1`
 - `.\scripts\verify-format.ps1`
 - `.\scripts\package.ps1`
 - `.\scripts\studio.ps1`
@@ -198,13 +203,16 @@ Run `.\scripts\generate-code-docs.ps1` after installing Doxygen. Generated HTML 
 
 ## Packaging
 
-Run `.\scripts\package.ps1` to produce a versioned ZIP file under `artifacts/`. Each package includes the executable, examples, docs, and a `build-manifest.json` file with build metadata.
+Run `.\scripts\package.ps1` to produce a versioned ZIP file under `artifacts/`. Each package includes the executable, examples, docs, a `build-manifest.json` file with build metadata, and a companion `.sha256` file for release verification.
 
 ## Quality gates
 
 - C++ warnings are treated as build failures by default.
-- GitHub Actions lint the control plane, run coverage for it, build the native project, and run the native tests.
+- The control plane is linted, type-checked, and required to maintain at least 90% Python coverage.
+- GitHub Actions lint the control plane, type-check it, run coverage for it, build the native project in Debug and Release, and run the native tests.
+- CodeQL analyzes the native code on pushes, pull requests, and a weekly schedule.
 - The Pages workflow now publishes the static docs site together with generated Doxygen output.
+- Repository formatting is explicitly governed by `.clang-format` and `.editorconfig`.
 
 ## Notes about GPU rendering
 

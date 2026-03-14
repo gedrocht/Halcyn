@@ -38,8 +38,122 @@ function Test-PythonModuleAvailable {
     return $false
   }
 
-  & python -c "import $ModuleName" *> $null
+  & $python.Source -c "import $ModuleName" *> $null
   return $LASTEXITCODE -eq 0
+}
+
+function Get-WingetInstalledBinaryPath {
+  <#
+    .SYNOPSIS
+    Returns the first binary match from a known WinGet package installation.
+  #>
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$PackagePattern,
+    [Parameter(Mandatory = $true)]
+    [string]$BinaryName
+  )
+
+  if ([string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) {
+    return $null
+  }
+
+  $wingetRoot = Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Packages'
+  if (-not (Test-Path $wingetRoot)) {
+    return $null
+  }
+
+  $packages = Get-ChildItem -Path $wingetRoot -Directory -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -like $PackagePattern } |
+    Sort-Object Name -Descending
+
+  foreach ($package in $packages) {
+    $candidate = Get-ChildItem -Path $package.FullName -Recurse -File -Filter $BinaryName -ErrorAction SilentlyContinue |
+      Select-Object -First 1
+    if ($null -ne $candidate) {
+      return $candidate.FullName
+    }
+  }
+
+  return $null
+}
+
+function Get-ResolvedToolPath {
+  <#
+    .SYNOPSIS
+    Finds a tool either on PATH or in common Windows install locations.
+  #>
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$ToolName
+  )
+
+  $command = Get-Command $ToolName -ErrorAction SilentlyContinue
+  if ($null -ne $command) {
+    return $command.Source
+  }
+
+  $candidatePaths = switch ($ToolName) {
+    'ninja' { @('C:\ProgramData\Chocolatey\bin\ninja.exe') }
+    'clang-format' { @('C:\Program Files\LLVM\bin\clang-format.exe') }
+    'doxygen' { @('C:\Program Files\doxygen\bin\doxygen.exe', 'C:\Strawberry\c\bin\doxygen.exe') }
+    default { @() }
+  }
+
+  foreach ($candidatePath in $candidatePaths) {
+    if (Test-Path $candidatePath) {
+      return $candidatePath
+    }
+  }
+
+  $wingetMatch = switch ($ToolName) {
+    'ninja' { Get-WingetInstalledBinaryPath -PackagePattern 'Ninja-build.Ninja*' -BinaryName 'ninja.exe' }
+    'clang-format' { Get-WingetInstalledBinaryPath -PackagePattern 'LLVM.LLVM*' -BinaryName 'clang-format.exe' }
+    'doxygen' { Get-WingetInstalledBinaryPath -PackagePattern 'DimitriVanHeesch.Doxygen*' -BinaryName 'doxygen.exe' }
+    default { $null }
+  }
+
+  if (-not [string]::IsNullOrWhiteSpace($wingetMatch)) {
+    return $wingetMatch
+  }
+
+  return $null
+}
+
+function Get-HalcynCppFiles {
+  <#
+    .SYNOPSIS
+    Returns the tracked C++ source files that belong to this repository.
+  #>
+  $projectRoot = Get-ProjectRoot
+  $git = Get-Command git -ErrorAction SilentlyContinue
+
+  if ($null -ne $git) {
+    Push-Location $projectRoot
+    try {
+      $trackedFiles = & $git.Source ls-files '*.cpp' '*.hpp'
+      if ($LASTEXITCODE -eq 0) {
+        return @(
+          $trackedFiles |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            ForEach-Object { Join-Path $projectRoot $_ }
+        )
+      }
+    }
+    finally {
+      Pop-Location
+    }
+  }
+
+  $sourceRoots = @(
+    Join-Path $projectRoot 'src',
+    Join-Path $projectRoot 'tests'
+  ) | Where-Object { Test-Path $_ }
+
+  return @(
+    Get-ChildItem -Path $sourceRoots -Recurse -File -Include *.cpp, *.hpp |
+      Select-Object -ExpandProperty FullName
+  )
 }
 
 function Get-BuildDirectory {
@@ -74,6 +188,30 @@ function Get-AvailableCompiler {
   $gcc = Get-Command g++ -ErrorAction SilentlyContinue
   if ($null -ne $gcc) {
     return @{ Name = 'g++'; Source = $gcc.Source }
+  }
+
+  return $null
+}
+
+function Get-VisualStudioCompilerPath {
+  <#
+    .SYNOPSIS
+    Returns the newest installed MSVC cl.exe path if Visual Studio 2022 is installed.
+  #>
+  $visualStudio = Test-VisualStudio2022Available
+  if ($null -eq $visualStudio) {
+    return $null
+  }
+
+  $installationRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $visualStudio))
+  $compilerRoots = Get-ChildItem -Path (Join-Path $installationRoot 'VC\Tools\MSVC') -Directory -ErrorAction SilentlyContinue |
+    Sort-Object Name -Descending
+
+  foreach ($compilerRoot in $compilerRoots) {
+    $candidate = Join-Path $compilerRoot.FullName 'bin\Hostx64\x64\cl.exe'
+    if (Test-Path $candidate) {
+      return $candidate
+    }
   }
 
   return $null
@@ -122,9 +260,9 @@ function Get-PreferredGenerator {
     return $env:HALCYN_CMAKE_GENERATOR
   }
 
-  $ninja = Get-Command ninja -ErrorAction SilentlyContinue
+  $ninja = Get-ResolvedToolPath -ToolName 'ninja'
   $compiler = Get-AvailableCompiler
-  if ($null -ne $ninja -and $null -ne $compiler) {
+  if (-not [string]::IsNullOrWhiteSpace($ninja) -and $null -ne $compiler) {
     return 'Ninja'
   }
 
@@ -186,6 +324,10 @@ Install it with:
 
   if ($generator -eq 'Ninja') {
     $configureArgs += @('-D', "CMAKE_BUILD_TYPE=$Configuration")
+    $ninja = Get-ResolvedToolPath -ToolName 'ninja'
+    if (-not [string]::IsNullOrWhiteSpace($ninja)) {
+      $configureArgs += @('-D', "CMAKE_MAKE_PROGRAM=$ninja")
+    }
   }
 
   & cmake @configureArgs

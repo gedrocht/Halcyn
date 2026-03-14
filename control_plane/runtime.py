@@ -382,9 +382,63 @@ class ControlPlaneState:
     def available_tools(self) -> dict[str, dict[str, Any]]:
         """Inspect the local machine for the tools the project knows how to use."""
 
-        def command_status(command_name: str) -> dict[str, Any]:
+        def winget_binary_path(package_pattern: str, binary_name: str) -> str:
+            winget_root = Path.home() / "AppData" / "Local" / "Microsoft" / "WinGet" / "Packages"
+            if not winget_root.exists():
+                return ""
+
+            for package in sorted(winget_root.glob(package_pattern), reverse=True):
+                for candidate in package.rglob(binary_name):
+                    if candidate.is_file():
+                        return str(candidate)
+
+            return ""
+
+        def known_tool_path(command_name: str) -> str:
             path = shutil.which(command_name)
-            return {"available": path is not None, "path": path or ""}
+            if path:
+                return path
+
+            candidate_paths = {
+                "ninja": [r"C:\ProgramData\Chocolatey\bin\ninja.exe"],
+                "clang-format": [r"C:\Program Files\LLVM\bin\clang-format.exe"],
+                "doxygen": [
+                    r"C:\Program Files\doxygen\bin\doxygen.exe",
+                    r"C:\Strawberry\c\bin\doxygen.exe",
+                ],
+            }
+            for candidate in candidate_paths.get(command_name, []):
+                if Path(candidate).exists():
+                    return candidate
+
+            winget_match = {
+                "ninja": winget_binary_path("Ninja-build.Ninja*", "ninja.exe"),
+                "clang-format": winget_binary_path("LLVM.LLVM*", "clang-format.exe"),
+                "doxygen": winget_binary_path("DimitriVanHeesch.Doxygen*", "doxygen.exe"),
+            }.get(command_name, "")
+            return winget_match or ""
+
+        def command_status(command_name: str) -> dict[str, Any]:
+            path = known_tool_path(command_name)
+            return {"available": bool(path), "path": path or ""}
+
+        def visual_studio_compiler_status() -> dict[str, Any]:
+            visual_studio = visual_studio_status()
+            if not visual_studio["available"]:
+                return {"available": False, "path": ""}
+
+            if visual_studio["path"].lower().endswith("vsdevcmd.bat"):
+                installation_root = Path(visual_studio["path"]).parents[2]
+                compiler_roots = sorted(
+                    (installation_root / "VC" / "Tools" / "MSVC").glob("*"),
+                    reverse=True,
+                )
+                for compiler_root in compiler_roots:
+                    candidate = compiler_root / "bin" / "Hostx64" / "x64" / "cl.exe"
+                    if candidate.exists():
+                        return {"available": True, "path": str(candidate)}
+
+            return {"available": False, "path": ""}
 
         def visual_studio_status() -> dict[str, Any]:
             vswhere_path = Path(
@@ -426,7 +480,7 @@ class ControlPlaneState:
             return {"available": bool(visual_studio_path), "path": visual_studio_path}
 
         python_jinja2_available = False
-        python_path = shutil.which("python")
+        python_path = known_tool_path("python")
         if python_path:
             result = subprocess.run(
                 [python_path, "-c", "import jinja2"],
@@ -441,7 +495,7 @@ class ControlPlaneState:
             "python": command_status("python"),
             "git": command_status("git"),
             "ninja": command_status("ninja"),
-            "cl": command_status("cl"),
+            "cl": command_status("cl") if shutil.which("cl") else visual_studio_compiler_status(),
             "clangpp": command_status("clang++"),
             "gpp": command_status("g++"),
             "doxygen": command_status("doxygen"),

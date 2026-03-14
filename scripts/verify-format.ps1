@@ -1,16 +1,17 @@
 $ErrorActionPreference = 'Stop'
 
-$clangFormat = Get-Command clang-format -ErrorAction SilentlyContinue
-if ($null -eq $clangFormat) {
-  throw 'clang-format is not installed or not on PATH. Install LLVM/clang-format, then rerun this script.'
+. (Join-Path $PSScriptRoot 'common.ps1')
+
+$clangFormat = Get-ResolvedToolPath -ToolName 'clang-format'
+if ([string]::IsNullOrWhiteSpace($clangFormat)) {
+  throw 'clang-format is not installed. Install LLVM/clang-format, then rerun this script.'
 }
 
-$projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$files = Get-ChildItem -Path $projectRoot -Recurse -Include *.cpp,*.hpp
+$files = Get-HalcynCppFiles
 foreach ($file in $files) {
-  & clang-format --dry-run --Werror $file.FullName
+  & $clangFormat --dry-run --Werror $file
   if ($LASTEXITCODE -ne 0) {
-    throw "clang-format verification failed for $($file.FullName)."
+    throw "clang-format verification failed for $file."
   }
 }
 

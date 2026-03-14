@@ -34,37 +34,37 @@ set(HTTPLIB_TEST OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(
   glfw
   GIT_REPOSITORY https://github.com/glfw/glfw.git
-  GIT_TAG 3.4
+  GIT_TAG a74efa0d5628b74adc0426af4c5710e287fa7c2c # 3.4
 )
 
 FetchContent_Declare(
   glm
   GIT_REPOSITORY https://github.com/g-truc/glm.git
-  GIT_TAG 1.0.1
+  GIT_TAG 0af55ccecd98d4e5a8d1fad7de25ba429d60e863 # 1.0.1
 )
 
 FetchContent_Declare(
   nlohmann_json
   GIT_REPOSITORY https://github.com/nlohmann/json.git
-  GIT_TAG v3.11.3
+  GIT_TAG 9cca280a4d0ccf0c08f47a99aa71d1b0e52f8d03 # v3.11.3
 )
 
 FetchContent_Declare(
   cpp_httplib
   GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
-  GIT_TAG v0.16.3
+  GIT_TAG af56b7ec0ba9d18b788ed064f76d936eb52c5db5 # v0.16.3
 )
 
 FetchContent_Declare(
   catch2
   GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-  GIT_TAG v3.6.0
+  GIT_TAG 1ea016810728365d3af3648aeefa683a10ff830e # v3.6.0
 )
 
 FetchContent_Declare(
   glad
   GIT_REPOSITORY https://github.com/Dav1dde/glad.git
-  GIT_TAG v2.0.8
+  GIT_TAG 73db193f853e2ee079bf3ca8a64aa2eaf6459043 # v2.0.8
   SOURCE_SUBDIR cmake
 )
 

@@ -7,8 +7,23 @@ $ErrorActionPreference = 'Stop'
 
 . (Join-Path $PSScriptRoot 'common.ps1')
 
+function Test-PythonCommand {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string[]]$Arguments
+  )
+
+  $python = Get-Command python -ErrorAction SilentlyContinue
+  if ($null -eq $python) {
+    return $false
+  }
+
+  & $python.Source @Arguments *> $null
+  return $LASTEXITCODE -eq 0
+}
+
 Write-Host 'Running control-plane lint...'
-if ($null -ne (Get-Command ruff -ErrorAction SilentlyContinue)) {
+if (Test-PythonCommand -Arguments @('-m', 'ruff', '--version')) {
   & (Join-Path $PSScriptRoot 'lint-control-plane.ps1')
 }
 else {
@@ -16,8 +31,17 @@ else {
 }
 
 Write-Host ''
+Write-Host 'Running control-plane type checks...'
+if (Test-PythonCommand -Arguments @('-m', 'mypy', '--version')) {
+  & (Join-Path $PSScriptRoot 'typecheck-control-plane.ps1')
+}
+else {
+  Write-Host 'Skipping control-plane type checks because mypy is not yet available.'
+}
+
+Write-Host ''
 Write-Host 'Running control-plane quality checks...'
-if ($null -ne (Get-Command coverage -ErrorAction SilentlyContinue)) {
+if (Test-PythonCommand -Arguments @('-m', 'coverage', '--version')) {
   & (Join-Path $PSScriptRoot 'coverage-control-plane.ps1')
 }
 else {
@@ -30,7 +54,7 @@ Write-Host 'Running prerequisite report...'
 & (Join-Path $PSScriptRoot 'bootstrap.ps1')
 
 Write-Host ''
-if ($null -ne (Get-Command clang-format -ErrorAction SilentlyContinue)) {
+if (-not [string]::IsNullOrWhiteSpace((Get-ResolvedToolPath -ToolName 'clang-format'))) {
   Write-Host 'Verifying C++ formatting...'
   & (Join-Path $PSScriptRoot 'verify-format.ps1')
 }
@@ -45,7 +69,12 @@ try {
   & (Join-Path $PSScriptRoot 'test.ps1') -Configuration $Configuration
 }
 catch {
-  Write-Host 'Skipping C++ build/test because a supported C++ toolchain is not yet available.'
+  if ($_.Exception.Message -like 'No supported C++ toolchain was detected.*') {
+    Write-Host 'Skipping C++ build/test because a supported C++ toolchain is not yet available.'
+  }
+  else {
+    throw
+  }
 }
 
 Write-Host ''

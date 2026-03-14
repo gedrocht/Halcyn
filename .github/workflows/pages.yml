@@ -6,6 +6,9 @@ on:
       - main
     paths:
       - "docs/site/**"
+      - "src/**"
+      - "README.md"
+      - "Doxyfile"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -15,7 +18,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "pages"
+  group: pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -27,7 +30,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
@@ -46,7 +49,7 @@ jobs:
           cp -R docs/generated/code-reference/. .pages/generated-code-docs/
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: .pages
 

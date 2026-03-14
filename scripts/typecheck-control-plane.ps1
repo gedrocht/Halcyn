@@ -5,22 +5,22 @@ if ($null -eq $python) {
   throw 'python is not installed or not on PATH.'
 }
 
-& $python.Source -m ruff --version *> $null
+& $python.Source -m mypy --version *> $null
 if ($LASTEXITCODE -ne 0) {
-  throw 'ruff is not installed for the active Python. Install it with: python -m pip install ruff'
+  throw 'mypy is not installed for the active Python. Install it with: python -m pip install mypy'
 }
 
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 Push-Location $projectRoot
 
 try {
-  & $python.Source -m ruff check control_plane
+  & $python.Source -m mypy control_plane
   if ($LASTEXITCODE -ne 0) {
-    throw "ruff check failed with exit code $LASTEXITCODE."
+    throw "mypy failed with exit code $LASTEXITCODE."
   }
 }
 finally {
   Pop-Location
 }
 
-Write-Host 'Control-plane lint completed successfully.'
+Write-Host 'Control-plane type checks completed successfully.'
