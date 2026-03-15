@@ -22,13 +22,13 @@ function Test-HttpSuccess {
   #>
   param(
     [Parameter(Mandatory = $true)]
-    [string]$Url,
+    [string]$RequestUrl,
     [int]$TimeoutSeconds = 2
   )
 
   try {
-    $response = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec $TimeoutSeconds
-    return $response.StatusCode -ge 200 -and $response.StatusCode -lt 300
+    $httpResponse = Invoke-WebRequest -Uri $RequestUrl -UseBasicParsing -TimeoutSec $TimeoutSeconds
+    return $httpResponse.StatusCode -ge 200 -and $httpResponse.StatusCode -lt 300
   }
   catch {
     return $false
@@ -49,8 +49,8 @@ function Get-ControlPlaneCompatibility {
   $summaryUrl = "$baseUrl/api/system/summary"
   $clientCatalogUrl = "$baseUrl/api/client-studio/catalog"
 
-  $summaryAvailable = Test-HttpSuccess -Url $summaryUrl
-  $clientStudioAvailable = $summaryAvailable -and (Test-HttpSuccess -Url $clientCatalogUrl)
+  $summaryAvailable = Test-HttpSuccess -RequestUrl $summaryUrl
+  $clientStudioAvailable = $summaryAvailable -and (Test-HttpSuccess -RequestUrl $clientCatalogUrl)
 
   return @{
     BaseUrl = $baseUrl
@@ -66,7 +66,7 @@ function Start-BrowserWhenReady {
   #>
   param(
     [Parameter(Mandatory = $true)]
-    [string]$Url,
+    [string]$RequestUrl,
     [int]$TimeoutSeconds = 15
   )
 
@@ -88,7 +88,7 @@ function Start-BrowserWhenReady {
 
       Start-Sleep -Milliseconds 250
     }
-  } -ArgumentList $Url, $TimeoutSeconds | Out-Null
+  } -ArgumentList $RequestUrl, $TimeoutSeconds | Out-Null
 }
 
 function Get-ProjectRoot {
@@ -127,12 +127,12 @@ function Test-PythonModuleAvailable {
     [string]$ModuleName
   )
 
-  $python = Get-Command python -ErrorAction SilentlyContinue
-  if ($null -eq $python) {
+  $pythonCommand = Get-Command python -ErrorAction SilentlyContinue
+  if ($null -eq $pythonCommand) {
     return $false
   }
 
-  & $python.Source -c "import $ModuleName" *> $null
+  & $pythonCommand.Source -c "import $ModuleName" *> $null
   return $LASTEXITCODE -eq 0
 }
 
@@ -239,12 +239,12 @@ function Get-HalcynCppFiles {
     Returns the tracked C++ source files that belong to this repository.
   #>
   $projectRoot = Get-ProjectRoot
-  $git = Get-Command git -ErrorAction SilentlyContinue
+  $gitCommand = Get-Command git -ErrorAction SilentlyContinue
 
-  if ($null -ne $git) {
+  if ($null -ne $gitCommand) {
     Push-Location $projectRoot
     try {
-      $trackedFiles = & $git.Source ls-files '*.cpp' '*.hpp'
+      $trackedFiles = & $gitCommand.Source ls-files '*.cpp' '*.hpp'
       if ($LASTEXITCODE -eq 0) {
         return @(
           $trackedFiles |
@@ -288,9 +288,9 @@ function Get-AvailableCompiler {
     .SYNOPSIS
     Returns the first supported C++ compiler found on PATH.
   #>
-  $cl = Get-Command cl -ErrorAction SilentlyContinue
-  if ($null -ne $cl) {
-    return @{ Name = 'cl.exe'; Source = $cl.Source }
+  $visualStudioCompilerCommand = Get-Command cl -ErrorAction SilentlyContinue
+  if ($null -ne $visualStudioCompilerCommand) {
+    return @{ Name = 'cl.exe'; Source = $visualStudioCompilerCommand.Source }
   }
 
   $clang = Get-Command clang++ -ErrorAction SilentlyContinue
@@ -298,9 +298,9 @@ function Get-AvailableCompiler {
     return @{ Name = 'clang++'; Source = $clang.Source }
   }
 
-  $gcc = Get-Command g++ -ErrorAction SilentlyContinue
-  if ($null -ne $gcc) {
-    return @{ Name = 'g++'; Source = $gcc.Source }
+  $gccCompilerCommand = Get-Command g++ -ErrorAction SilentlyContinue
+  if ($null -ne $gccCompilerCommand) {
+    return @{ Name = 'g++'; Source = $gccCompilerCommand.Source }
   }
 
   return $null
@@ -409,7 +409,7 @@ function Invoke-HalcynConfigure {
   $projectRoot = Get-ProjectRoot
   $buildDirectory = Get-BuildDirectory -Configuration $Configuration
   $generator = Get-PreferredGenerator
-  $python = Get-Command python -ErrorAction SilentlyContinue
+  $pythonCommand = Get-Command python -ErrorAction SilentlyContinue
 
   if (-not (Test-PythonModuleAvailable -ModuleName 'jinja2')) {
     throw @"
@@ -431,8 +431,8 @@ Install it with:
     '-D', 'HALCYN_ENABLE_TESTS=ON'
   )
 
-  if ($null -ne $python) {
-    $configureArgs += @('-D', "Python_EXECUTABLE=$($python.Source)")
+  if ($null -ne $pythonCommand) {
+    $configureArgs += @('-D', "Python_EXECUTABLE=$($pythonCommand.Source)")
   }
 
   if ($generator -eq 'Ninja') {

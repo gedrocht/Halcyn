@@ -297,7 +297,7 @@ class ControlPlaneRequestHandler(BaseHTTPRequestHandler):
                     scene_file=payload.get("sceneFile", ""),
                     width=int(payload.get("width", 1280)),
                     height=int(payload.get("height", 720)),
-                    fps=int(payload.get("fps", 60)),
+                    frames_per_second=int(payload.get("fps", 60)),
                     title=payload.get("title", "Halcyn"),
                 )
                 return self._send_json(
@@ -324,8 +324,8 @@ class ControlPlaneRequestHandler(BaseHTTPRequestHandler):
                     host=payload.get("host", "127.0.0.1"),
                     port=int(payload.get("port", 8080)),
                     method=payload.get("method", "GET"),
-                    path=payload.get("path", "/api/v1/health"),
-                    body=payload.get("body", ""),
+                    request_path=payload.get("path", "/api/v1/health"),
+                    request_body=payload.get("body", ""),
                     content_type=payload.get("contentType", "application/json"),
                 )
                 return self._send_json(result)

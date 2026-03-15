@@ -46,11 +46,11 @@ class _FakeProcess:
     def __init__(
         self,
         lines: list[str] | None = None,
-        pid: int = 4321,
+        process_identifier: int = 4321,
         returncode: int = 0,
     ) -> None:
         self.stdout = iter(lines or [])
-        self.pid = pid
+        self.pid = process_identifier
         self.returncode = returncode
         self._waited = False
 
@@ -65,8 +65,8 @@ class _FakeProcess:
 class _LiveProcess:
     """Minimal long-running subprocess stand-in for conflict-path tests."""
 
-    def __init__(self, pid: int = 9999) -> None:
-        self.pid = pid
+    def __init__(self, process_identifier: int = 9999) -> None:
+        self.pid = process_identifier
 
     def poll(self) -> int | None:
         return None
@@ -205,7 +205,7 @@ class ControlPlaneServerTests(unittest.TestCase):
             ("/api/jobs/generate-code-docs", "start_code_docs_job"),
         ]:
             job = JobRecord(
-                job_id="job-9999",
+                job_identifier="job-9999",
                 kind="test",
                 command=["powershell"],
                 working_directory=str(self.project_root),
@@ -225,7 +225,7 @@ class ControlPlaneServerTests(unittest.TestCase):
             command=["powershell"],
             working_directory=str(self.project_root),
             status="running",
-            pid=111,
+            process_identifier=111,
         )
         with mock.patch.object(self.state, "start_app", return_value=app_record):
             status, payload = self._post_json("/api/app/start", {"configuration": "Debug"})
@@ -403,7 +403,11 @@ class ControlPlaneStateTests(unittest.TestCase):
     def test_start_app_tracks_output_and_shutdown(self) -> None:
         """The managed app process should update status, capture output, and stop cleanly."""
 
-        fake_process = _FakeProcess(lines=["booting\n"], pid=2468, returncode=0)
+        fake_process = _FakeProcess(
+            lines=["booting\n"],
+            process_identifier=2468,
+            returncode=0,
+        )
         with mock.patch("control_plane.runtime.subprocess.Popen", return_value=fake_process):
             record = self.state.start_app(
                 "Debug",
@@ -449,8 +453,8 @@ class ControlPlaneStateTests(unittest.TestCase):
     def test_start_app_reports_launch_in_progress_when_wrapper_is_still_building(self) -> None:
         """A second launch attempt should explain that the app is still starting up."""
 
-        self.state._app_process = cast(Any, _LiveProcess())
-        self.state._app_record = ManagedProcess(
+        self.state._managed_application_process = cast(Any, _LiveProcess())
+        self.state._managed_application_record = ManagedProcess(
             name="halcyn_app",
             command=["powershell"],
             working_directory=str(self.project_root),
@@ -478,7 +482,7 @@ class ControlPlaneStateTests(unittest.TestCase):
         process = mock.Mock()
         process.pid = 777
         process.poll.return_value = None
-        self.state._app_process = process
+        self.state._managed_application_process = process
 
         with mock.patch("control_plane.runtime.subprocess.run") as patched_run:
             record = self.state.stop_app()
@@ -498,8 +502,8 @@ class ControlPlaneStateTests(unittest.TestCase):
 
         process = mock.Mock()
         process.poll.return_value = None
-        self.state._app_process = process
-        self.state._app_record = ManagedProcess(
+        self.state._managed_application_process = process
+        self.state._managed_application_record = ManagedProcess(
             name="halcyn_app",
             command=[],
             working_directory=".",
@@ -567,17 +571,17 @@ class ControlPlaneStateTests(unittest.TestCase):
     def test_run_api_request_reports_connection_errors_cleanly(self) -> None:
         """API proxy failures should return a browser-friendly error payload instead of raising."""
 
-        response = self.state.run_api_request(
+        api_response = self.state.run_api_request(
             host="127.0.0.1",
             port=65534,
             method="GET",
-            path="/api/v1/health",
-            body="",
+            request_path="/api/v1/health",
+            request_body="",
             content_type="application/json",
         )
 
-        self.assertFalse(response["ok"])
-        self.assertEqual(response["status"], 0)
+        self.assertFalse(api_response["ok"])
+        self.assertEqual(api_response["status"], 0)
 
     def test_run_api_request_successfully_returns_response_details(self) -> None:
         """Successful proxied requests should include status, headers, and body text."""
@@ -587,12 +591,12 @@ class ControlPlaneStateTests(unittest.TestCase):
         thread.start()
 
         try:
-            response = self.state.run_api_request(
+            api_response = self.state.run_api_request(
                 host="127.0.0.1",
                 port=server.server_address[1],
                 method="GET",
-                path="/health",
-                body="",
+                request_path="/health",
+                request_body="",
                 content_type="application/json",
             )
         finally:
@@ -600,9 +604,9 @@ class ControlPlaneStateTests(unittest.TestCase):
             server.server_close()
             thread.join(timeout=2)
 
-        self.assertTrue(response["ok"])
-        self.assertEqual(response["status"], 200)
-        self.assertIn('"status":"ok"', response["body"])
+        self.assertTrue(api_response["ok"])
+        self.assertEqual(api_response["status"], 200)
+        self.assertIn('"status":"ok"', api_response["body"])
 
     def test_run_smoke_checks_aggregates_results(self) -> None:
         """Smoke checks should report failure when any required probe fails."""

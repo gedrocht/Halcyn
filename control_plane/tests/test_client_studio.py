@@ -215,7 +215,7 @@ class ClientStudioServerTests(unittest.TestCase):
         self.assertEqual(payload["status"], "applied")
         self.assertGreater(payload["networkBytes"], 0)
         patched.assert_called_once()
-        self.assertEqual(patched.call_args.kwargs["path"], "/api/v1/scene")
+        self.assertEqual(patched.call_args.kwargs["request_path"], "/api/v1/scene")
 
     def test_apply_route_surfaces_validation_failures_from_submission(self) -> None:
         """The fast apply path should still expose renderer-side validation failures."""

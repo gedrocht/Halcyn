@@ -20,9 +20,9 @@ class _HtmlContractParser(HTMLParser):
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         attributes = dict(attrs)
 
-        element_id = attributes.get("id")
-        if element_id:
-            self.ids.add(element_id)
+        element_identifier = attributes.get("id")
+        if element_identifier:
+            self.ids.add(element_identifier)
 
         if tag == "a":
             href = attributes.get("href")
@@ -55,21 +55,23 @@ class RepositoryContractTests(unittest.TestCase):
     def test_control_plane_html_and_js_ids_stay_in_sync(self) -> None:
         """The control-plane dashboard should not reference missing DOM ids."""
 
-        html_ids = self._parse_html("control_plane/static/index.html").ids
-        js_ids = self._js_element_ids("control_plane/static/app.js")
+        html_element_identifiers = self._parse_html("control_plane/static/index.html").ids
+        javascript_element_identifiers = self._js_element_ids("control_plane/static/app.js")
         self.assertFalse(
-            js_ids - html_ids,
-            f"Missing control-plane HTML ids for JS bindings: {sorted(js_ids - html_ids)}",
+            javascript_element_identifiers - html_element_identifiers,
+            "Missing control-plane HTML ids for JS bindings: "
+            f"{sorted(javascript_element_identifiers - html_element_identifiers)}",
         )
 
     def test_client_studio_html_and_js_ids_stay_in_sync(self) -> None:
         """The client-studio frontend should not reference missing DOM ids."""
 
-        html_ids = self._parse_html("client_studio/static/index.html").ids
-        js_ids = self._js_element_ids("client_studio/static/app.js")
+        html_element_identifiers = self._parse_html("client_studio/static/index.html").ids
+        javascript_element_identifiers = self._js_element_ids("client_studio/static/app.js")
         self.assertFalse(
-            js_ids - html_ids,
-            f"Missing client-studio HTML ids for JS bindings: {sorted(js_ids - html_ids)}",
+            javascript_element_identifiers - html_element_identifiers,
+            "Missing client-studio HTML ids for JS bindings: "
+            f"{sorted(javascript_element_identifiers - html_element_identifiers)}",
         )
 
     def test_control_plane_dashboard_links_to_client_studio(self) -> None:

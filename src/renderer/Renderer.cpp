@@ -46,9 +46,10 @@ void main()
 )";
 } // namespace
 
-Renderer::Renderer(RendererConfig config, std::shared_ptr<core::SceneStore> sceneStore,
+Renderer::Renderer(RendererConfig rendererConfiguration,
+                   std::shared_ptr<core::SceneStore> sceneStore,
                    std::shared_ptr<core::RuntimeLog> runtimeLog)
-    : config_(std::move(config)), sceneStore_(std::move(sceneStore)),
+    : rendererConfiguration_(std::move(rendererConfiguration)), sceneStore_(std::move(sceneStore)),
       runtimeLog_(std::move(runtimeLog)) {}
 
 Renderer::~Renderer() {
@@ -63,29 +64,30 @@ void Renderer::Run() {
     runtimeLog_->Write(core::LogLevel::Info, "renderer", "Render loop started.");
   }
 
-  const auto frameDuration = std::chrono::duration_cast<std::chrono::steady_clock::duration>(
-      std::chrono::duration<double>(1.0 / static_cast<double>(config_.targetFramesPerSecond)));
+  const auto frameDuration =
+      std::chrono::duration_cast<std::chrono::steady_clock::duration>(std::chrono::duration<double>(
+          1.0 / static_cast<double>(rendererConfiguration_.targetFramesPerSecond)));
 
-  while (!glfwWindowShouldClose(window_)) {
+  while (!glfwWindowShouldClose(renderWindow_)) {
     const auto frameStart = std::chrono::steady_clock::now();
 
-    const auto snapshot = sceneStore_->GetCurrent();
-    if (snapshot->version != uploadedSceneVersion_) {
+    const auto currentSceneSnapshot = sceneStore_->GetCurrent();
+    if (currentSceneSnapshot->version != uploadedSceneVersion_) {
       // The scene store is the authoritative shared state. The renderer only copies
       // from it when the version changes so we avoid rebuilding GPU buffers every frame.
-      uploadedRenderScene_ = domain::BuildRenderScene(snapshot->document);
+      uploadedRenderScene_ = domain::BuildRenderScene(currentSceneSnapshot->document);
       UploadSceneToGpu(uploadedRenderScene_);
-      uploadedSceneVersion_ = snapshot->version;
+      uploadedSceneVersion_ = currentSceneSnapshot->version;
 
       if (runtimeLog_ != nullptr) {
         runtimeLog_->Write(core::LogLevel::Info, "renderer",
-                           "Uploaded scene version " + std::to_string(snapshot->version) +
-                               " to GPU buffers.");
+                           "Uploaded scene version " +
+                               std::to_string(currentSceneSnapshot->version) + " to GPU buffers.");
       }
     }
 
     DrawScene(uploadedRenderScene_);
-    glfwSwapBuffers(window_);
+    glfwSwapBuffers(renderWindow_);
     glfwPollEvents();
 
     // Halcyn uses a simple sleep-until cadence rather than a more complex fixed/variable
@@ -113,20 +115,21 @@ void Renderer::InitializeWindow() {
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
   glfwWindowHint(GLFW_DEPTH_BITS, 24);
 
-  window_ = glfwCreateWindow(config_.windowWidth, config_.windowHeight, config_.windowTitle.c_str(),
-                             nullptr, nullptr);
-  if (window_ == nullptr) {
+  renderWindow_ =
+      glfwCreateWindow(rendererConfiguration_.windowWidth, rendererConfiguration_.windowHeight,
+                       rendererConfiguration_.windowTitle.c_str(), nullptr, nullptr);
+  if (renderWindow_ == nullptr) {
     glfwTerminate();
     throw std::runtime_error(
         "GLFW could not create the window. Check that the machine supports OpenGL 3.3.");
   }
 
-  glfwMakeContextCurrent(window_);
+  glfwMakeContextCurrent(renderWindow_);
   glfwSwapInterval(1);
 
   if (gladLoadGL(reinterpret_cast<GLADloadfunc>(glfwGetProcAddress)) == 0) {
-    glfwDestroyWindow(window_);
-    window_ = nullptr;
+    glfwDestroyWindow(renderWindow_);
+    renderWindow_ = nullptr;
     glfwTerminate();
     throw std::runtime_error("glad failed to load OpenGL function pointers.");
   }
@@ -139,15 +142,15 @@ void Renderer::InitializeOpenGlResources() {
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_PROGRAM_POINT_SIZE);
 
-  shaderProgram_ = std::make_unique<ShaderProgram>(kVertexShaderSource, kFragmentShaderSource);
+  sceneShaderProgram_ = std::make_unique<ShaderProgram>(kVertexShaderSource, kFragmentShaderSource);
 
-  glGenVertexArrays(1, &vao_);
-  glGenBuffers(1, &vbo_);
-  glGenBuffers(1, &ebo_);
+  glGenVertexArrays(1, &vertexArrayObjectHandle_);
+  glGenBuffers(1, &vertexBufferObjectHandle_);
+  glGenBuffers(1, &elementBufferObjectHandle_);
 
-  glBindVertexArray(vao_);
-  glBindBuffer(GL_ARRAY_BUFFER, vbo_);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_);
+  glBindVertexArray(vertexArrayObjectHandle_);
+  glBindBuffer(GL_ARRAY_BUFFER, vertexBufferObjectHandle_);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementBufferObjectHandle_);
 
   glEnableVertexAttribArray(0);
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(domain::RenderVertex),
@@ -161,26 +164,26 @@ void Renderer::InitializeOpenGlResources() {
 }
 
 void Renderer::DestroyOpenGlResources() {
-  if (ebo_ != 0) {
-    glDeleteBuffers(1, &ebo_);
-    ebo_ = 0;
+  if (elementBufferObjectHandle_ != 0) {
+    glDeleteBuffers(1, &elementBufferObjectHandle_);
+    elementBufferObjectHandle_ = 0;
   }
 
-  if (vbo_ != 0) {
-    glDeleteBuffers(1, &vbo_);
-    vbo_ = 0;
+  if (vertexBufferObjectHandle_ != 0) {
+    glDeleteBuffers(1, &vertexBufferObjectHandle_);
+    vertexBufferObjectHandle_ = 0;
   }
 
-  if (vao_ != 0) {
-    glDeleteVertexArrays(1, &vao_);
-    vao_ = 0;
+  if (vertexArrayObjectHandle_ != 0) {
+    glDeleteVertexArrays(1, &vertexArrayObjectHandle_);
+    vertexArrayObjectHandle_ = 0;
   }
 
-  shaderProgram_.reset();
+  sceneShaderProgram_.reset();
 
-  if (window_ != nullptr) {
-    glfwDestroyWindow(window_);
-    window_ = nullptr;
+  if (renderWindow_ != nullptr) {
+    glfwDestroyWindow(renderWindow_);
+    renderWindow_ = nullptr;
     glfwTerminate();
   }
 }
@@ -189,14 +192,14 @@ void Renderer::UploadSceneToGpu(const domain::RenderScene& renderScene) {
   // Uploading replaces the entire vertex/index buffers with the latest snapshot.
   // That is simpler than partial updates and is completely fine for the scene sizes
   // Halcyn currently targets.
-  glBindVertexArray(vao_);
+  glBindVertexArray(vertexArrayObjectHandle_);
 
-  glBindBuffer(GL_ARRAY_BUFFER, vbo_);
+  glBindBuffer(GL_ARRAY_BUFFER, vertexBufferObjectHandle_);
   glBufferData(GL_ARRAY_BUFFER,
                static_cast<GLsizeiptr>(renderScene.vertices.size() * sizeof(domain::RenderVertex)),
                renderScene.vertices.data(), GL_DYNAMIC_DRAW);
 
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementBufferObjectHandle_);
   glBufferData(GL_ELEMENT_ARRAY_BUFFER,
                static_cast<GLsizeiptr>(renderScene.indices.size() * sizeof(std::uint32_t)),
                renderScene.indices.data(), GL_DYNAMIC_DRAW);
@@ -207,7 +210,7 @@ void Renderer::UploadSceneToGpu(const domain::RenderScene& renderScene) {
 void Renderer::DrawScene(const domain::RenderScene& renderScene) const {
   int framebufferWidth = 0;
   int framebufferHeight = 0;
-  glfwGetFramebufferSize(window_, &framebufferWidth, &framebufferHeight);
+  glfwGetFramebufferSize(renderWindow_, &framebufferWidth, &framebufferHeight);
   glViewport(0, 0, framebufferWidth, framebufferHeight);
 
   glClearColor(renderScene.clearColor.r, renderScene.clearColor.g, renderScene.clearColor.b,
@@ -222,12 +225,12 @@ void Renderer::DrawScene(const domain::RenderScene& renderScene) const {
     glDisable(GL_DEPTH_TEST);
   }
 
-  shaderProgram_->Use();
-  shaderProgram_->SetMatrix4("uSceneMatrix", BuildSceneMatrix(renderScene));
-  shaderProgram_->SetFloat("uPointSize", renderScene.pointSize);
+  sceneShaderProgram_->Use();
+  sceneShaderProgram_->SetMatrix4("uSceneMatrix", BuildSceneMatrix(renderScene));
+  sceneShaderProgram_->SetFloat("uPointSize", renderScene.pointSize);
 
   glLineWidth(renderScene.lineWidth);
-  glBindVertexArray(vao_);
+  glBindVertexArray(vertexArrayObjectHandle_);
 
   if (!renderScene.indices.empty()) {
     glDrawElements(ToOpenGlPrimitive(renderScene.primitiveType),
@@ -294,7 +297,7 @@ glm::mat4 Renderer::Build2DSceneMatrix(const domain::RenderScene& renderScene) c
 
   int framebufferWidth = 1;
   int framebufferHeight = 1;
-  glfwGetFramebufferSize(window_, &framebufferWidth, &framebufferHeight);
+  glfwGetFramebufferSize(renderWindow_, &framebufferWidth, &framebufferHeight);
 
   const float windowAspect = static_cast<float>(std::max(framebufferWidth, 1)) /
                              static_cast<float>(std::max(framebufferHeight, 1));
@@ -322,7 +325,7 @@ glm::mat4 Renderer::Build2DSceneMatrix(const domain::RenderScene& renderScene) c
 glm::mat4 Renderer::Build3DSceneMatrix(const domain::RenderScene& renderScene) const {
   int framebufferWidth = 1;
   int framebufferHeight = 1;
-  glfwGetFramebufferSize(window_, &framebufferWidth, &framebufferHeight);
+  glfwGetFramebufferSize(renderWindow_, &framebufferWidth, &framebufferHeight);
   const float aspect = static_cast<float>(std::max(framebufferWidth, 1)) /
                        static_cast<float>(std::max(framebufferHeight, 1));
 

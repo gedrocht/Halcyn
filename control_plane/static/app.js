@@ -5,7 +5,7 @@ const state = {
 
 // These ready-made payloads let a beginner explore the API without first having
 // to invent valid requests from memory.
-const apiSamples = {
+const httpApiSamples = {
   health: {
     method: "GET",
     path: "/api/v1/health",
@@ -61,22 +61,22 @@ function setTheme(nextTheme) {
   localStorage.setItem("halcyn-control-plane-theme", nextTheme);
 }
 
-async function postJson(url, payload = {}) {
-  const response = await fetch(url, {
+async function postJson(requestUrl, requestPayload = {}) {
+  const response = await fetch(requestUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(requestPayload),
   });
   return response.json();
 }
 
-function renderTools(tools) {
+function renderTools(availableTools) {
   const container = document.getElementById("tool-grid");
   container.innerHTML = "";
 
   // The tool cards are generated from the server summary so the browser does not
   // need to know in advance which tools exist or how many there are.
-  for (const [name, details] of Object.entries(tools)) {
+  for (const [name, details] of Object.entries(availableTools)) {
     const card = document.createElement("div");
     card.className = "tool-card";
     card.innerHTML = `
@@ -90,35 +90,37 @@ function renderTools(tools) {
   }
 }
 
-function renderAppSummary(app) {
-  document.getElementById("app-status-pill").textContent = app.status;
-  document.getElementById("app-status-pill").className = `status-pill status-${app.status}`;
+function renderAppSummary(managedApplication) {
+  document.getElementById("app-status-pill").textContent = managedApplication.status;
+  document.getElementById("app-status-pill").className = `status-pill status-${managedApplication.status}`;
 
   const summaryContainer = document.getElementById("app-summary");
+  const processIdentifier = managedApplication.pid ?? "Not running";
   summaryContainer.innerHTML = `
-    <div><strong>Status</strong><span>${app.status}</span></div>
-    <div><strong>PID</strong><span>${app.pid ?? "Not running"}</span></div>
-    <div><strong>Started</strong><span>${app.started_at_utc ?? "N/A"}</span></div>
-    <div><strong>Stopped</strong><span>${app.stopped_at_utc ?? "N/A"}</span></div>
-    <div><strong>Command</strong><span>${(app.command || []).join(" ") || "N/A"}</span></div>
+    <div><strong>Status</strong><span>${managedApplication.status}</span></div>
+    <div><strong>PID</strong><span>${processIdentifier}</span></div>
+    <div><strong>Started</strong><span>${managedApplication.started_at_utc ?? "N/A"}</span></div>
+    <div><strong>Stopped</strong><span>${managedApplication.stopped_at_utc ?? "N/A"}</span></div>
+    <div><strong>Command</strong><span>${(managedApplication.command || []).join(" ") || "N/A"}</span></div>
   `;
 
   const output = document.getElementById("app-output");
-  output.textContent = (app.output_lines || []).join("\n") || "The app is not running.";
+  output.textContent =
+    (managedApplication.output_lines || []).join("\n") || "The app is not running.";
 }
 
-function renderJobs(jobs) {
+function renderJobs(backgroundJobs) {
   const container = document.getElementById("job-list");
   container.innerHTML = "";
 
-  if (!jobs.length) {
+  if (!backgroundJobs.length) {
     container.innerHTML = `<div class="response-panel empty-state">No jobs have been started yet.</div>`;
     return;
   }
 
   // Newest jobs are shown first because that matches the "what just happened?"
   // question users usually ask when looking at a build/test dashboard.
-  for (const job of [...jobs].reverse()) {
+  for (const job of [...backgroundJobs].reverse()) {
     const card = document.createElement("div");
     card.className = "job-card";
     card.innerHTML = `
@@ -138,20 +140,20 @@ function renderJobs(jobs) {
   }
 }
 
-function renderLogs(entries) {
+function renderLogs(logEntries) {
   const target = document.getElementById("control-plane-logs");
-  target.textContent = entries
+  target.textContent = logEntries
     .map((entry) => `[${entry.timestamp_utc}] [${entry.level}] [${entry.component}] ${entry.message}`)
     .join("\n");
 }
 
-function renderDocs(docs) {
+function renderDocs(documentationLinks) {
   const container = document.getElementById("docs-links");
   container.innerHTML = "";
 
   // The server sends a plain map of documentation routes. The browser adds the
   // human-friendly labels so docs organization can evolve without hard-coding HTML.
-  const labels = {
+  const documentationLabels = {
     overview: "Overview",
     tutorial: "Tutorial",
     api: "API Reference",
@@ -165,13 +167,13 @@ function renderDocs(docs) {
     clientStudio: "Open Client Studio",
   };
 
-  for (const [key, href] of Object.entries(docs)) {
+  for (const [key, href] of Object.entries(documentationLinks)) {
     const card = document.createElement("a");
     card.className = "doc-card";
     card.href = href;
     card.target = "_blank";
     card.rel = "noreferrer";
-    card.innerHTML = `<strong>${labels[key] || key}</strong><span>Open ${href}</span>`;
+    card.innerHTML = `<strong>${documentationLabels[key] || key}</strong><span>Open ${href}</span>`;
     container.appendChild(card);
   }
 }
@@ -201,8 +203,8 @@ function renderSummary(summary) {
 async function refreshSummary() {
   // The control plane uses a single summary endpoint for the dashboard's core state
   // so the browser can redraw from one coherent snapshot.
-  const response = await fetch("/api/system/summary");
-  const summary = await response.json();
+  const summaryResponse = await fetch("/api/system/summary");
+  const summary = await summaryResponse.json();
   renderSummary(summary);
 }
 
@@ -246,25 +248,25 @@ function getFormData(formId) {
 async function sendApiRequest() {
   // The playground forwards whatever the user typed almost verbatim so it can act
   // as a small manual API client inside the control plane.
-  const formData = getFormData("api-form");
-  const response = await postJson("/api/playground/request", {
-    ...formData,
+  const formValues = getFormData("api-form");
+  const requestResponse = await postJson("/api/playground/request", {
+    ...formValues,
     body: document.getElementById("api-body").value,
   });
 
-  document.getElementById("api-response").textContent = JSON.stringify(response, null, 2);
+  document.getElementById("api-response").textContent = JSON.stringify(requestResponse, null, 2);
   await refreshSummary();
 }
 
 async function runSmokeChecks() {
-  const formData = getFormData("smoke-form");
-  state.lastSmokeResult = await postJson("/api/app/smoke", formData);
+  const formValues = getFormData("smoke-form");
+  state.lastSmokeResult = await postJson("/api/app/smoke", formValues);
   renderSmokeResult(state.lastSmokeResult);
 }
 
 async function startApp() {
-  const payload = getFormData("app-form");
-  await postJson("/api/app/start", payload);
+  const applicationRequest = getFormData("app-form");
+  await postJson("/api/app/start", applicationRequest);
   await refreshSummary();
 }
 
@@ -274,7 +276,7 @@ async function stopApp() {
 }
 
 function applySample(sampleName) {
-  const selectedSample = apiSamples[sampleName];
+  const selectedSample = httpApiSamples[sampleName];
   if (!selectedSample) {
     return;
   }
