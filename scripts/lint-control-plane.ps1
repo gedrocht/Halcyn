@@ -1,5 +1,7 @@
 $ErrorActionPreference = 'Stop'
 
+. (Join-Path $PSScriptRoot 'common.ps1')
+
 $python = Get-Command python -ErrorAction SilentlyContinue
 if ($null -eq $python) {
   throw 'python is not installed or not on PATH.'
@@ -10,7 +12,7 @@ if ($LASTEXITCODE -ne 0) {
   throw 'ruff is not installed for the active Python. Install it with: python -m pip install ruff'
 }
 
-$projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$projectRoot = Get-ProjectRoot
 Push-Location $projectRoot
 
 try {

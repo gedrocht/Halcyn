@@ -1,5 +1,7 @@
 $ErrorActionPreference = 'Stop'
 
+. (Join-Path $PSScriptRoot 'common.ps1')
+
 $python = Get-Command python -ErrorAction SilentlyContinue
 if ($null -eq $python) {
   throw 'python is not installed or not on PATH.'
@@ -10,7 +12,7 @@ if ($LASTEXITCODE -ne 0) {
   throw 'coverage is not installed for the active Python. Install it with: python -m pip install "coverage[toml]"'
 }
 
-$projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$projectRoot = Get-ProjectRoot
 $coverageFile = Join-Path $projectRoot ".coverage-control-plane-$PID"
 Push-Location $projectRoot
 

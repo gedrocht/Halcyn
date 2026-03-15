@@ -1,15 +1,17 @@
 param(
   [Parameter(Mandatory = $true)]
   [string]$SceneFile,
-  [string]$Host = '127.0.0.1',
+  [string]$ApiHost = '127.0.0.1',
   [int]$Port = 8080
 )
 
 $ErrorActionPreference = 'Stop'
 
-$scenePath = Resolve-Path $SceneFile
+. (Join-Path $PSScriptRoot 'common.ps1')
+
+$scenePath = Resolve-FilesystemPath -Path $SceneFile
 $body = Get-Content -Raw -Path $scenePath
-$uri = "http://$Host`:$Port/api/v1/scene"
+$uri = "http://$ApiHost`:$Port/api/v1/scene"
 
 Write-Host "Posting $scenePath to $uri"
 

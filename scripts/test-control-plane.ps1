@@ -9,7 +9,7 @@ if ($null -eq $python) {
   throw 'python is not installed or not on PATH.'
 }
 
-$projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$projectRoot = Get-ProjectRoot
 Push-Location $projectRoot
 
 try {

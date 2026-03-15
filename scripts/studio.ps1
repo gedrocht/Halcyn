@@ -6,7 +6,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+. (Join-Path $PSScriptRoot 'common.ps1')
+
+$projectRoot = Get-ProjectRoot
 $command = @(
   '-m',
   'control_plane.server',
