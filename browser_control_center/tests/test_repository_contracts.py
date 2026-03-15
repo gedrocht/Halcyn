@@ -199,6 +199,40 @@ class RepositoryContractTests(unittest.TestCase):
                 f"{relative_path} is missing docs map links: {missing_doc_links}",
             )
 
+    def test_docs_site_avoids_root_relative_runtime_links(self) -> None:
+        """GitHub Pages docs should not pretend the live local tools exist at the site root."""
+
+        for relative_path in [
+            "docs/site/index.html",
+            "docs/site/tutorial.html",
+            "docs/site/api.html",
+            "docs/site/architecture.html",
+            "docs/site/testing.html",
+            "docs/site/code-docs.html",
+            "docs/site/field-reference.html",
+            "docs/site/control-center.html",
+            "docs/site/scene-studio.html",
+        ]:
+            parser = self._parse_html(relative_path)
+            root_relative_links = sorted(href for href in parser.hrefs if href.startswith("/"))
+            self.assertFalse(
+                root_relative_links,
+                (
+                    f"{relative_path} contains root-relative links that break on "
+                    f"GitHub Pages: {root_relative_links}"
+                ),
+            )
+
+    def test_docs_overview_links_to_the_repository_readme_not_a_local_markdown_path(self) -> None:
+        """The docs overview should point to a real README URL when hosted statically."""
+
+        overview_page_text = self._read_text("docs/site/index.html")
+        self.assertIn(
+            'href="https://github.com/gedrocht/Halcyn/blob/main/README.md"',
+            overview_page_text,
+        )
+        self.assertNotIn('href="../../README.md"', overview_page_text)
+
     def test_docs_site_uses_browser_rendered_architecture_text(self) -> None:
         """The architecture page should be real HTML text, not an SVG diagram reference."""
 
