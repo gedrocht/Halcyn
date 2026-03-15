@@ -1,4 +1,4 @@
-#include "app/Application.hpp"
+#include "desktop_app/Application.hpp"
 
 #include <exception>
 #include <iostream>
@@ -26,14 +26,14 @@ std::vector<std::string> BuildArgumentVector(int argc, char** argv) {
 int main(int argc, char** argv) {
   try {
     const auto arguments = BuildArgumentVector(argc, argv);
-    const auto applicationConfiguration = halcyn::app::ParseCommandLineArguments(arguments);
+    const auto applicationConfiguration = halcyn::desktop_app::ParseCommandLineArguments(arguments);
 
     if (applicationConfiguration.showHelp) {
-      halcyn::app::PrintHelpText();
+      halcyn::desktop_app::PrintHelpText();
       return 0;
     }
 
-    halcyn::app::Application application(applicationConfiguration);
+    halcyn::desktop_app::Application application(applicationConfiguration);
     return application.Run();
   } catch (const std::exception& error) {
     std::cerr << "Halcyn failed to start: " << error.what() << '\n';

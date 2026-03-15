@@ -25,7 +25,9 @@ venv/
 .ruff_cache/
 .mypy_cache/
 .coverage
+.coverage-browser-control-center*
 .coverage-control-plane*
+coverage-browser-control-center.xml
 coverage-control-plane.xml
 coverage/
 htmlcov/

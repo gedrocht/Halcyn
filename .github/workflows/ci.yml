@@ -1,4 +1,4 @@
-name: CI
+﻿name: CI
 
 on:
   push:
@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  control-plane-tests:
+  browser-control-center-tests:
     runs-on: windows-latest
     timeout-minutes: 10
 
@@ -35,23 +35,23 @@ jobs:
         shell: pwsh
         run: python -m pip install --upgrade pip "coverage[toml]" jinja2 mypy ruff
 
-      - name: Lint control plane
+      - name: Lint browser Control Center
         shell: pwsh
-        run: ./scripts/lint-control-plane.ps1
+        run: ./scripts/lint-browser-control-center.ps1
 
-      - name: Type-check control plane
+      - name: Type-check browser Control Center
         shell: pwsh
-        run: ./scripts/typecheck-control-plane.ps1
+        run: ./scripts/typecheck-browser-control-center.ps1
 
-      - name: Run control-plane coverage
+      - name: Measure browser Control Center coverage
         shell: pwsh
-        run: ./scripts/coverage-control-plane.ps1
+        run: ./scripts/measure-browser-control-center-coverage.ps1
 
-      - name: Upload control-plane coverage artifact
+      - name: Upload browser Control Center coverage artifact
         uses: actions/upload-artifact@v6
         with:
-          name: control-plane-coverage
-          path: coverage-control-plane.xml
+          name: browser-control-center-coverage
+          path: coverage-browser-control-center.xml
           if-no-files-found: error
 
   native-debug:
@@ -77,15 +77,15 @@ jobs:
 
       - name: Show prerequisite report
         shell: pwsh
-        run: ./scripts/bootstrap.ps1
+        run: ./scripts/report-prerequisites.ps1
 
       - name: Verify formatting
         shell: pwsh
-        run: ./scripts/verify-format.ps1
+        run: ./scripts/verify-cpp-formatting.ps1
 
       - name: Build and run native tests
         shell: pwsh
-        run: ./scripts/test.ps1 -Configuration Debug
+        run: ./scripts/run-native-tests.ps1 -Configuration Debug
 
   native-release:
     runs-on: windows-latest
@@ -110,7 +110,7 @@ jobs:
 
       - name: Build and run native tests (Release)
         shell: pwsh
-        run: ./scripts/test.ps1 -Configuration Release
+        run: ./scripts/run-native-tests.ps1 -Configuration Release
 
   docs-build:
     runs-on: ubuntu-latest

@@ -1,4 +1,4 @@
-name: Package
+﻿name: Package
 
 on:
   workflow_dispatch:
@@ -37,11 +37,11 @@ jobs:
 
       - name: Run release tests
         shell: pwsh
-        run: ./scripts/test.ps1 -Configuration Release
+        run: ./scripts/run-native-tests.ps1 -Configuration Release
 
       - name: Build package
         shell: pwsh
-        run: ./scripts/package.ps1 -Configuration Release -VersionLabel "${{ github.ref_name }}" -SkipBuild
+        run: ./scripts/create-release-package.ps1 -Configuration Release -VersionLabel "${{ github.ref_name }}" -SkipBuild
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v6

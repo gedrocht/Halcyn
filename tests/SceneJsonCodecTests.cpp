@@ -1,5 +1,5 @@
-#include "domain/SceneJsonCodec.hpp"
-#include "domain/SceneValidation.hpp"
+#include "scene_description/SceneJsonCodec.hpp"
+#include "scene_description/SceneValidation.hpp"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -19,19 +19,19 @@ TEST_CASE("SceneJsonCodec parses a valid 2D scene", "[json][2d]") {
     ]
   })";
 
-  const domain::SceneJsonCodec sceneJsonCodec;
+  const scene_description::SceneJsonCodec sceneJsonCodec;
   const auto sceneParseResult = sceneJsonCodec.Parse(jsonText);
 
   REQUIRE(sceneParseResult.succeeded);
   REQUIRE(sceneParseResult.scene.has_value());
-  REQUIRE(sceneParseResult.scene->kind == domain::SceneKind::TwoDimensional);
+  REQUIRE(sceneParseResult.scene->kind == scene_description::SceneKind::TwoDimensional);
 
-  const auto& parsedScene = std::get<domain::Scene2D>(sceneParseResult.scene->payload);
+  const auto& parsedScene = std::get<scene_description::Scene2D>(sceneParseResult.scene->payload);
   CHECK(parsedScene.vertices.size() == 3);
   CHECK(parsedScene.pointSize == Catch::Approx(12.0F));
   CHECK(parsedScene.vertices[1].g == Catch::Approx(1.0F));
 
-  const auto renderScene = domain::BuildRenderScene(*sceneParseResult.scene);
+  const auto renderScene = scene_description::BuildRenderScene(*sceneParseResult.scene);
   CHECK(renderScene.vertices.size() == 3);
   CHECK(renderScene.vertices[2].z == Catch::Approx(0.0F));
   CHECK(renderScene.vertices[2].b == Catch::Approx(1.0F));
@@ -57,19 +57,19 @@ TEST_CASE("SceneJsonCodec parses a valid indexed 3D scene", "[json][3d]") {
     "indices": [0, 1, 2]
   })";
 
-  const domain::SceneJsonCodec sceneJsonCodec;
+  const scene_description::SceneJsonCodec sceneJsonCodec;
   const auto sceneParseResult = sceneJsonCodec.Parse(jsonText);
 
   REQUIRE(sceneParseResult.succeeded);
   REQUIRE(sceneParseResult.scene.has_value());
-  REQUIRE(sceneParseResult.scene->kind == domain::SceneKind::ThreeDimensional);
+  REQUIRE(sceneParseResult.scene->kind == scene_description::SceneKind::ThreeDimensional);
 
-  const auto& parsedScene = std::get<domain::Scene3D>(sceneParseResult.scene->payload);
+  const auto& parsedScene = std::get<scene_description::Scene3D>(sceneParseResult.scene->payload);
   CHECK(parsedScene.indices.size() == 3);
   CHECK(parsedScene.vertices[0].a == Catch::Approx(1.0F));
   CHECK(parsedScene.camera.fovYDegrees == Catch::Approx(55.0F));
 
-  const auto renderScene = domain::BuildRenderScene(*sceneParseResult.scene);
+  const auto renderScene = scene_description::BuildRenderScene(*sceneParseResult.scene);
   CHECK(renderScene.vertices[2].z == Catch::Approx(1.0F));
   CHECK(renderScene.indices[1] == 1);
 }
@@ -91,7 +91,7 @@ TEST_CASE("SceneJsonCodec rejects malformed scenes with readable errors", "[json
     ]
   })";
 
-  const domain::SceneJsonCodec sceneJsonCodec;
+  const scene_description::SceneJsonCodec sceneJsonCodec;
   const auto sceneParseResult = sceneJsonCodec.Parse(jsonText);
 
   REQUIRE_FALSE(sceneParseResult.succeeded);

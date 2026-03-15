@@ -14,7 +14,7 @@ select = [
 
 [tool.coverage.run]
 branch = true
-source = ["control_plane"]
+source = ["browser_control_center"]
 
 [tool.coverage.report]
 show_missing = true
@@ -22,7 +22,7 @@ skip_covered = false
 
 [tool.mypy]
 python_version = "3.10"
-files = ["control_plane"]
+files = ["browser_control_center"]
 check_untyped_defs = true
 warn_redundant_casts = true
 warn_unused_ignores = true

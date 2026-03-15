@@ -1,23 +1,24 @@
-#include "api/ApiServer.hpp"
-#include "core/RuntimeLog.hpp"
-#include "core/SceneStore.hpp"
-#include "domain/SceneFactory.hpp"
-#include "domain/SceneJsonCodec.hpp"
+#include "http_api/ApiServer.hpp"
+#include "scene_description/SceneFactory.hpp"
+#include "scene_description/SceneJsonCodec.hpp"
+#include "shared_runtime/RuntimeLog.hpp"
+#include "shared_runtime/SceneStore.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 #include <httplib.h>
 
 namespace halcyn::tests {
 TEST_CASE("ApiServer starts on an ephemeral port and exposes health information", "[api]") {
-  auto sceneStore = std::make_shared<core::SceneStore>(domain::CreateSample2DSceneDocument());
-  auto sceneJsonCodec = std::make_shared<domain::SceneJsonCodec>();
-  auto runtimeLog = std::make_shared<core::RuntimeLog>(100);
+  auto sceneStore = std::make_shared<shared_runtime::SceneStore>(
+      scene_description::CreateSample2DSceneDocument());
+  auto sceneJsonCodec = std::make_shared<scene_description::SceneJsonCodec>();
+  auto runtimeLog = std::make_shared<shared_runtime::RuntimeLog>(100);
 
-  api::ApiServerConfig serverConfiguration;
+  http_api::ApiServerConfig serverConfiguration;
   serverConfiguration.host = "127.0.0.1";
   serverConfiguration.port = 0;
 
-  api::ApiServer apiServer(serverConfiguration, sceneStore, sceneJsonCodec, runtimeLog);
+  http_api::ApiServer apiServer(serverConfiguration, sceneStore, sceneJsonCodec, runtimeLog);
   apiServer.Start();
 
   REQUIRE(apiServer.IsRunning());
@@ -37,15 +38,16 @@ TEST_CASE("ApiServer starts on an ephemeral port and exposes health information"
 }
 
 TEST_CASE("ApiServer validates scenes without activating them", "[api]") {
-  auto sceneStore = std::make_shared<core::SceneStore>(domain::CreateSample2DSceneDocument());
-  auto sceneJsonCodec = std::make_shared<domain::SceneJsonCodec>();
-  auto runtimeLog = std::make_shared<core::RuntimeLog>(100);
+  auto sceneStore = std::make_shared<shared_runtime::SceneStore>(
+      scene_description::CreateSample2DSceneDocument());
+  auto sceneJsonCodec = std::make_shared<scene_description::SceneJsonCodec>();
+  auto runtimeLog = std::make_shared<shared_runtime::RuntimeLog>(100);
 
-  api::ApiServerConfig serverConfiguration;
+  http_api::ApiServerConfig serverConfiguration;
   serverConfiguration.host = "127.0.0.1";
   serverConfiguration.port = 0;
 
-  api::ApiServer apiServer(serverConfiguration, sceneStore, sceneJsonCodec, runtimeLog);
+  http_api::ApiServer apiServer(serverConfiguration, sceneStore, sceneJsonCodec, runtimeLog);
   apiServer.Start();
 
   httplib::Client httpClient("127.0.0.1", apiServer.GetBoundPort());
@@ -75,15 +77,16 @@ TEST_CASE("ApiServer validates scenes without activating them", "[api]") {
 }
 
 TEST_CASE("ApiServer rejects invalid media types and invalid scenes", "[api]") {
-  auto sceneStore = std::make_shared<core::SceneStore>(domain::CreateSample2DSceneDocument());
-  auto sceneJsonCodec = std::make_shared<domain::SceneJsonCodec>();
-  auto runtimeLog = std::make_shared<core::RuntimeLog>(100);
+  auto sceneStore = std::make_shared<shared_runtime::SceneStore>(
+      scene_description::CreateSample2DSceneDocument());
+  auto sceneJsonCodec = std::make_shared<scene_description::SceneJsonCodec>();
+  auto runtimeLog = std::make_shared<shared_runtime::RuntimeLog>(100);
 
-  api::ApiServerConfig serverConfiguration;
+  http_api::ApiServerConfig serverConfiguration;
   serverConfiguration.host = "127.0.0.1";
   serverConfiguration.port = 0;
 
-  api::ApiServer apiServer(serverConfiguration, sceneStore, sceneJsonCodec, runtimeLog);
+  http_api::ApiServer apiServer(serverConfiguration, sceneStore, sceneJsonCodec, runtimeLog);
   apiServer.Start();
 
   httplib::Client httpClient("127.0.0.1", apiServer.GetBoundPort());

@@ -1,4 +1,4 @@
-# Installing and Running Halcyn on Windows
+﻿# Installing and Running Halcyn on Windows
 
 ## Recommended setup
 
@@ -28,21 +28,21 @@ Running from a network-backed path can trigger extra PowerShell trust prompts an
 ## First build
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap.ps1
-powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
-powershell -ExecutionPolicy Bypass -File .\scripts\test.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\report-prerequisites.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\build-halcyn-app.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\run-native-tests.ps1
 ```
 
 ## Running the app
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\run.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\launch-halcyn-app.ps1
 ```
 
-## Running the browser control plane
+## Running the browser Control Center
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\studio.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\launch-browser-control-center.ps1
 ```
 
 ## Troubleshooting
@@ -54,7 +54,7 @@ If the repository is on a network-backed path, PowerShell may keep warning even 
 Use:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\report-prerequisites.ps1
 ```
 
 The most reliable fix is to move the repository to a local drive.
@@ -74,6 +74,6 @@ git config --global --add safe.directory '*'
 
 Only use the broad Git trust setting if you are comfortable trusting repositories on this machine.
 
-### `cl.exe` appears as missing in `bootstrap.ps1`
+### `cl.exe` appears as missing in `report-prerequisites.ps1`
 
 That usually means `cl.exe` is not on PATH in the current shell. If Visual Studio 2022 is detected and CMake identifies MSVC during configure, the toolchain is working.

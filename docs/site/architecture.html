@@ -34,75 +34,38 @@
             <li><a href="testing.html" data-nav-link="testing">Testing</a></li>
             <li><a href="code-docs.html" data-nav-link="code-docs">Code Docs</a></li>
             <li><a href="field-reference.html">Field Reference</a></li>
-            <li><a href="control-center.html" data-nav-link="control-center">Control Center</a></li>
-            <li><a href="client-studio.html" data-nav-link="client-studio">Client Studio</a></li>
+            <li><a href="control-center.html">Control Center</a></li>
+            <li><a href="scene-studio.html">Scene Studio</a></li>
           </ul>
         </nav>
 
         <main>
           <section class="panel">
             <h3>High-level flow</h3>
-            <div class="architecture-flow">
-              <div class="architecture-lane">
-                <div class="architecture-node emphasis">
-                  <strong>Browsers and scripts</strong>
-                  <p>
-                    Human operators, helper scripts, the control plane, and Client Studio all start by
-                    sending HTTP requests or control updates.
-                  </p>
-                </div>
-                <div class="architecture-arrow" aria-hidden="true">→</div>
-                <div class="architecture-node">
-                  <strong><code>src/api</code></strong>
-                  <p>
-                    The embedded API server receives requests, validates them, and translates them into
-                    safe scene-store updates or JSON responses.
-                  </p>
-                </div>
-                <div class="architecture-arrow" aria-hidden="true">→</div>
-                <div class="architecture-node">
-                  <strong><code>src/core</code></strong>
-                  <p>
-                    The scene store publishes a fresh immutable snapshot whenever the API accepts a new
-                    scene.
-                  </p>
-                </div>
+            <div class="cards">
+              <div class="card">
+                <h4>External callers</h4>
+                <p>People, scripts, the Control Center, and the Scene Studio all begin by sending JSON or control requests.</p>
               </div>
-
-              <div class="architecture-lane">
-                <div class="architecture-annotation">
-                  <h4>Separate orchestration path</h4>
-                  <p>
-                    The browser control plane and Client Studio are outside the renderer process. They
-                    can still build, launch, inspect, and steer the app because they talk to it over
-                    HTTP instead of living inside the draw loop.
-                  </p>
-                </div>
-                <div class="architecture-arrow" aria-hidden="true">→</div>
-                <div class="architecture-node">
-                  <strong><code>src/domain</code></strong>
-                  <p>
-                    Domain helpers define what valid 2D and 3D scenes look like and normalize those
-                    scenes into one render-friendly format.
-                  </p>
-                </div>
-                <div class="architecture-arrow" aria-hidden="true">→</div>
-                <div class="architecture-stack">
-                  <div class="architecture-node">
-                    <strong><code>src/renderer</code></strong>
-                    <p>
-                      The renderer notices new snapshots, uploads the geometry into clearly named OpenGL
-                      objects, and prepares a frame.
-                    </p>
-                  </div>
-                  <div class="architecture-node">
-                    <strong>GPU + window</strong>
-                    <p>
-                      OpenGL and the graphics driver turn the uploaded vertices into visible pixels in
-                      the desktop window.
-                    </p>
-                  </div>
-                </div>
+              <div class="card">
+                <h4><code>src/http_api</code></h4>
+                <p>The embedded HTTP API receives requests, validates scene payloads, and translates errors into readable responses.</p>
+              </div>
+              <div class="card">
+                <h4><code>src/scene_description</code></h4>
+                <p>The scene description layer defines the legal scene vocabulary and turns JSON into typed scene objects.</p>
+              </div>
+              <div class="card">
+                <h4><code>src/shared_runtime</code></h4>
+                <p>The shared runtime owns the versioned scene snapshot and runtime logs so other parts of the app can safely coordinate.</p>
+              </div>
+              <div class="card">
+                <h4><code>src/opengl_renderer</code></h4>
+                <p>The renderer watches for new scene versions, uploads geometry to GPU buffers, and draws the newest scene every frame.</p>
+              </div>
+              <div class="card">
+                <h4>The GPU</h4>
+                <p>The GPU transforms vertices and fills the window with pixels after the CPU has prepared the draw call data.</p>
               </div>
             </div>
           </section>
@@ -119,10 +82,11 @@
           <section class="panel">
             <h3>Layer responsibilities</h3>
             <div class="cards">
-              <div class="card"><h4><code>src/domain</code></h4><p>Defines the scene language and validation rules.</p></div>
-              <div class="card"><h4><code>src/core</code></h4><p>Owns synchronization and versioned scene snapshots.</p></div>
-              <div class="card"><h4><code>src/api</code></h4><p>Owns HTTP transport and response handling.</p></div>
-              <div class="card"><h4><code>src/renderer</code></h4><p>Owns OpenGL, shaders, buffers, matrices, and draw calls.</p></div>
+              <div class="card"><h4><code>src/scene_description</code></h4><p>Defines the scene language, validation rules, JSON codec, and example scene builders.</p></div>
+              <div class="card"><h4><code>src/shared_runtime</code></h4><p>Owns synchronization, versioned scene snapshots, and the in-memory runtime log.</p></div>
+              <div class="card"><h4><code>src/http_api</code></h4><p>Owns HTTP transport, route selection, and response formatting.</p></div>
+              <div class="card"><h4><code>src/opengl_renderer</code></h4><p>Owns OpenGL, shaders, buffers, camera transforms, and draw calls.</p></div>
+              <div class="card"><h4><code>src/desktop_app</code></h4><p>Owns process startup, command-line parsing, and assembling the application layers into one running desktop app.</p></div>
             </div>
           </section>
 

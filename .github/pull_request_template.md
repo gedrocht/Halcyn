@@ -1,12 +1,12 @@
-## Summary
+﻿## Summary
 
 Describe the change and the problem it solves.
 
 ## Testing
 
-- [ ] `.\scripts\test-control-plane.ps1`
-- [ ] `.\scripts\test.ps1`
-- [ ] `.\scripts\check-all.ps1` if applicable
+- [ ] `.\scripts\test-browser-control-center.ps1`
+- [ ] `.\scripts\run-native-tests.ps1`
+- [ ] `.\scripts\run-all-quality-checks.ps1` if applicable
 
 ## Notes
 
