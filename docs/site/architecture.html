@@ -41,7 +41,61 @@
         <main>
           <section class="panel">
             <h3>High-level flow</h3>
-            <img class="diagram" src="assets/images/architecture.svg" alt="Architecture diagram showing the flow from HTTP clients to the API server, scene store, renderer, and GPU.">
+            <div class="architecture-map" role="img" aria-labelledby="architecture-diagram-title architecture-diagram-desc">
+              <h4 id="architecture-diagram-title" class="visually-hidden">Halcyn architecture diagram</h4>
+              <p id="architecture-diagram-desc" class="visually-hidden">
+                Shows the data flow from HTTP clients into the API server, through the scene store, into the renderer,
+                and finally to the GPU.
+              </p>
+
+              <div class="architecture-grid">
+                <article class="architecture-node architecture-client">
+                  <span class="architecture-node-kicker">Entry point</span>
+                  <h4>HTTP client</h4>
+                  <p>PowerShell scripts, tests, browser tools, and other apps.</p>
+                </article>
+
+                <div class="architecture-arrow architecture-ingest">
+                  <span>POST /api/v1/scene</span>
+                </div>
+
+                <article class="architecture-node architecture-api">
+                  <span class="architecture-node-kicker">Transport</span>
+                  <h4>API server</h4>
+                  <p>Receives JSON, validates it, and turns requests into scene updates.</p>
+                </article>
+
+                <div class="architecture-arrow architecture-validated architecture-arrow-vertical">
+                  <span>validated scene</span>
+                </div>
+
+                <article class="architecture-node architecture-store">
+                  <span class="architecture-node-kicker">Synchronization</span>
+                  <h4>Scene store</h4>
+                  <p>Publishes versioned, thread-safe scene snapshots for the render loop.</p>
+                </article>
+
+                <div class="architecture-arrow architecture-snapshot">
+                  <span>latest snapshot</span>
+                </div>
+
+                <article class="architecture-node architecture-renderer">
+                  <span class="architecture-node-kicker">Draw loop</span>
+                  <h4>Renderer</h4>
+                  <p>Uploads vertex data, binds shaders, and prepares draw calls each frame.</p>
+                </article>
+
+                <div class="architecture-arrow architecture-draws">
+                  <span>draw calls</span>
+                </div>
+
+                <article class="architecture-node architecture-gpu">
+                  <span class="architecture-node-kicker">Hardware</span>
+                  <h4>GPU</h4>
+                  <p>Executes the OpenGL pipeline and turns vertices into pixels on screen.</p>
+                </article>
+              </div>
+            </div>
           </section>
 
           <section class="panel">
