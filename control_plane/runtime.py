@@ -135,6 +135,20 @@ class ControlPlaneState:
         )
         self.log_buffer.add("INFO", "control-plane", "Control plane state initialized.")
 
+    def _refresh_app_process_state_locked(self) -> None:
+        """Synchronize the managed-app record with the live subprocess state."""
+
+        if self._app_process is None:
+            return
+
+        if self._app_process.poll() is None:
+            return
+
+        self._app_record.status = "stopped"
+        if self._app_record.stopped_at_utc is None:
+            self._app_record.stopped_at_utc = utc_now_iso()
+        self._app_process = None
+
     def _next_job_id(self) -> str:
         """Return the next unique job identifier."""
 
@@ -280,7 +294,10 @@ class ControlPlaneState:
         """Start the Halcyn desktop app under control-plane supervision."""
 
         with self._app_lock:
+            self._refresh_app_process_state_locked()
             if self._app_process is not None and self._app_process.poll() is None:
+                if self._app_record.status == "starting":
+                    raise RuntimeError("The Halcyn app launch is already in progress.")
                 raise RuntimeError("The Halcyn app is already running.")
 
             command = self._script_command(
@@ -334,8 +351,9 @@ class ControlPlaneState:
                 """Monitor the app process and keep the web UI state in sync."""
 
                 assert process.stdout is not None
-                self._app_record.status = "running"
                 for line in process.stdout:
+                    if line.startswith("Starting "):
+                        self._app_record.status = "running"
                     self._append_process_output(self._app_record, line)
                     self.log_buffer.add("INFO", "app", line.rstrip())
 
@@ -357,6 +375,7 @@ class ControlPlaneState:
         """Stop the managed Halcyn app process tree."""
 
         with self._app_lock:
+            self._refresh_app_process_state_locked()
             process = self._app_process
             if process is None or process.poll() is not None:
                 self._app_record.status = "stopped"
@@ -382,6 +401,7 @@ class ControlPlaneState:
         """Return the current status of the managed Halcyn app."""
 
         with self._app_lock:
+            self._refresh_app_process_state_locked()
             record = self._app_record.to_dict()
             record["is_alive"] = self._app_process is not None and self._app_process.poll() is None
             return record

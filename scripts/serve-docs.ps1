@@ -4,7 +4,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$docsRoot = Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..')).Path 'docs/site'
+. (Join-Path $PSScriptRoot 'common.ps1')
+
+$docsRoot = Join-Path (Get-ProjectRoot) 'docs/site'
 Push-Location $docsRoot
 
 try {

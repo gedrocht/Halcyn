@@ -12,11 +12,17 @@ from collections.abc import Callable
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import ClassVar, cast
+from typing import Any, ClassVar, cast
 from unittest import mock
 
 from control_plane.runtime import ControlPlaneState, JobRecord, ManagedProcess
-from control_plane.server import ControlPlaneRequestHandler, create_server
+from control_plane.server import (
+    ControlPlaneRequestHandler,
+    HalcynThreadingHTTPServer,
+    create_server,
+    normalize_project_root,
+    strip_powershell_provider_prefix,
+)
 
 
 class _OkHandler(BaseHTTPRequestHandler):
@@ -54,6 +60,16 @@ class _FakeProcess:
 
     def poll(self) -> int | None:
         return self.returncode if self._waited else None
+
+
+class _LiveProcess:
+    """Minimal long-running subprocess stand-in for conflict-path tests."""
+
+    def __init__(self, pid: int = 9999) -> None:
+        self.pid = pid
+
+    def poll(self) -> int | None:
+        return None
 
 
 class ControlPlaneServerTests(unittest.TestCase):
@@ -301,6 +317,30 @@ class ControlPlaneServerTests(unittest.TestCase):
         payload = json.loads(context.exception.read().decode("utf-8"))
         self.assertEqual(payload["status"], "unknown-route")
 
+    def test_project_root_normalization_strips_powershell_provider_prefix(self) -> None:
+        """PowerShell provider-qualified paths should be normalized before server startup."""
+
+        provider_path = r"Microsoft.PowerShell.Core\FileSystem::\\server\share\Halcyn"
+        normalized = normalize_project_root(provider_path)
+
+        self.assertEqual(strip_powershell_provider_prefix(provider_path), r"\\server\share\Halcyn")
+        self.assertTrue(str(normalized).endswith(r"server\share\Halcyn"))
+
+    def test_server_ignores_benign_connection_abort_errors(self) -> None:
+        """Expected local browser disconnects should not spam stack traces."""
+
+        server = HalcynThreadingHTTPServer(("127.0.0.1", 0), _OkHandler)
+        try:
+            with mock.patch.object(ThreadingHTTPServer, "handle_error") as patched:
+                try:
+                    raise ConnectionAbortedError("client went away")
+                except ConnectionAbortedError:
+                    server.handle_error(mock.Mock(), ("127.0.0.1", 12345))
+
+            patched.assert_not_called()
+        finally:
+            server.server_close()
+
 
 class ControlPlaneStateTests(unittest.TestCase):
     """Exercise the testable control-plane runtime logic directly."""
@@ -375,6 +415,56 @@ class ControlPlaneStateTests(unittest.TestCase):
         self.assertIn("-ApiHost", record.command)
         self._wait_for(lambda: self.state.app_status()["status"] == "stopped")
         self.assertIn("booting", self.state.app_status()["output_lines"])
+
+    def test_start_app_uses_api_host_argument_name(self) -> None:
+        """The control plane should call run.ps1 with the current ApiHost parameter name."""
+
+        fake_process = _FakeProcess(
+            lines=["Starting Y:\\Halcyn\\build\\debug\\halcyn_app.exe\n"],
+            returncode=0,
+        )
+        with mock.patch("control_plane.runtime.subprocess.Popen", return_value=fake_process):
+            record = self.state.start_app(
+                "Debug",
+                "127.0.0.1",
+                8080,
+                "default",
+                "",
+                1280,
+                720,
+                60,
+                "Halcyn",
+            )
+
+        self.assertIn("-ApiHost", record.command)
+        self.assertNotIn("-Host", record.command)
+        self._wait_for(lambda: self.state.app_status()["status"] == "stopped")
+
+    def test_start_app_reports_launch_in_progress_when_wrapper_is_still_building(self) -> None:
+        """A second launch attempt should explain that the app is still starting up."""
+
+        self.state._app_process = cast(Any, _LiveProcess())
+        self.state._app_record = ManagedProcess(
+            name="halcyn_app",
+            command=["powershell"],
+            working_directory=str(self.project_root),
+            status="starting",
+        )
+
+        with self.assertRaises(RuntimeError) as context:
+            self.state.start_app(
+                "Debug",
+                "127.0.0.1",
+                8080,
+                "default",
+                "",
+                1280,
+                720,
+                60,
+                "Halcyn",
+            )
+
+        self.assertIn("launch is already in progress", str(context.exception))
 
     def test_stop_app_requests_taskkill_for_running_process(self) -> None:
         """Stopping the app should send a taskkill request for the live process tree."""

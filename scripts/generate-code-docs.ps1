@@ -2,7 +2,7 @@ $ErrorActionPreference = 'Stop'
 
 . (Join-Path $PSScriptRoot 'common.ps1')
 
-$projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$projectRoot = Get-ProjectRoot
 $outputDirectory = Join-Path $projectRoot 'docs/generated/code-reference'
 $doxygen = Get-ResolvedToolPath -ToolName 'doxygen'
 

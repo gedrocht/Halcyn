@@ -96,7 +96,25 @@ function Get-ProjectRoot {
     .SYNOPSIS
     Returns the absolute path to the repository root.
   #>
-  return (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+  return Resolve-FilesystemPath -Path (Join-Path $PSScriptRoot '..')
+}
+
+function Resolve-FilesystemPath {
+  <#
+    .SYNOPSIS
+    Resolves a path to a plain filesystem path without the PowerShell provider prefix.
+  #>
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Path
+  )
+
+  $resolvedPath = Resolve-Path -Path $Path
+  if ($resolvedPath -is [System.Array]) {
+    $resolvedPath = $resolvedPath | Select-Object -First 1
+  }
+
+  return $resolvedPath.ProviderPath
 }
 
 function Test-PythonModuleAvailable {

@@ -4,12 +4,56 @@ from __future__ import annotations
 
 import json
 import mimetypes
+import socket
+import sys
 import urllib.parse
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from control_plane.runtime import ControlPlaneState
+
+
+def strip_powershell_provider_prefix(path_text: str) -> str:
+    """Remove a PowerShell provider prefix so downstream tools see a plain filesystem path."""
+
+    for prefix in (
+        "Microsoft.PowerShell.Core\\FileSystem::",
+        "Microsoft.PowerShell.Core/FileSystem::",
+    ):
+        if path_text.startswith(prefix):
+            return path_text[len(prefix) :]
+
+    return path_text
+
+
+def normalize_project_root(project_root: str | Path) -> Path:
+    """Normalize the project root path coming from PowerShell or argparse."""
+
+    normalized_path = Path(strip_powershell_provider_prefix(str(project_root)))
+    if normalized_path.is_absolute():
+        return normalized_path
+
+    return normalized_path.resolve()
+
+
+class HalcynThreadingHTTPServer(ThreadingHTTPServer):
+    """Threaded HTTP server with quieter handling for expected local browser disconnects."""
+
+    daemon_threads = True
+
+    def handle_error(
+        self,
+        request: socket.socket | tuple[bytes, socket.socket],
+        client_address: tuple[str, int],
+    ) -> None:
+        """Ignore browser disconnect noise while preserving real control-plane errors."""
+
+        error = sys.exc_info()[1]
+        if isinstance(error, (BrokenPipeError, ConnectionAbortedError, ConnectionResetError)):
+            return
+
+        super().handle_error(request, client_address)
 
 
 class ControlPlaneRequestHandler(BaseHTTPRequestHandler):
@@ -335,7 +379,7 @@ def create_server(host: str, port: int, project_root: Path) -> ThreadingHTTPServ
     BoundHandler.state = state
     BoundHandler.project_root = project_root
 
-    return ThreadingHTTPServer((host, port), BoundHandler)
+    return HalcynThreadingHTTPServer((host, port), BoundHandler)
 
 
 def main() -> None:
@@ -353,7 +397,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    project_root = Path(args.project_root).resolve()
+    project_root = normalize_project_root(args.project_root)
     server = create_server(args.host, args.port, project_root)
     print(f"Halcyn Control Plane listening on http://{args.host}:{args.port}")
     try:
