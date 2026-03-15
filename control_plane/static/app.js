@@ -3,6 +3,8 @@ const state = {
   lastSmokeResult: null,
 };
 
+// These ready-made payloads let a beginner explore the API without first having
+// to invent valid requests from memory.
 const apiSamples = {
   health: {
     method: "GET",
@@ -72,6 +74,8 @@ function renderTools(tools) {
   const container = document.getElementById("tool-grid");
   container.innerHTML = "";
 
+  // The tool cards are generated from the server summary so the browser does not
+  // need to know in advance which tools exist or how many there are.
   for (const [name, details] of Object.entries(tools)) {
     const card = document.createElement("div");
     card.className = "tool-card";
@@ -90,8 +94,8 @@ function renderAppSummary(app) {
   document.getElementById("app-status-pill").textContent = app.status;
   document.getElementById("app-status-pill").className = `status-pill status-${app.status}`;
 
-  const container = document.getElementById("app-summary");
-  container.innerHTML = `
+  const summaryContainer = document.getElementById("app-summary");
+  summaryContainer.innerHTML = `
     <div><strong>Status</strong><span>${app.status}</span></div>
     <div><strong>PID</strong><span>${app.pid ?? "Not running"}</span></div>
     <div><strong>Started</strong><span>${app.started_at_utc ?? "N/A"}</span></div>
@@ -112,6 +116,8 @@ function renderJobs(jobs) {
     return;
   }
 
+  // Newest jobs are shown first because that matches the "what just happened?"
+  // question users usually ask when looking at a build/test dashboard.
   for (const job of [...jobs].reverse()) {
     const card = document.createElement("div");
     card.className = "job-card";
@@ -143,6 +149,8 @@ function renderDocs(docs) {
   const container = document.getElementById("docs-links");
   container.innerHTML = "";
 
+  // The server sends a plain map of documentation routes. The browser adds the
+  // human-friendly labels so docs organization can evolve without hard-coding HTML.
   const labels = {
     overview: "Overview",
     tutorial: "Tutorial",
@@ -191,9 +199,20 @@ function renderSummary(summary) {
 }
 
 async function refreshSummary() {
+  // The control plane uses a single summary endpoint for the dashboard's core state
+  // so the browser can redraw from one coherent snapshot.
   const response = await fetch("/api/system/summary");
   const summary = await response.json();
   renderSummary(summary);
+}
+
+async function refreshSummarySafely() {
+  try {
+    await refreshSummary();
+  } catch (error) {
+    document.getElementById("last-refresh").textContent = "Refresh failed";
+    console.error("Failed to refresh the control-plane summary.", error);
+  }
 }
 
 function activateSection(sectionName) {
@@ -214,6 +233,7 @@ async function startJob(action, extraPayload = {}) {
     "generate-code-docs": "/api/jobs/generate-code-docs",
   };
 
+  // Jobs all share the same "click button, POST action, refresh dashboard" pattern.
   await postJson(endpointMap[action], extraPayload);
   await refreshSummary();
 }
@@ -224,6 +244,8 @@ function getFormData(formId) {
 }
 
 async function sendApiRequest() {
+  // The playground forwards whatever the user typed almost verbatim so it can act
+  // as a small manual API client inside the control plane.
   const formData = getFormData("api-form");
   const response = await postJson("/api/playground/request", {
     ...formData,
@@ -252,18 +274,20 @@ async function stopApp() {
 }
 
 function applySample(sampleName) {
-  const sample = apiSamples[sampleName];
-  if (!sample) {
+  const selectedSample = apiSamples[sampleName];
+  if (!selectedSample) {
     return;
   }
 
   const form = document.getElementById("api-form");
-  form.elements.method.value = sample.method;
-  form.elements.path.value = sample.path;
-  document.getElementById("api-body").value = sample.body;
+  form.elements.method.value = selectedSample.method;
+  form.elements.path.value = selectedSample.path;
+  document.getElementById("api-body").value = selectedSample.body;
 }
 
 function wireEvents() {
+  // Event wiring is centralized so the startup sequence can stay readable and so
+  // future contributors only have one place to look for UI behavior hookups.
   document.querySelectorAll("[data-section-link]").forEach((button) => {
     button.addEventListener("click", () => activateSection(button.dataset.sectionLink));
   });
@@ -296,6 +320,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   setTheme(savedTheme);
   wireEvents();
   applySample("health");
-  await refreshSummary();
-  setInterval(refreshSummary, 4000);
+  await refreshSummarySafely();
+  // A lightweight polling loop is enough for this dashboard because the browser is
+  // mostly observing state rather than driving high-frequency interactions.
+  setInterval(() => {
+    void refreshSummarySafely();
+  }, 4000);
 });

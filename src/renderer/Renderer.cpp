@@ -71,6 +71,8 @@ void Renderer::Run() {
 
     const auto snapshot = sceneStore_->GetCurrent();
     if (snapshot->version != uploadedSceneVersion_) {
+      // The scene store is the authoritative shared state. The renderer only copies
+      // from it when the version changes so we avoid rebuilding GPU buffers every frame.
       uploadedRenderScene_ = domain::BuildRenderScene(snapshot->document);
       UploadSceneToGpu(uploadedRenderScene_);
       uploadedSceneVersion_ = snapshot->version;
@@ -86,6 +88,8 @@ void Renderer::Run() {
     glfwSwapBuffers(window_);
     glfwPollEvents();
 
+    // Halcyn uses a simple sleep-until cadence rather than a more complex fixed/variable
+    // timestep system. That is enough here because rendering is the main loop activity.
     const auto nextFrameStart = frameStart + frameDuration;
     if (std::chrono::steady_clock::now() < nextFrameStart) {
       std::this_thread::sleep_until(nextFrameStart);
@@ -102,6 +106,8 @@ void Renderer::InitializeWindow() {
     throw std::runtime_error("GLFW failed to initialize. The renderer cannot create a GPU window.");
   }
 
+  // Requesting a known OpenGL version up front makes later shader and buffer code
+  // much more predictable because we know which core features are available.
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
@@ -127,6 +133,8 @@ void Renderer::InitializeWindow() {
 }
 
 void Renderer::InitializeOpenGlResources() {
+  // Alpha blending and program-controlled point sizes are global state toggles
+  // the simple Halcyn shaders rely on every frame.
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_PROGRAM_POINT_SIZE);
@@ -178,6 +186,9 @@ void Renderer::DestroyOpenGlResources() {
 }
 
 void Renderer::UploadSceneToGpu(const domain::RenderScene& renderScene) {
+  // Uploading replaces the entire vertex/index buffers with the latest snapshot.
+  // That is simpler than partial updates and is completely fine for the scene sizes
+  // Halcyn currently targets.
   glBindVertexArray(vao_);
 
   glBindBuffer(GL_ARRAY_BUFFER, vbo_);
@@ -203,6 +214,8 @@ void Renderer::DrawScene(const domain::RenderScene& renderScene) const {
                renderScene.clearColor.a);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+  // Depth testing only matters for 3D scenes. Disabling it for 2D keeps draw order
+  // straightforward and avoids unnecessary state influencing flat scenes.
   if (renderScene.kind == domain::SceneKind::ThreeDimensional) {
     glEnable(GL_DEPTH_TEST);
   } else {
@@ -240,6 +253,8 @@ glm::mat4 Renderer::Build2DSceneMatrix(const domain::RenderScene& renderScene) c
     return glm::mat4(1.0F);
   }
 
+  // A 2D scene can contain arbitrary coordinates, so we first compute the scene's
+  // bounding box and then build an orthographic camera that frames that box nicely.
   float minX = std::numeric_limits<float>::max();
   float maxX = std::numeric_limits<float>::lowest();
   float minY = std::numeric_limits<float>::max();
@@ -256,6 +271,8 @@ glm::mat4 Renderer::Build2DSceneMatrix(const domain::RenderScene& renderScene) c
   float height = maxY - minY;
 
   if (width < 0.001F) {
+    // Perfectly vertical or single-point scenes would otherwise produce a near-zero
+    // width and an unusable projection volume, so we pad them into something drawable.
     width = 2.0F;
     minX -= 1.0F;
     maxX += 1.0F;
@@ -285,6 +302,8 @@ glm::mat4 Renderer::Build2DSceneMatrix(const domain::RenderScene& renderScene) c
   const float sceneHeight = maxY - minY;
   const float sceneAspect = sceneWidth / sceneHeight;
 
+  // After adding content padding, we expand whichever axis is too small so the
+  // final orthographic box matches the actual window aspect ratio without stretching.
   if (sceneAspect < windowAspect) {
     const float targetWidth = sceneHeight * windowAspect;
     const float expandBy = (targetWidth - sceneWidth) * 0.5F;
@@ -314,6 +333,9 @@ glm::mat4 Renderer::Build3DSceneMatrix(const domain::RenderScene& renderScene) c
   const glm::vec3 cameraUp(renderScene.camera.up.x, renderScene.camera.up.y,
                            renderScene.camera.up.z);
 
+  // The final scene matrix is the standard 3D pipeline:
+  // model -> view -> projection. Our model matrix is identity for now because
+  // scenes already arrive in world space.
   const glm::mat4 projection =
       glm::perspective(glm::radians(renderScene.camera.fovYDegrees), aspect,
                        renderScene.camera.nearPlane, renderScene.camera.farPlane);

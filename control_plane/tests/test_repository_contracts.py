@@ -48,6 +48,8 @@ class RepositoryContractTests(unittest.TestCase):
         return parser
 
     def _js_element_ids(self, relative_path: str) -> set[str]:
+        """Extract the DOM ids a script expects to find at runtime."""
+
         return set(re.findall(r'getElementById\("([^"]+)"\)', self._read_text(relative_path)))
 
     def test_control_plane_html_and_js_ids_stay_in_sync(self) -> None:

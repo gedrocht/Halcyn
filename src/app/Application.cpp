@@ -11,26 +11,38 @@
 namespace halcyn::app {
 namespace {
 std::string JoinValidationErrors(const std::vector<domain::ValidationError>& errors) {
-  std::ostringstream builder;
+  // Validation errors are stored as structured records so code can inspect them,
+  // but when we need to show them to a person we flatten them into a readable list.
+  // Keeping that formatting in one helper keeps startup error messages consistent.
+  std::ostringstream formattedMessageBuilder;
   for (const domain::ValidationError& error : errors) {
-    builder << " - " << error.path << ": " << error.message << '\n';
+    formattedMessageBuilder << " - " << error.path << ": " << error.message << '\n';
   }
-  return builder.str();
+  return formattedMessageBuilder.str();
 }
 } // namespace
 
 Application::Application(ApplicationConfig config) : config_(std::move(config)) {}
 
 int Application::Run() {
-  auto codec = std::make_shared<domain::SceneJsonCodec>();
+  // The application is built from a few long-lived shared services:
+  // - a codec that knows how to turn scene JSON into C++ data and back
+  // - a runtime log that both the API server and renderer can write into
+  // - a scene store that always holds the scene the renderer should currently draw
+  //
+  // We create them here first so every subsystem works with the same shared state.
+  auto sceneJsonCodec = std::make_shared<domain::SceneJsonCodec>();
   auto runtimeLog = std::make_shared<core::RuntimeLog>();
   auto sceneStore = std::make_shared<core::SceneStore>(LoadInitialScene());
-  api::ApiServer apiServer(config_.api, sceneStore, codec, runtimeLog);
+  api::ApiServer apiServer(config_.api, sceneStore, sceneJsonCodec, runtimeLog);
   renderer::Renderer renderer(config_.renderer, sceneStore, runtimeLog);
 
   runtimeLog->Write(core::LogLevel::Info, "app", "Starting Halcyn.");
 
   try {
+    // The API server is started first so external tools can immediately talk to
+    // the app once the renderer window opens. After that, the renderer owns the
+    // main loop until the user closes the window.
     apiServer.Start();
     PrintStartupSummary(apiServer.GetBoundPort());
     renderer.Run();
@@ -46,6 +58,10 @@ int Application::Run() {
 }
 
 domain::SceneDocument Application::LoadInitialScene() const {
+  // Startup scene selection is intentionally ordered from most explicit to least:
+  // 1. a file the caller provided on the command line
+  // 2. a named built-in sample
+  // 3. the default safety-net scene if nothing else was requested
   if (config_.initialSceneFile.has_value()) {
     return LoadSceneFromFile(*config_.initialSceneFile);
   }
@@ -67,11 +83,13 @@ domain::SceneDocument Application::LoadSceneFromFile(const std::string& filePath
     throw std::runtime_error("The scene file could not be opened: " + filePath);
   }
 
-  std::ostringstream builder;
-  builder << input.rdbuf();
+  // Read the whole file into memory because the scene codec expects one complete
+  // JSON document string rather than a stream that is parsed incrementally.
+  std::ostringstream fileContentsBuilder;
+  fileContentsBuilder << input.rdbuf();
 
   domain::SceneJsonCodec codec;
-  const auto parseResult = codec.Parse(builder.str());
+  const auto parseResult = codec.Parse(fileContentsBuilder.str());
   if (!parseResult.succeeded || !parseResult.scene.has_value()) {
     throw std::runtime_error("The scene file is not a valid Halcyn scene:\n" +
                              JoinValidationErrors(parseResult.errors));
@@ -98,6 +116,8 @@ ApplicationConfig ParseCommandLineArguments(const std::vector<std::string>& argu
     const std::string& argument = arguments[index];
 
     auto requireValue = [&](const char* optionName) -> const std::string& {
+      // Most options are a pair like "--port 8080". This helper centralizes the
+      // "move to the next token and fail nicely if it does not exist" behavior.
       if (index + 1 >= arguments.size()) {
         throw std::runtime_error(std::string("Missing value for command-line option ") +
                                  optionName);

@@ -34,6 +34,9 @@ const state = {
   },
 };
 
+// The browser keeps fast-changing interaction state locally so it can respond
+// immediately to pointer and microphone input, while the server stays responsible
+// for authoritative scene generation and live-session state.
 function clamp(value, lower, upper) {
   return Math.max(lower, Math.min(upper, value));
 }
@@ -57,6 +60,8 @@ async function postJson(url, payload = {}) {
 }
 
 function buildPayloadSignature(payload) {
+  // Signatures let us skip redundant network requests when the generated payload
+  // would be identical to the one we already sent.
   return JSON.stringify(payload);
 }
 
@@ -114,6 +119,8 @@ function selectPreset(presetId) {
     return;
   }
 
+  // Resetting the controls to preset defaults gives every preset a predictable
+  // starting point before the user begins customizing it.
   const controls = form().elements;
   const defaults = preset.defaults;
   controls.density.value = defaults.density;
@@ -159,6 +166,8 @@ function isLiveStreaming() {
 }
 
 function buildSignalsPayload() {
+  // Signals arrive from different browser features, but the server wants one
+  // normalized structure no matter which inputs are enabled.
   return {
     useEpoch: document.getElementById("epoch-toggle").checked,
     useNoise: document.getElementById("noise-toggle").checked,
@@ -184,6 +193,8 @@ function buildSignalsPayload() {
 }
 
 function buildRequestPayload() {
+  // Preview, apply, and live-session routes all share this same payload shape.
+  // Using one builder helps keep those browser-to-server contracts aligned.
   const data = new FormData(form());
   return {
     presetId: state.selectedPresetId,
@@ -213,6 +224,8 @@ function renderPointerBlip() {
 }
 
 function localEnergyEstimate() {
+  // This estimate is only for immediate browser feedback. The server computes the
+  // authoritative energy value again when it builds the actual scene.
   const manualDrive = Number.parseFloat(form().elements.manualDrive.value) || 0;
   const pointerSpeed = document.getElementById("pointer-toggle").checked ? state.pointer.speed : 0;
   const audioLevel = document.getElementById("audio-toggle").checked ? state.audio.level : 0;
@@ -250,10 +263,10 @@ function renderLiveSession(payload) {
 function renderLiveSessionSnapshot(payload) {
   state.liveSession = payload.session;
   const session = payload.session;
-  const target = document.getElementById("session-summary");
+  const sessionSummaryTarget = document.getElementById("session-summary");
   const framesSummary = `${session.frames_applied} ok / ${session.frames_failed} failed`;
   const cadenceSummary = `${session.cadence_ms} ms`;
-  target.textContent = `${session.status} - ${cadenceSummary} - ${framesSummary}`;
+  sessionSummaryTarget.textContent = `${session.status} - ${cadenceSummary} - ${framesSummary}`;
 }
 
 async function refreshLiveSession() {
@@ -285,10 +298,22 @@ function connectSessionStream() {
     return;
   }
 
+  // Server-Sent Events let the server push state changes to the browser without
+  // the browser repeatedly polling for updates.
   const source = new window.EventSource("/api/client-studio/session/stream");
   source.addEventListener("session", (event) => {
     const payload = JSON.parse(event.data);
     renderLiveSessionSnapshot(payload);
+  });
+  source.addEventListener("error", () => {
+    source.close();
+    if (state.sessionEventSource === source) {
+      state.sessionEventSource = null;
+    }
+    state.sessionPollTimerId = window.setInterval(() => {
+      void refreshLiveSession();
+    }, 1500);
+    setLastAction("Live session stream disconnected; using polling fallback");
   });
   state.sessionEventSource = source;
 }
@@ -331,6 +356,8 @@ function queuePreviewScene() {
     state.previewTimerId = null;
     const payload = buildRequestPayload();
     const signature = buildPayloadSignature(payload);
+    // Debouncing keeps quick slider drags from generating many previews the user
+    // never has time to see.
     if (signature === state.lastPreviewSignature && state.latestPreview !== null) {
       return;
     }
@@ -401,6 +428,8 @@ function queueLiveSessionConfigure() {
     return;
   }
 
+  // Configure requests are deduplicated and slightly delayed so the browser feels
+  // responsive without sending a request on every tiny input change.
   if (buildPayloadSignature(buildRequestPayload()) === state.lastConfigureSignature) {
     return;
   }
@@ -475,6 +504,8 @@ function pumpAudioMetrics() {
     return;
   }
 
+  // The analyser provides a full frequency spectrum. We collapse that into broad
+  // bands because the scene generators only need coarse musical energy buckets.
   state.audio.analyser.getByteFrequencyData(state.audio.data);
   const values = Array.from(state.audio.data);
   const average = values.reduce((sum, value) => sum + value, 0) / Math.max(values.length, 1);
@@ -544,13 +575,13 @@ function handlePointerMove(event) {
   const y = clamp((event.clientY - rect.top) / rect.height, 0, 1);
   const now = performance.now();
   const dt = Math.max(16, now - state.pointer.lastTimestamp);
-  const distance = Math.hypot(x - state.pointer.lastX, y - state.pointer.lastY);
-  const speed = clamp(distance / (dt / 1000), 0, 1);
+  const pointerDistance = Math.hypot(x - state.pointer.lastX, y - state.pointer.lastY);
+  const pointerSpeed = clamp(pointerDistance / (dt / 1000), 0, 1);
 
   state.pointer = {
     x,
     y,
-    speed,
+    speed: pointerSpeed,
     lastTimestamp: now,
     lastX: x,
     lastY: y,
@@ -573,6 +604,8 @@ function teardownClientStudio() {
 }
 
 function wireEvents() {
+  // Keeping event hookup in one place makes the startup path easier to follow and
+  // gives future contributors one obvious place to look for UI behavior.
   document.getElementById("preview-button").addEventListener("click", () => {
     void previewScene();
   });
@@ -616,6 +649,8 @@ function wireEvents() {
 }
 
 async function bootstrap() {
+  // The page boots in three stages: fetch catalog metadata, hydrate the controls,
+  // then request the first preview and live-session snapshot.
   state.catalog = await fetchJson("/api/client-studio/catalog");
   state.selectedPresetId = state.catalog.defaults.presetId;
   document.getElementById("auto-apply-ms-input").value = state.catalog.defaults.autoApplyMs;
@@ -630,9 +665,14 @@ async function bootstrap() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  void bootstrap();
+  void bootstrap().catch((error) => {
+    writeApplyLog({ status: "bootstrap-error", message: String(error) });
+    setLastAction("Client Studio failed to start");
+  });
 });
 
 window.addEventListener("beforeunload", () => {
+  // Release timers, streams, and audio capture when the page closes so the browser
+  // does not keep background work alive unnecessarily.
   teardownClientStudio();
 });

@@ -8,6 +8,8 @@
 namespace halcyn::renderer {
 ShaderProgram::ShaderProgram(const std::string& vertexShaderSource,
                              const std::string& fragmentShaderSource) {
+  // OpenGL shaders are built in two phases: compile each stage individually, then
+  // link those stages into one executable GPU program.
   const GLuint vertexShader = CompileShader(GL_VERTEX_SHADER, vertexShaderSource);
   const GLuint fragmentShader = CompileShader(GL_FRAGMENT_SHADER, fragmentShaderSource);
 
@@ -21,15 +23,18 @@ ShaderProgram::ShaderProgram(const std::string& vertexShaderSource,
   if (linked != GL_TRUE) {
     GLint infoLogLength = 0;
     glGetProgramiv(programId_, GL_INFO_LOG_LENGTH, &infoLogLength);
-    std::vector<char> infoLog(static_cast<std::size_t>(infoLogLength));
-    glGetProgramInfoLog(programId_, infoLogLength, nullptr, infoLog.data());
+    std::vector<char> infoLogBuffer(static_cast<std::size_t>(infoLogLength));
+    glGetProgramInfoLog(programId_, infoLogLength, nullptr, infoLogBuffer.data());
 
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
     glDeleteProgram(programId_);
-    throw std::runtime_error("Failed to link the shader program: " + std::string(infoLog.data()));
+    throw std::runtime_error("Failed to link the shader program: " +
+                             std::string(infoLogBuffer.data()));
   }
 
+  // Once the program is linked successfully, the standalone shader objects are no
+  // longer needed because the program already contains their compiled code.
   glDeleteShader(vertexShader);
   glDeleteShader(fragmentShader);
 }
@@ -63,10 +68,11 @@ GLuint ShaderProgram::CompileShader(GLenum shaderType, const std::string& source
   if (compiled != GL_TRUE) {
     GLint infoLogLength = 0;
     glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &infoLogLength);
-    std::vector<char> infoLog(static_cast<std::size_t>(infoLogLength));
-    glGetShaderInfoLog(shader, infoLogLength, nullptr, infoLog.data());
+    std::vector<char> infoLogBuffer(static_cast<std::size_t>(infoLogLength));
+    glGetShaderInfoLog(shader, infoLogLength, nullptr, infoLogBuffer.data());
     glDeleteShader(shader);
-    throw std::runtime_error("Failed to compile a shader stage: " + std::string(infoLog.data()));
+    throw std::runtime_error("Failed to compile a shader stage: " +
+                             std::string(infoLogBuffer.data()));
   }
 
   return shader;

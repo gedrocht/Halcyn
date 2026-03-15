@@ -123,6 +123,9 @@ class ControlPlaneState:
         self._job_counter = 1
         self._jobs_lock = threading.Lock()
         self._app_lock = threading.Lock()
+        # The app record is the UI-facing description of the managed renderer process.
+        # It exists even when no subprocess is running so the dashboard always has a
+        # stable object shape to render.
         self._app_record = ManagedProcess(
             name="halcyn_app",
             command=[],
@@ -138,6 +141,9 @@ class ControlPlaneState:
     def _refresh_app_process_state_locked(self) -> None:
         """Synchronize the managed-app record with the live subprocess state."""
 
+        # The browser can ask for app status at any moment. Instead of trusting that
+        # older state is still accurate, we cheaply poll the subprocess and repair the
+        # record if the process has already exited.
         if self._app_process is None:
             return
 
@@ -161,6 +167,8 @@ class ControlPlaneState:
         """Append one output line to a job while keeping output bounded."""
 
         job.output_lines.append(line.rstrip())
+        # The dashboard only needs recent output. Trimming old lines keeps the control
+        # plane from slowly growing forever in memory during long sessions.
         if len(job.output_lines) > 500:
             del job.output_lines[:-500]
 
@@ -174,6 +182,9 @@ class ControlPlaneState:
     def _script_command(self, script_name: str, *arguments: str) -> list[str]:
         """Build a PowerShell command list for one repository script."""
 
+        # Every long-running action in the browser UI ultimately delegates to one of
+        # the repository's PowerShell scripts. Building commands in one helper keeps
+        # their launch style consistent across jobs and the managed app.
         script_path = self.project_root / "scripts" / script_name
         return ["powershell", "-ExecutionPolicy", "Bypass", "-File", str(script_path), *arguments]
 
@@ -200,6 +211,8 @@ class ControlPlaneState:
             self.log_buffer.add("INFO", "jobs", f"Started {kind} job {job.job_id}.")
 
             try:
+                # Jobs are intentionally launched with stdout and stderr merged so the
+                # browser can present one time-ordered log stream instead of two separate ones.
                 process = subprocess.Popen(
                     command,
                     cwd=working_directory,
@@ -300,6 +313,9 @@ class ControlPlaneState:
                     raise RuntimeError("The Halcyn app launch is already in progress.")
                 raise RuntimeError("The Halcyn app is already running.")
 
+            # The control plane starts the app through run.ps1 instead of invoking the
+            # executable directly, because the script already knows how to configure,
+            # build, and run the chosen configuration correctly on Windows.
             command = self._script_command(
                 "run.ps1",
                 "-Configuration",
@@ -352,6 +368,9 @@ class ControlPlaneState:
 
                 assert process.stdout is not None
                 for line in process.stdout:
+                    # run.ps1 prints a "Starting ..." line just before the renderer is
+                    # truly launching. We use that as the transition from "starting"
+                    # to "running" so the dashboard reflects the user's real experience.
                     if line.startswith("Starting "):
                         self._app_record.status = "running"
                     self._append_process_output(self._app_record, line)
@@ -381,6 +400,8 @@ class ControlPlaneState:
                 self._app_record.status = "stopped"
                 return self._app_record
 
+            # taskkill /T stops the whole child process tree, which matters because
+            # PowerShell may have started build tools or the app beneath the wrapper process.
             subprocess.run(
                 ["taskkill", "/PID", str(process.pid), "/T", "/F"],
                 cwd=self.project_root,
@@ -426,6 +447,8 @@ class ControlPlaneState:
             if path:
                 return path
 
+            # These fallbacks cover the most common Windows installation paths so the
+            # control plane can still give useful diagnostics when tools are not on PATH.
             candidate_paths = {
                 "ninja": [r"C:\ProgramData\Chocolatey\bin\ninja.exe"],
                 "clang-format": [r"C:\Program Files\LLVM\bin\clang-format.exe"],
@@ -467,6 +490,8 @@ class ControlPlaneState:
                     reverse=True,
                 )
                 for compiler_root in compiler_roots:
+                    # We pick the newest discovered MSVC toolset because that mirrors
+                    # what Visual Studio itself would typically prefer.
                     candidate = compiler_root / "bin" / "Hostx64" / "x64" / "cl.exe"
                     if candidate.exists():
                         return {"available": True, "path": str(candidate)}
@@ -532,6 +557,8 @@ class ControlPlaneState:
         python_jinja2_available = False
         python_path = known_tool_path("python")
         if python_path:
+            # bootstrap.ps1 depends on Jinja2 for code generation, so we test the
+            # import directly instead of assuming "python exists" means it is ready.
             result = subprocess.run(
                 [python_path, "-c", "import jinja2"],
                 capture_output=True,
@@ -587,6 +614,8 @@ class ControlPlaneState:
     def configure_client_studio_session(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Update the live Client Studio session without starting or stopping it."""
 
+        # Configure is the "change knobs but keep current running state" operation.
+        # That is different from start/stop so the browser can edit settings incrementally.
         snapshot = self._client_studio_session.configure(payload)
         return {"status": "configured", "session": snapshot}
 
@@ -605,6 +634,8 @@ class ControlPlaneState:
     def preview_client_scene(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Generate one browser-authored scene without touching the live renderer."""
 
+        # Preview generation lets the browser inspect what would be sent without
+        # mutating the live scene currently shown by the renderer.
         bundle = build_scene_bundle(payload)
         self.log_buffer.add(
             "INFO",
@@ -617,12 +648,12 @@ class ControlPlaneState:
         """Generate and submit one client-studio scene to the live renderer."""
 
         bundle = build_scene_bundle(payload)
-        target = bundle["target"]
+        target_connection = bundle["target"]
         scene_json = json.dumps(bundle["scene"], separators=(",", ":"))
 
         submission = self.run_api_request(
-            host=target["host"],
-            port=int(target["port"]),
+            host=target_connection["host"],
+            port=int(target_connection["port"]),
             method="POST",
             path="/api/v1/scene",
             body=scene_json,
@@ -637,7 +668,7 @@ class ControlPlaneState:
             return {
                 "status": "offline",
                 "preset": bundle["preset"],
-                "target": target,
+                "target": target_connection,
                 "scene": bundle["scene"],
                 "analysis": bundle["analysis"],
                 "submission": submission,
@@ -652,7 +683,7 @@ class ControlPlaneState:
             return {
                 "status": "validation-failed",
                 "preset": bundle["preset"],
-                "target": target,
+                "target": target_connection,
                 "scene": bundle["scene"],
                 "analysis": bundle["analysis"],
                 "submission": submission,
@@ -669,7 +700,7 @@ class ControlPlaneState:
             return {
                 "status": "apply-failed",
                 "preset": bundle["preset"],
-                "target": target,
+                "target": target_connection,
                 "scene": bundle["scene"],
                 "analysis": bundle["analysis"],
                 "submission": submission,
@@ -679,12 +710,13 @@ class ControlPlaneState:
         self.log_buffer.add(
             "INFO",
             "client-studio",
-            f"Applied preset {bundle['preset']['id']} to {target['host']}:{target['port']}.",
+            f"Applied preset {bundle['preset']['id']} to "
+            f"{target_connection['host']}:{target_connection['port']}.",
         )
         return {
             "status": "applied",
             "preset": bundle["preset"],
-            "target": target,
+            "target": target_connection,
             "scene": bundle["scene"],
             "analysis": bundle["analysis"],
             "submission": submission,
@@ -718,8 +750,12 @@ class ControlPlaneState:
 
         normalized_path = path if path.startswith("/") else f"/{path}"
         url = f"http://{host}:{port}{normalized_path}"
-        data = body.encode("utf-8") if body else None
-        request = urllib.request.Request(url=url, data=data, method=method.upper())
+        request_body_bytes = body.encode("utf-8") if body else None
+        request = urllib.request.Request(
+            url=url,
+            data=request_body_bytes,
+            method=method.upper(),
+        )
         if body:
             request.add_header("Content-Type", content_type or "application/json")
 
@@ -796,6 +832,8 @@ class ControlPlaneState:
     def summary(self) -> dict[str, Any]:
         """Return the combined dashboard payload used by the browser UI."""
 
+        # The dashboard is intentionally hydrated by one broad summary payload so the
+        # first page load can show a coherent snapshot before smaller live updates begin.
         return {
             "status": "ok",
             "projectRoot": str(self.project_root),

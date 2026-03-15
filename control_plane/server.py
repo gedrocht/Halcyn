@@ -17,6 +17,9 @@ from control_plane.runtime import ControlPlaneState
 def strip_powershell_provider_prefix(path_text: str) -> str:
     """Remove a PowerShell provider prefix so downstream tools see a plain filesystem path."""
 
+    # PowerShell can stringify filesystem paths with a provider prefix like
+    # "Microsoft.PowerShell.Core\\FileSystem::". Python, CMake, and browsers do not
+    # understand that decoration, so we strip it at the edge.
     for prefix in (
         "Microsoft.PowerShell.Core\\FileSystem::",
         "Microsoft.PowerShell.Core/FileSystem::",
@@ -34,6 +37,8 @@ def normalize_project_root(project_root: str | Path) -> Path:
     if normalized_path.is_absolute():
         return normalized_path
 
+    # Relative paths are resolved here once so the rest of the control plane can
+    # assume it always holds one canonical project-root path object.
     return normalized_path.resolve()
 
 
@@ -65,6 +70,8 @@ class ControlPlaneRequestHandler(BaseHTTPRequestHandler):
     def _send_json(self, payload: dict, status: int = HTTPStatus.OK) -> None:
         """Serialize a Python object to JSON and write it to the response."""
 
+        # Pretty-printed JSON is slightly larger, but these endpoints are used by
+        # humans and debugging tools more than high-throughput clients.
         body = json.dumps(payload, indent=2).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
@@ -120,6 +127,8 @@ class ControlPlaneRequestHandler(BaseHTTPRequestHandler):
         revision = -1
         try:
             while True:
+                # The live session object already knows how to block until something
+                # changes. The HTTP layer's job is just to translate those updates into SSE.
                 payload, changed = self.state.wait_for_client_studio_session_update(
                     revision,
                     timeout_seconds=15.0,
@@ -156,6 +165,8 @@ class ControlPlaneRequestHandler(BaseHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
 
+        # Route order matters. We match the most specific prefixes before falling
+        # back to the more general "not found" case.
         if path == "/":
             return self._serve_file(self.project_root / "control_plane" / "static" / "index.html")
 
@@ -240,6 +251,8 @@ class ControlPlaneRequestHandler(BaseHTTPRequestHandler):
             )
 
         try:
+            # The POST routing is intentionally explicit rather than table-driven so
+            # each endpoint's parameter handling stays obvious to beginners reading it.
             if path == "/api/jobs/bootstrap":
                 job = self.state.start_bootstrap_job()
                 return self._send_json(
@@ -345,6 +358,8 @@ class ControlPlaneRequestHandler(BaseHTTPRequestHandler):
                 HTTPStatus.NOT_FOUND,
             )
         except RuntimeError as error:
+            # RuntimeError is used for user-facing rejections such as "app already running".
+            # Those are real conflicts, but not server bugs, so they return HTTP 409.
             return self._send_json(
                 {"status": "rejected", "message": str(error)},
                 HTTPStatus.CONFLICT,

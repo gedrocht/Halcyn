@@ -99,6 +99,8 @@ class ControlPlaneServerTests(unittest.TestCase):
         cls.thread.join(timeout=2)
 
     def _post_json(self, path: str, payload: object) -> tuple[int, dict]:
+        """Send one JSON POST request to the in-process test server."""
+
         data = json.dumps(payload).encode("utf-8")
         request = urllib.request.Request(
             f"{self.base_url}{path}",
@@ -193,6 +195,8 @@ class ControlPlaneServerTests(unittest.TestCase):
     def test_job_routes_accept_requests(self) -> None:
         """Job routes should forward accepted responses from the control-plane state."""
 
+        # These routes are thin adapters over ControlPlaneState methods, so mocking
+        # the state lets the test focus on the HTTP translation layer itself.
         for path, method_name in [
             ("/api/jobs/bootstrap", "start_bootstrap_job"),
             ("/api/jobs/build", "start_build_job"),
@@ -350,6 +354,8 @@ class ControlPlaneStateTests(unittest.TestCase):
         self.state = ControlPlaneState(self.project_root)
 
     def _wait_for(self, predicate: Callable[[], bool], timeout_seconds: float = 2.0) -> None:
+        """Poll until a background operation finishes or the test should fail."""
+
         deadline = time.time() + timeout_seconds
         while time.time() < deadline:
             if predicate():
@@ -601,6 +607,8 @@ class ControlPlaneStateTests(unittest.TestCase):
     def test_run_smoke_checks_aggregates_results(self) -> None:
         """Smoke checks should report failure when any required probe fails."""
 
+        # The smoke helper runs three probes. One failing probe should force the
+        # overall result to fail so the dashboard cannot show a false green.
         responses = [
             {"status": 200},
             {"status": 200},
