@@ -1,3 +1,22 @@
+/**
+ * @file
+ * @brief Implements the embedded HTTP API that exposes health, logs, examples, validation, and
+ * scene-submission endpoints.
+ *
+ * @details
+ * This file is where transport-level HTTP concerns meet the scene-description layer. It translates
+ * `httplib::Request` objects into calls on:
+ *
+ * - `halcyn::scene_description::SceneJsonCodec`
+ * - `halcyn::shared_runtime::SceneStore`
+ * - `halcyn::shared_runtime::RuntimeLog`
+ *
+ * Helpful external references:
+ *
+ * - [cpp-httplib repository and README](https://github.com/yhirose/cpp-httplib)
+ * - [nlohmann/json overview](https://nlohmann.github.io/json/api/basic_json/)
+ */
+
 #include "http_api/ApiServer.hpp"
 
 #include "scene_description/SceneValidation.hpp"

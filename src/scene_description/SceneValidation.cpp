@@ -1,3 +1,11 @@
+/**
+ * @file
+ * @brief Implements semantic scene validation and conversion into render-ready scene data.
+ *
+ * @details
+ * The parser checks shape and types. This file checks meaning and renderability.
+ */
+
 #include "scene_description/SceneValidation.hpp"
 
 #include "scene_description/SceneLimits.hpp"

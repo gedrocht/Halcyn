@@ -1,3 +1,8 @@
+/**
+ * @file
+ * @brief Implements the thread-safe store for the currently active scene snapshot.
+ */
+
 #include "shared_runtime/SceneStore.hpp"
 
 #include <utility>

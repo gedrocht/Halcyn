@@ -1,3 +1,20 @@
+/**
+ * @file
+ * @brief Implements the small RAII wrapper around OpenGL shader compilation and program linking.
+ *
+ * @details
+ * This file isolates the shader lifecycle so the renderer can talk in terms of "use this program"
+ * and "set this uniform" instead of scattering OpenGL program-management code across the render
+ * loop.
+ *
+ * Helpful external references:
+ *
+ * - [OpenGL shader compilation overview](https://wikis.khronos.org/opengl/Shader_Compilation)
+ * - [`glUseProgram`](https://wikis.khronos.org/opengl/GLAPI/glUseProgram)
+ * - [`glUniform` family](https://wikis.khronos.org/opengl/GLAPI/glUniform)
+ * - [`glm::value_ptr`](https://glm.g-truc.net/0.9.9/api/a00305.html)
+ */
+
 #include "opengl_renderer/ShaderProgram.hpp"
 
 #include <glm/gtc/type_ptr.hpp>

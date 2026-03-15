@@ -1,3 +1,13 @@
+/**
+ * @file
+ * @brief Implements the top-level application lifecycle and command-line parsing helpers.
+ *
+ * @details
+ * This file answers the question "How does Halcyn turn configuration into a running program?"
+ * It wires together the scene codec, shared scene store, runtime log, HTTP API, and renderer, then
+ * defines the order in which those long-lived services start and stop.
+ */
+
 #include "desktop_app/Application.hpp"
 
 #include "scene_description/SceneFactory.hpp"
