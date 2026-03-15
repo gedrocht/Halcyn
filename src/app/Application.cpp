@@ -11,34 +11,47 @@
 namespace halcyn::app {
 namespace {
 std::string JoinValidationErrors(const std::vector<domain::ValidationError>& errors) {
-  std::ostringstream builder;
+  // Validation errors are stored as structured records so code can inspect them,
+  // but when we need to show them to a person we flatten them into a readable list.
+  // Keeping that formatting in one helper keeps startup error messages consistent.
+  std::ostringstream formattedMessageBuilder;
   for (const domain::ValidationError& error : errors) {
-    builder << " - " << error.path << ": " << error.message << '\n';
+    formattedMessageBuilder << " - " << error.path << ": " << error.message << '\n';
   }
-  return builder.str();
+  return formattedMessageBuilder.str();
 }
 } // namespace
 
-Application::Application(ApplicationConfig config) : config_(std::move(config)) {}
+Application::Application(ApplicationConfig applicationConfiguration)
+    : applicationConfig_(std::move(applicationConfiguration)) {}
 
 int Application::Run() {
-  auto codec = std::make_shared<domain::SceneJsonCodec>();
+  // The application is built from a few long-lived shared services:
+  // - a codec that knows how to turn scene JSON into C++ data and back
+  // - a runtime log that both the API server and renderer can write into
+  // - a scene store that always holds the scene the renderer should currently draw
+  //
+  // We create them here first so every subsystem works with the same shared state.
+  auto sceneJsonCodec = std::make_shared<domain::SceneJsonCodec>();
   auto runtimeLog = std::make_shared<core::RuntimeLog>();
   auto sceneStore = std::make_shared<core::SceneStore>(LoadInitialScene());
-  api::ApiServer apiServer(config_.api, sceneStore, codec, runtimeLog);
-  renderer::Renderer renderer(config_.renderer, sceneStore, runtimeLog);
+  api::ApiServer httpApiServer(applicationConfig_.httpApi, sceneStore, sceneJsonCodec, runtimeLog);
+  renderer::Renderer renderer(applicationConfig_.renderer, sceneStore, runtimeLog);
 
   runtimeLog->Write(core::LogLevel::Info, "app", "Starting Halcyn.");
 
   try {
-    apiServer.Start();
-    PrintStartupSummary(apiServer.GetBoundPort());
+    // The API server is started first so external tools can immediately talk to
+    // the app once the renderer window opens. After that, the renderer owns the
+    // main loop until the user closes the window.
+    httpApiServer.Start();
+    PrintStartupSummary(httpApiServer.GetBoundPort());
     renderer.Run();
-    apiServer.Stop();
+    httpApiServer.Stop();
     runtimeLog->Write(core::LogLevel::Info, "app", "Halcyn shut down cleanly.");
     return 0;
   } catch (...) {
-    apiServer.Stop();
+    httpApiServer.Stop();
     runtimeLog->Write(core::LogLevel::Error, "app",
                       "Halcyn stopped because an unhandled exception escaped.");
     throw;
@@ -46,15 +59,19 @@ int Application::Run() {
 }
 
 domain::SceneDocument Application::LoadInitialScene() const {
-  if (config_.initialSceneFile.has_value()) {
-    return LoadSceneFromFile(*config_.initialSceneFile);
+  // Startup scene selection is intentionally ordered from most explicit to least:
+  // 1. a file the caller provided on the command line
+  // 2. a named built-in sample
+  // 3. the default safety-net scene if nothing else was requested
+  if (applicationConfig_.initialSceneFile.has_value()) {
+    return LoadSceneFromFile(*applicationConfig_.initialSceneFile);
   }
 
-  if (config_.initialSample == "3d") {
+  if (applicationConfig_.initialSample == "3d") {
     return domain::CreateSample3DSceneDocument();
   }
 
-  if (config_.initialSample == "2d") {
+  if (applicationConfig_.initialSample == "2d") {
     return domain::CreateSample2DSceneDocument();
   }
 
@@ -67,37 +84,42 @@ domain::SceneDocument Application::LoadSceneFromFile(const std::string& filePath
     throw std::runtime_error("The scene file could not be opened: " + filePath);
   }
 
-  std::ostringstream builder;
-  builder << input.rdbuf();
+  // Read the whole file into memory because the scene codec expects one complete
+  // JSON document string rather than a stream that is parsed incrementally.
+  std::ostringstream fileContentsBuilder;
+  fileContentsBuilder << input.rdbuf();
 
-  domain::SceneJsonCodec codec;
-  const auto parseResult = codec.Parse(builder.str());
-  if (!parseResult.succeeded || !parseResult.scene.has_value()) {
+  domain::SceneJsonCodec sceneJsonCodec;
+  const auto sceneParseResult = sceneJsonCodec.Parse(fileContentsBuilder.str());
+  if (!sceneParseResult.succeeded || !sceneParseResult.scene.has_value()) {
     throw std::runtime_error("The scene file is not a valid Halcyn scene:\n" +
-                             JoinValidationErrors(parseResult.errors));
+                             JoinValidationErrors(sceneParseResult.errors));
   }
 
-  return *parseResult.scene;
+  return *sceneParseResult.scene;
 }
 
 void Application::PrintStartupSummary(int listeningPort) const {
   std::cout << "Halcyn is starting.\n";
-  std::cout << "Window: " << config_.renderer.windowWidth << "x" << config_.renderer.windowHeight
-            << " (" << config_.renderer.targetFramesPerSecond << " FPS target)\n";
-  std::cout << "HTTP API: http://" << config_.api.host << ':' << listeningPort
+  std::cout << "Window: " << applicationConfig_.renderer.windowWidth << "x"
+            << applicationConfig_.renderer.windowHeight << " ("
+            << applicationConfig_.renderer.targetFramesPerSecond << " FPS target)\n";
+  std::cout << "HTTP API: http://" << applicationConfig_.httpApi.host << ':' << listeningPort
             << "/api/v1/health\n";
-  std::cout << "POST scenes to: http://" << config_.api.host << ':' << listeningPort
+  std::cout << "POST scenes to: http://" << applicationConfig_.httpApi.host << ':' << listeningPort
             << "/api/v1/scene\n";
   std::cout << "Open docs with: scripts/serve-docs.ps1\n";
 }
 
 ApplicationConfig ParseCommandLineArguments(const std::vector<std::string>& arguments) {
-  ApplicationConfig config;
+  ApplicationConfig applicationConfiguration;
 
   for (std::size_t index = 0; index < arguments.size(); ++index) {
     const std::string& argument = arguments[index];
 
-    auto requireValue = [&](const char* optionName) -> const std::string& {
+    auto requireOptionValue = [&](const char* optionName) -> const std::string& {
+      // Most options are a pair like "--port 8080". This helper centralizes the
+      // "move to the next token and fail nicely if it does not exist" behavior.
       if (index + 1 >= arguments.size()) {
         throw std::runtime_error(std::string("Missing value for command-line option ") +
                                  optionName);
@@ -108,75 +130,76 @@ ApplicationConfig ParseCommandLineArguments(const std::vector<std::string>& argu
     };
 
     if (argument == "--help" || argument == "-h") {
-      config.showHelp = true;
+      applicationConfiguration.showHelp = true;
       continue;
     }
 
     if (argument == "--host") {
-      config.api.host = requireValue("--host");
+      applicationConfiguration.httpApi.host = requireOptionValue("--host");
       continue;
     }
 
     if (argument == "--port") {
-      config.api.port = std::stoi(requireValue("--port"));
+      applicationConfiguration.httpApi.port = std::stoi(requireOptionValue("--port"));
       continue;
     }
 
     if (argument == "--width") {
-      config.renderer.windowWidth = std::stoi(requireValue("--width"));
+      applicationConfiguration.renderer.windowWidth = std::stoi(requireOptionValue("--width"));
       continue;
     }
 
     if (argument == "--height") {
-      config.renderer.windowHeight = std::stoi(requireValue("--height"));
+      applicationConfiguration.renderer.windowHeight = std::stoi(requireOptionValue("--height"));
       continue;
     }
 
     if (argument == "--fps") {
-      config.renderer.targetFramesPerSecond = std::stoi(requireValue("--fps"));
+      applicationConfiguration.renderer.targetFramesPerSecond =
+          std::stoi(requireOptionValue("--fps"));
       continue;
     }
 
     if (argument == "--title") {
-      config.renderer.windowTitle = requireValue("--title");
+      applicationConfiguration.renderer.windowTitle = requireOptionValue("--title");
       continue;
     }
 
     if (argument == "--scene-file") {
-      config.initialSceneFile = requireValue("--scene-file");
+      applicationConfiguration.initialSceneFile = requireOptionValue("--scene-file");
       continue;
     }
 
     if (argument == "--sample") {
-      const std::string& sampleValue = requireValue("--sample");
+      const std::string& sampleValue = requireOptionValue("--sample");
       if (sampleValue != "default" && sampleValue != "2d" && sampleValue != "3d") {
         throw std::runtime_error("--sample must be one of: default, 2d, 3d");
       }
 
-      config.initialSample = sampleValue;
+      applicationConfiguration.initialSample = sampleValue;
       continue;
     }
 
     throw std::runtime_error("Unknown command-line option: " + argument);
   }
 
-  if (config.api.port < 0 || config.api.port > 65535) {
+  if (applicationConfiguration.httpApi.port < 0 || applicationConfiguration.httpApi.port > 65535) {
     throw std::runtime_error("--port must be between 0 and 65535");
   }
 
-  if (config.renderer.windowWidth <= 0) {
+  if (applicationConfiguration.renderer.windowWidth <= 0) {
     throw std::runtime_error("--width must be greater than 0");
   }
 
-  if (config.renderer.windowHeight <= 0) {
+  if (applicationConfiguration.renderer.windowHeight <= 0) {
     throw std::runtime_error("--height must be greater than 0");
   }
 
-  if (config.renderer.targetFramesPerSecond <= 0) {
+  if (applicationConfiguration.renderer.targetFramesPerSecond <= 0) {
     throw std::runtime_error("--fps must be greater than 0");
   }
 
-  return config;
+  return applicationConfiguration;
 }
 
 void PrintHelpText() {

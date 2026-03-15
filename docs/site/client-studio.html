@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="assets/styles.css">
     <script defer src="assets/app.js"></script>
   </head>
-  <body>
+  <body data-page="client-studio">
     <div class="page-shell">
       <header class="topbar">
         <div class="brand">
@@ -19,7 +19,7 @@
         </div>
         <div class="topbar-actions">
           <button class="button" data-theme-toggle>Toggle theme</button>
-          <a class="button" href="http://127.0.0.1:9001/client/">Open client studio</a>
+          <a class="button" href="/client/">Open client studio</a>
         </div>
       </header>
 
@@ -32,7 +32,10 @@
             <li><a href="api.html">API Reference</a></li>
             <li><a href="architecture.html">Architecture</a></li>
             <li><a href="testing.html">Testing</a></li>
-            <li><a href="control-center.html">Control Center</a></li>
+            <li><a href="code-docs.html" data-nav-link="code-docs">Code Docs</a></li>
+            <li><a href="field-reference.html">Field Reference</a></li>
+            <li><a href="control-center.html" data-nav-link="control-center">Control Center</a></li>
+            <li><a href="client-studio.html" data-nav-link="client-studio">Client Studio</a></li>
           </ul>
         </nav>
 
@@ -44,7 +47,13 @@
               lives in its own top-level folder, but it still relies on the existing control-plane
               server for routing, live-session control, logging, and test coverage.
             </p>
-            <pre><code>http://127.0.0.1:9001/client/</code></pre>
+            <pre><code>.\scripts\client-studio.ps1
+/client/</code></pre>
+            <p>
+              The root-relative <code>/client/</code> path is the stable route when the docs are being served by the
+              control plane. If you are reading the docs from the standalone docs server, launch the control plane or
+              Client Studio separately and then open the matching control-plane address.
+            </p>
           </section>
 
           <section class="panel">

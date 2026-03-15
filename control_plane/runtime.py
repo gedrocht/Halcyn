@@ -49,7 +49,7 @@ class LogEntry:
 class JobRecord:
     """Describe one background job such as build, test, or docs generation."""
 
-    job_id: str
+    job_identifier: str
     kind: str
     command: list[str]
     working_directory: str
@@ -62,7 +62,29 @@ class JobRecord:
     def to_dict(self) -> dict[str, Any]:
         """Convert the job into plain JSON-ready data."""
 
-        return asdict(self)
+        return {
+            "job_id": self.job_identifier,
+            "kind": self.kind,
+            "command": self.command,
+            "working_directory": self.working_directory,
+            "status": self.status,
+            "started_at_utc": self.started_at_utc,
+            "finished_at_utc": self.finished_at_utc,
+            "exit_code": self.exit_code,
+            "output_lines": self.output_lines,
+        }
+
+    @property
+    def job_id(self) -> str:
+        """Preserve the older job_id attribute name for callers that still expect it."""
+
+        return self.job_identifier
+
+    @job_id.setter
+    def job_id(self, value: str) -> None:
+        """Allow older code paths to keep writing through the legacy attribute name."""
+
+        self.job_identifier = value
 
 
 @dataclass
@@ -73,7 +95,7 @@ class ManagedProcess:
     command: list[str]
     working_directory: str
     status: str = "stopped"
-    pid: int | None = None
+    process_identifier: int | None = None
     started_at_utc: str | None = None
     stopped_at_utc: str | None = None
     output_lines: list[str] = field(default_factory=list)
@@ -81,7 +103,28 @@ class ManagedProcess:
     def to_dict(self) -> dict[str, Any]:
         """Convert the process record into plain JSON-ready data."""
 
-        return asdict(self)
+        return {
+            "name": self.name,
+            "command": self.command,
+            "working_directory": self.working_directory,
+            "status": self.status,
+            "pid": self.process_identifier,
+            "started_at_utc": self.started_at_utc,
+            "stopped_at_utc": self.stopped_at_utc,
+            "output_lines": self.output_lines,
+        }
+
+    @property
+    def pid(self) -> int | None:
+        """Preserve the older pid attribute name for callers that still expect it."""
+
+        return self.process_identifier
+
+    @pid.setter
+    def pid(self, value: int | None) -> None:
+        """Allow older code paths to keep writing through the legacy attribute name."""
+
+        self.process_identifier = value
 
 
 class LogBuffer:
@@ -119,16 +162,19 @@ class ControlPlaneState:
     def __init__(self, project_root: Path) -> None:
         self.project_root = project_root
         self.log_buffer = LogBuffer()
-        self._jobs: dict[str, JobRecord] = {}
-        self._job_counter = 1
-        self._jobs_lock = threading.Lock()
-        self._app_lock = threading.Lock()
-        self._app_record = ManagedProcess(
+        self._job_records: dict[str, JobRecord] = {}
+        self._next_job_number = 1
+        self._job_records_lock = threading.Lock()
+        self._managed_application_lock = threading.Lock()
+        # The app record is the UI-facing description of the managed renderer process.
+        # It exists even when no subprocess is running so the dashboard always has a
+        # stable object shape to render.
+        self._managed_application_record = ManagedProcess(
             name="halcyn_app",
             command=[],
             working_directory=str(project_root),
         )
-        self._app_process: subprocess.Popen[str] | None = None
+        self._managed_application_process: subprocess.Popen[str] | None = None
         self._client_studio_session = ClientStudioLiveSession(
             apply_callback=self._submit_client_studio_scene,
             log_callback=self.log_buffer.add,
@@ -138,70 +184,93 @@ class ControlPlaneState:
     def _refresh_app_process_state_locked(self) -> None:
         """Synchronize the managed-app record with the live subprocess state."""
 
-        if self._app_process is None:
+        # The browser can ask for app status at any moment. Instead of trusting that
+        # older state is still accurate, we cheaply poll the subprocess and repair the
+        # record if the process has already exited.
+        if self._managed_application_process is None:
             return
 
-        if self._app_process.poll() is None:
+        if self._managed_application_process.poll() is None:
             return
 
-        self._app_record.status = "stopped"
-        if self._app_record.stopped_at_utc is None:
-            self._app_record.stopped_at_utc = utc_now_iso()
-        self._app_process = None
+        self._managed_application_record.status = "stopped"
+        if self._managed_application_record.stopped_at_utc is None:
+            self._managed_application_record.stopped_at_utc = utc_now_iso()
+        self._managed_application_process = None
 
-    def _next_job_id(self) -> str:
+    def _next_job_identifier(self) -> str:
         """Return the next unique job identifier."""
 
-        with self._jobs_lock:
-            job_id = f"job-{self._job_counter:04d}"
-            self._job_counter += 1
-            return job_id
+        with self._job_records_lock:
+            job_identifier = f"job-{self._next_job_number:04d}"
+            self._next_job_number += 1
+            return job_identifier
 
     def _append_job_output(self, job: JobRecord, line: str) -> None:
         """Append one output line to a job while keeping output bounded."""
 
         job.output_lines.append(line.rstrip())
+        # The dashboard only needs recent output. Trimming old lines keeps the control
+        # plane from slowly growing forever in memory during long sessions.
         if len(job.output_lines) > 500:
             del job.output_lines[:-500]
 
-    def _append_process_output(self, process_record: ManagedProcess, line: str) -> None:
+    def _append_process_output(
+        self,
+        managed_process_record: ManagedProcess,
+        line: str,
+    ) -> None:
         """Append one output line to the managed app process while keeping output bounded."""
 
-        process_record.output_lines.append(line.rstrip())
-        if len(process_record.output_lines) > 800:
-            del process_record.output_lines[:-800]
+        managed_process_record.output_lines.append(line.rstrip())
+        if len(managed_process_record.output_lines) > 800:
+            del managed_process_record.output_lines[:-800]
 
     def _script_command(self, script_name: str, *arguments: str) -> list[str]:
         """Build a PowerShell command list for one repository script."""
 
+        # Every long-running action in the browser UI ultimately delegates to one of
+        # the repository's PowerShell scripts. Building commands in one helper keeps
+        # their launch style consistent across jobs and the managed app.
         script_path = self.project_root / "scripts" / script_name
         return ["powershell", "-ExecutionPolicy", "Bypass", "-File", str(script_path), *arguments]
 
-    def _start_job(self, kind: str, command: list[str], working_directory: Path) -> JobRecord:
+    def _start_job(
+        self,
+        kind: str,
+        command_arguments: list[str],
+        working_directory: Path,
+    ) -> JobRecord:
         """Start one background job and capture its output for the UI."""
 
-        job = JobRecord(
-            job_id=self._next_job_id(),
+        job_record = JobRecord(
+            job_identifier=self._next_job_identifier(),
             kind=kind,
-            command=command,
+            command=command_arguments,
             working_directory=str(working_directory),
         )
 
-        with self._jobs_lock:
-            self._jobs[job.job_id] = job
+        with self._job_records_lock:
+            self._job_records[job_record.job_identifier] = job_record
 
-        self.log_buffer.add("INFO", "jobs", f"Queued {kind} job {job.job_id}.")
+        self.log_buffer.add(
+            "INFO", "jobs", f"Queued {kind} job {job_record.job_identifier}."
+        )
 
         def runner() -> None:
             """Run the subprocess, capture output, and update job status fields."""
 
-            job.status = "running"
-            job.started_at_utc = utc_now_iso()
-            self.log_buffer.add("INFO", "jobs", f"Started {kind} job {job.job_id}.")
+            job_record.status = "running"
+            job_record.started_at_utc = utc_now_iso()
+            self.log_buffer.add(
+                "INFO", "jobs", f"Started {kind} job {job_record.job_identifier}."
+            )
 
             try:
-                process = subprocess.Popen(
-                    command,
+                # Jobs are intentionally launched with stdout and stderr merged so the
+                # browser can present one time-ordered log stream instead of two separate ones.
+                launched_process = subprocess.Popen(
+                    command_arguments,
                     cwd=working_directory,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
@@ -209,34 +278,35 @@ class ControlPlaneState:
                     bufsize=1,
                 )
             except Exception as error:  # pragma: no cover - startup failures vary by machine.
-                job.status = "failed"
-                job.finished_at_utc = utc_now_iso()
-                job.exit_code = -1
-                self._append_job_output(job, f"Failed to start process: {error}")
+                job_record.status = "failed"
+                job_record.finished_at_utc = utc_now_iso()
+                job_record.exit_code = -1
+                self._append_job_output(job_record, f"Failed to start process: {error}")
                 self.log_buffer.add(
                     "ERROR",
                     "jobs",
-                    f"{kind} job {job.job_id} failed to start: {error}",
+                    f"{kind} job {job_record.job_identifier} failed to start: {error}",
                 )
                 return
 
-            assert process.stdout is not None
-            for line in process.stdout:
-                self._append_job_output(job, line)
+            assert launched_process.stdout is not None
+            for line in launched_process.stdout:
+                self._append_job_output(job_record, line)
                 self.log_buffer.add("INFO", kind, line.rstrip())
 
-            process.wait()
-            job.exit_code = process.returncode
-            job.finished_at_utc = utc_now_iso()
-            job.status = "succeeded" if process.returncode == 0 else "failed"
+            launched_process.wait()
+            job_record.exit_code = launched_process.returncode
+            job_record.finished_at_utc = utc_now_iso()
+            job_record.status = "succeeded" if launched_process.returncode == 0 else "failed"
             self.log_buffer.add(
-                "INFO" if process.returncode == 0 else "ERROR",
+                "INFO" if launched_process.returncode == 0 else "ERROR",
                 "jobs",
-                f"{kind} job {job.job_id} finished with exit code {process.returncode}.",
+                f"{kind} job {job_record.job_identifier} finished with exit code "
+                f"{launched_process.returncode}.",
             )
 
         threading.Thread(target=runner, daemon=True).start()
-        return job
+        return job_record
 
     def start_bootstrap_job(self) -> JobRecord:
         """Start the prerequisite report job."""
@@ -288,19 +358,30 @@ class ControlPlaneState:
         scene_file: str,
         width: int,
         height: int,
-        fps: int,
-        title: str,
+        frames_per_second: int = 60,
+        title: str = "Halcyn",
+        fps: int | None = None,
     ) -> ManagedProcess:
         """Start the Halcyn desktop app under control-plane supervision."""
 
-        with self._app_lock:
+        effective_frames_per_second = (
+            fps if fps is not None else frames_per_second
+        )
+
+        with self._managed_application_lock:
             self._refresh_app_process_state_locked()
-            if self._app_process is not None and self._app_process.poll() is None:
-                if self._app_record.status == "starting":
+            if (
+                self._managed_application_process is not None
+                and self._managed_application_process.poll() is None
+            ):
+                if self._managed_application_record.status == "starting":
                     raise RuntimeError("The Halcyn app launch is already in progress.")
                 raise RuntimeError("The Halcyn app is already running.")
 
-            command = self._script_command(
+            # The control plane starts the app through run.ps1 instead of invoking the
+            # executable directly, because the script already knows how to configure,
+            # build, and run the chosen configuration correctly on Windows.
+            launch_command = self._script_command(
                 "run.ps1",
                 "-Configuration",
                 configuration,
@@ -315,96 +396,109 @@ class ControlPlaneState:
                 "-Height",
                 str(height),
                 "-Fps",
-                str(fps),
+                str(effective_frames_per_second),
                 "-Title",
                 title,
             )
 
             if scene_file.strip():
-                command.extend(["-SceneFile", scene_file])
+                launch_command.extend(["-SceneFile", scene_file])
 
-            self._app_record = ManagedProcess(
+            self._managed_application_record = ManagedProcess(
                 name="halcyn_app",
-                command=command,
+                command=launch_command,
                 working_directory=str(self.project_root),
                 status="starting",
                 started_at_utc=utc_now_iso(),
             )
 
-            process = subprocess.Popen(
-                command,
+            managed_application_process = subprocess.Popen(
+                launch_command,
                 cwd=self.project_root,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
                 bufsize=1,
             )
-            self._app_process = process
-            self._app_record.pid = process.pid
+            self._managed_application_process = managed_application_process
+            self._managed_application_record.process_identifier = managed_application_process.pid
             self.log_buffer.add(
                 "INFO",
                 "app",
-                f"Started Halcyn app process tree via PID {process.pid}.",
+                f"Started Halcyn app process tree via PID {managed_application_process.pid}.",
             )
 
             def monitor() -> None:
                 """Monitor the app process and keep the web UI state in sync."""
 
-                assert process.stdout is not None
-                for line in process.stdout:
+                assert managed_application_process.stdout is not None
+                for line in managed_application_process.stdout:
+                    # run.ps1 prints a "Starting ..." line just before the renderer is
+                    # truly launching. We use that as the transition from "starting"
+                    # to "running" so the dashboard reflects the user's real experience.
                     if line.startswith("Starting "):
-                        self._app_record.status = "running"
-                    self._append_process_output(self._app_record, line)
+                        self._managed_application_record.status = "running"
+                    self._append_process_output(self._managed_application_record, line)
                     self.log_buffer.add("INFO", "app", line.rstrip())
 
-                process.wait()
-                self._app_record.status = "stopped"
-                self._app_record.stopped_at_utc = utc_now_iso()
-                with self._app_lock:
-                    self._app_process = None
+                managed_application_process.wait()
+                self._managed_application_record.status = "stopped"
+                self._managed_application_record.stopped_at_utc = utc_now_iso()
+                with self._managed_application_lock:
+                    self._managed_application_process = None
                 self.log_buffer.add(
-                    "INFO" if process.returncode == 0 else "ERROR",
+                    "INFO" if managed_application_process.returncode == 0 else "ERROR",
                     "app",
-                    f"Halcyn app process exited with code {process.returncode}.",
+                    "Halcyn app process exited with code "
+                    f"{managed_application_process.returncode}.",
                 )
 
             threading.Thread(target=monitor, daemon=True).start()
-            return self._app_record
+            return self._managed_application_record
 
     def stop_app(self) -> ManagedProcess:
         """Stop the managed Halcyn app process tree."""
 
-        with self._app_lock:
+        with self._managed_application_lock:
             self._refresh_app_process_state_locked()
-            process = self._app_process
-            if process is None or process.poll() is not None:
-                self._app_record.status = "stopped"
-                return self._app_record
+            managed_application_process = self._managed_application_process
+            if (
+                managed_application_process is None
+                or managed_application_process.poll() is not None
+            ):
+                self._managed_application_record.status = "stopped"
+                return self._managed_application_record
 
+            # taskkill /T stops the whole child process tree, which matters because
+            # PowerShell may have started build tools or the app beneath the wrapper process.
             subprocess.run(
-                ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                ["taskkill", "/PID", str(managed_application_process.pid), "/T", "/F"],
                 cwd=self.project_root,
                 capture_output=True,
                 text=True,
                 check=False,
             )
-            self._app_record.status = "stopping"
-            self._app_record.stopped_at_utc = utc_now_iso()
+            self._managed_application_record.status = "stopping"
+            self._managed_application_record.stopped_at_utc = utc_now_iso()
             self.log_buffer.add(
                 "INFO",
                 "app",
-                f"Requested stop for app process tree rooted at PID {process.pid}.",
+                "Requested stop for app process tree rooted at PID "
+                f"{managed_application_process.pid}.",
             )
-            return self._app_record
+            return self._managed_application_record
 
     def app_status(self) -> dict[str, Any]:
         """Return the current status of the managed Halcyn app."""
 
-        with self._app_lock:
+        with self._managed_application_lock:
             self._refresh_app_process_state_locked()
-            record = self._app_record.to_dict()
-            record["is_alive"] = self._app_process is not None and self._app_process.poll() is None
-            return record
+            managed_application_status = self._managed_application_record.to_dict()
+            managed_application_status["is_alive"] = (
+                self._managed_application_process is not None
+                and self._managed_application_process.poll() is None
+            )
+            return managed_application_status
 
     def available_tools(self) -> dict[str, dict[str, Any]]:
         """Inspect the local machine for the tools the project knows how to use."""
@@ -426,6 +520,8 @@ class ControlPlaneState:
             if path:
                 return path
 
+            # These fallbacks cover the most common Windows installation paths so the
+            # control plane can still give useful diagnostics when tools are not on PATH.
             candidate_paths = {
                 "ninja": [r"C:\ProgramData\Chocolatey\bin\ninja.exe"],
                 "clang-format": [r"C:\Program Files\LLVM\bin\clang-format.exe"],
@@ -467,6 +563,8 @@ class ControlPlaneState:
                     reverse=True,
                 )
                 for compiler_root in compiler_roots:
+                    # We pick the newest discovered MSVC toolset because that mirrors
+                    # what Visual Studio itself would typically prefer.
                     candidate = compiler_root / "bin" / "Hostx64" / "x64" / "cl.exe"
                     if candidate.exists():
                         return {"available": True, "path": str(candidate)}
@@ -532,6 +630,8 @@ class ControlPlaneState:
         python_jinja2_available = False
         python_path = known_tool_path("python")
         if python_path:
+            # bootstrap.ps1 depends on Jinja2 for code generation, so we test the
+            # import directly instead of assuming "python exists" means it is ready.
             result = subprocess.run(
                 [python_path, "-c", "import jinja2"],
                 capture_output=True,
@@ -557,9 +657,9 @@ class ControlPlaneState:
     def recent_jobs(self, limit: int = 25) -> list[dict[str, Any]]:
         """Return the newest background jobs."""
 
-        with self._jobs_lock:
-            jobs = list(self._jobs.values())[-max(1, limit):]
-            return [job.to_dict() for job in jobs]
+        with self._job_records_lock:
+            recent_job_records = list(self._job_records.values())[-max(1, limit):]
+            return [job_record.to_dict() for job_record in recent_job_records]
 
     def client_studio_catalog(self) -> dict[str, Any]:
         """Return the preset and input metadata for the browser-based client studio."""
@@ -587,6 +687,8 @@ class ControlPlaneState:
     def configure_client_studio_session(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Update the live Client Studio session without starting or stopping it."""
 
+        # Configure is the "change knobs but keep current running state" operation.
+        # That is different from start/stop so the browser can edit settings incrementally.
         snapshot = self._client_studio_session.configure(payload)
         return {"status": "configured", "session": snapshot}
 
@@ -605,27 +707,29 @@ class ControlPlaneState:
     def preview_client_scene(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Generate one browser-authored scene without touching the live renderer."""
 
-        bundle = build_scene_bundle(payload)
+        # Preview generation lets the browser inspect what would be sent without
+        # mutating the live scene currently shown by the renderer.
+        scene_bundle = build_scene_bundle(payload)
         self.log_buffer.add(
             "INFO",
             "client-studio",
-            f"Generated preview for preset {bundle['preset']['id']}.",
+            f"Generated preview for preset {scene_bundle['preset']['id']}.",
         )
-        return bundle
+        return scene_bundle
 
     def apply_client_scene(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Generate and submit one client-studio scene to the live renderer."""
 
-        bundle = build_scene_bundle(payload)
-        target = bundle["target"]
-        scene_json = json.dumps(bundle["scene"], separators=(",", ":"))
+        scene_bundle = build_scene_bundle(payload)
+        target_connection = scene_bundle["target"]
+        scene_json = json.dumps(scene_bundle["scene"], separators=(",", ":"))
 
         submission = self.run_api_request(
-            host=target["host"],
-            port=int(target["port"]),
+            host=target_connection["host"],
+            port=int(target_connection["port"]),
             method="POST",
-            path="/api/v1/scene",
-            body=scene_json,
+            request_path="/api/v1/scene",
+            request_body=scene_json,
             content_type="application/json",
         )
         if submission["status"] == 0:
@@ -636,10 +740,10 @@ class ControlPlaneState:
             )
             return {
                 "status": "offline",
-                "preset": bundle["preset"],
-                "target": target,
-                "scene": bundle["scene"],
-                "analysis": bundle["analysis"],
+                "preset": scene_bundle["preset"],
+                "target": target_connection,
+                "scene": scene_bundle["scene"],
+                "analysis": scene_bundle["analysis"],
                 "submission": submission,
             }
 
@@ -647,14 +751,15 @@ class ControlPlaneState:
             self.log_buffer.add(
                 "WARNING",
                 "client-studio",
-                f"Rejected client-studio scene {bundle['preset']['id']} during live submission.",
+                "Rejected client-studio scene "
+                f"{scene_bundle['preset']['id']} during live submission.",
             )
             return {
                 "status": "validation-failed",
-                "preset": bundle["preset"],
-                "target": target,
-                "scene": bundle["scene"],
-                "analysis": bundle["analysis"],
+                "preset": scene_bundle["preset"],
+                "target": target_connection,
+                "scene": scene_bundle["scene"],
+                "analysis": scene_bundle["analysis"],
                 "submission": submission,
                 "networkBytes": len(scene_json.encode("utf-8")),
             }
@@ -664,14 +769,14 @@ class ControlPlaneState:
             self.log_buffer.add(
                 "ERROR",
                 "client-studio",
-                f"Failed to apply preset {bundle['preset']['id']} to the live renderer.",
+                f"Failed to apply preset {scene_bundle['preset']['id']} to the live renderer.",
             )
             return {
                 "status": "apply-failed",
-                "preset": bundle["preset"],
-                "target": target,
-                "scene": bundle["scene"],
-                "analysis": bundle["analysis"],
+                "preset": scene_bundle["preset"],
+                "target": target_connection,
+                "scene": scene_bundle["scene"],
+                "analysis": scene_bundle["analysis"],
                 "submission": submission,
                 "networkBytes": len(scene_json.encode("utf-8")),
             }
@@ -679,14 +784,15 @@ class ControlPlaneState:
         self.log_buffer.add(
             "INFO",
             "client-studio",
-            f"Applied preset {bundle['preset']['id']} to {target['host']}:{target['port']}.",
+            f"Applied preset {scene_bundle['preset']['id']} to "
+            f"{target_connection['host']}:{target_connection['port']}.",
         )
         return {
             "status": "applied",
-            "preset": bundle["preset"],
-            "target": target,
-            "scene": bundle["scene"],
-            "analysis": bundle["analysis"],
+            "preset": scene_bundle["preset"],
+            "target": target_connection,
+            "scene": scene_bundle["scene"],
+            "analysis": scene_bundle["analysis"],
             "submission": submission,
             "networkBytes": len(scene_json.encode("utf-8")),
         }
@@ -698,8 +804,8 @@ class ControlPlaneState:
             host=host,
             port=port,
             method="POST",
-            path="/api/v1/scene",
-            body=scene_json,
+            request_path="/api/v1/scene",
+            request_body=scene_json,
             content_type="application/json",
             timeout_seconds=2,
         )
@@ -709,19 +815,33 @@ class ControlPlaneState:
         host: str,
         port: int,
         method: str,
-        path: str,
-        body: str,
-        content_type: str,
+        request_path: str | None = None,
+        request_body: str | None = None,
+        content_type: str = "application/json",
         timeout_seconds: float = 10,
+        path: str | None = None,
+        body: str | None = None,
     ) -> dict[str, Any]:
         """Proxy one browser-issued request into the running Halcyn API."""
 
-        normalized_path = path if path.startswith("/") else f"/{path}"
-        url = f"http://{host}:{port}{normalized_path}"
-        data = body.encode("utf-8") if body else None
-        request = urllib.request.Request(url=url, data=data, method=method.upper())
-        if body:
-            request.add_header("Content-Type", content_type or "application/json")
+        effective_request_path = request_path if request_path is not None else path or "/"
+        effective_request_body = request_body if request_body is not None else body or ""
+        normalized_path = (
+            effective_request_path
+            if effective_request_path.startswith("/")
+            else f"/{effective_request_path}"
+        )
+        request_url = f"http://{host}:{port}{normalized_path}"
+        request_body_bytes = (
+            effective_request_body.encode("utf-8") if effective_request_body else None
+        )
+        http_request = urllib.request.Request(
+            url=request_url,
+            data=request_body_bytes,
+            method=method.upper(),
+        )
+        if effective_request_body:
+            http_request.add_header("Content-Type", content_type or "application/json")
 
         self.log_buffer.add(
             "INFO",
@@ -730,22 +850,22 @@ class ControlPlaneState:
         )
 
         try:
-            with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
-                payload = response.read().decode("utf-8")
+            with urllib.request.urlopen(http_request, timeout=timeout_seconds) as http_response:
+                response_body_text = http_response.read().decode("utf-8")
                 return {
                     "ok": True,
-                    "status": response.status,
-                    "reason": response.reason,
-                    "body": payload,
-                    "headers": dict(response.headers.items()),
+                    "status": http_response.status,
+                    "reason": http_response.reason,
+                    "body": response_body_text,
+                    "headers": dict(http_response.headers.items()),
                 }
         except urllib.error.HTTPError as error:
-            payload = error.read().decode("utf-8")
+            response_body_text = error.read().decode("utf-8")
             return {
                 "ok": False,
                 "status": error.code,
                 "reason": error.reason,
-                "body": payload,
+                "body": response_body_text,
                 "headers": dict(error.headers.items()),
             }
         except Exception as error:  # pragma: no cover - network errors vary by machine.
@@ -760,8 +880,8 @@ class ControlPlaneState:
     def run_smoke_checks(self, host: str, port: int) -> dict[str, Any]:
         """Run a lightweight online smoke suite against the running Halcyn API."""
 
-        checks = []
-        for method, path, body in [
+        smoke_check_results = []
+        for method, request_path, request_body in [
             ("GET", "/api/v1/health", ""),
             ("GET", "/api/v1/runtime/limits", ""),
             (
@@ -780,22 +900,29 @@ class ControlPlaneState:
                 ),
             ),
         ]:
-            response = self.run_api_request(host, port, method, path, body, "application/json")
-            checks.append(
+            response = self.run_api_request(
+                host, port, method, request_path, request_body, "application/json"
+            )
+            smoke_check_results.append(
                 {
                     "method": method,
-                    "path": path,
+                    "path": request_path,
                     "status": response["status"],
                     "ok": response["status"] in (200, 202),
                 }
             )
 
-        all_passed = all(check["ok"] for check in checks)
-        return {"status": "passed" if all_passed else "failed", "checks": checks}
+        all_checks_passed = all(check["ok"] for check in smoke_check_results)
+        return {
+            "status": "passed" if all_checks_passed else "failed",
+            "checks": smoke_check_results,
+        }
 
     def summary(self) -> dict[str, Any]:
         """Return the combined dashboard payload used by the browser UI."""
 
+        # The dashboard is intentionally hydrated by one broad summary payload so the
+        # first page load can show a coherent snapshot before smaller live updates begin.
         return {
             "status": "ok",
             "projectRoot": str(self.project_root),

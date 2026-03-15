@@ -26,14 +26,14 @@ std::vector<std::string> BuildArgumentVector(int argc, char** argv) {
 int main(int argc, char** argv) {
   try {
     const auto arguments = BuildArgumentVector(argc, argv);
-    const auto config = halcyn::app::ParseCommandLineArguments(arguments);
+    const auto applicationConfiguration = halcyn::app::ParseCommandLineArguments(arguments);
 
-    if (config.showHelp) {
+    if (applicationConfiguration.showHelp) {
       halcyn::app::PrintHelpText();
       return 0;
     }
 
-    halcyn::app::Application application(config);
+    halcyn::app::Application application(applicationConfiguration);
     return application.Run();
   } catch (const std::exception& error) {
     std::cerr << "Halcyn failed to start: " << error.what() << '\n';

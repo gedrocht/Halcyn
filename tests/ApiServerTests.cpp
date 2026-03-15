@@ -9,48 +9,48 @@
 
 namespace halcyn::tests {
 TEST_CASE("ApiServer starts on an ephemeral port and exposes health information", "[api]") {
-  auto store = std::make_shared<core::SceneStore>(domain::CreateSample2DSceneDocument());
-  auto codec = std::make_shared<domain::SceneJsonCodec>();
+  auto sceneStore = std::make_shared<core::SceneStore>(domain::CreateSample2DSceneDocument());
+  auto sceneJsonCodec = std::make_shared<domain::SceneJsonCodec>();
   auto runtimeLog = std::make_shared<core::RuntimeLog>(100);
 
-  api::ApiServerConfig config;
-  config.host = "127.0.0.1";
-  config.port = 0;
+  api::ApiServerConfig serverConfiguration;
+  serverConfiguration.host = "127.0.0.1";
+  serverConfiguration.port = 0;
 
-  api::ApiServer server(config, store, codec, runtimeLog);
-  server.Start();
+  api::ApiServer apiServer(serverConfiguration, sceneStore, sceneJsonCodec, runtimeLog);
+  apiServer.Start();
 
-  REQUIRE(server.IsRunning());
-  REQUIRE(server.GetBoundPort() > 0);
+  REQUIRE(apiServer.IsRunning());
+  REQUIRE(apiServer.GetBoundPort() > 0);
 
-  httplib::Client client("127.0.0.1", server.GetBoundPort());
-  client.set_connection_timeout(5, 0);
-  client.set_read_timeout(5, 0);
+  httplib::Client httpClient("127.0.0.1", apiServer.GetBoundPort());
+  httpClient.set_connection_timeout(5, 0);
+  httpClient.set_read_timeout(5, 0);
 
-  const auto response = client.Get("/api/v1/health");
-  REQUIRE(response);
-  CHECK(response->status == 200);
-  CHECK(response->body.find("\"status\": \"ok\"") != std::string::npos);
+  const auto healthResponse = httpClient.Get("/api/v1/health");
+  REQUIRE(healthResponse);
+  CHECK(healthResponse->status == 200);
+  CHECK(healthResponse->body.find("\"status\": \"ok\"") != std::string::npos);
 
-  server.Stop();
-  CHECK_FALSE(server.IsRunning());
+  apiServer.Stop();
+  CHECK_FALSE(apiServer.IsRunning());
 }
 
 TEST_CASE("ApiServer validates scenes without activating them", "[api]") {
-  auto store = std::make_shared<core::SceneStore>(domain::CreateSample2DSceneDocument());
-  auto codec = std::make_shared<domain::SceneJsonCodec>();
+  auto sceneStore = std::make_shared<core::SceneStore>(domain::CreateSample2DSceneDocument());
+  auto sceneJsonCodec = std::make_shared<domain::SceneJsonCodec>();
   auto runtimeLog = std::make_shared<core::RuntimeLog>(100);
 
-  api::ApiServerConfig config;
-  config.host = "127.0.0.1";
-  config.port = 0;
+  api::ApiServerConfig serverConfiguration;
+  serverConfiguration.host = "127.0.0.1";
+  serverConfiguration.port = 0;
 
-  api::ApiServer server(config, store, codec, runtimeLog);
-  server.Start();
+  api::ApiServer apiServer(serverConfiguration, sceneStore, sceneJsonCodec, runtimeLog);
+  apiServer.Start();
 
-  httplib::Client client("127.0.0.1", server.GetBoundPort());
-  client.set_connection_timeout(5, 0);
-  client.set_read_timeout(5, 0);
+  httplib::Client httpClient("127.0.0.1", apiServer.GetBoundPort());
+  httpClient.set_connection_timeout(5, 0);
+  httpClient.set_read_timeout(5, 0);
 
   const std::string validScene = R"({
     "sceneType": "2d",
@@ -63,43 +63,43 @@ TEST_CASE("ApiServer validates scenes without activating them", "[api]") {
   })";
 
   const auto validateResponse =
-      client.Post("/api/v1/scene/validate", validScene, "application/json");
+      httpClient.Post("/api/v1/scene/validate", validScene, "application/json");
   REQUIRE(validateResponse);
   CHECK(validateResponse->status == 200);
   CHECK(validateResponse->body.find("\"status\": \"valid\"") != std::string::npos);
 
-  const auto snapshotAfterValidation = store->GetCurrent();
+  const auto snapshotAfterValidation = sceneStore->GetCurrent();
   CHECK(snapshotAfterValidation->version == 1);
 
-  server.Stop();
+  apiServer.Stop();
 }
 
 TEST_CASE("ApiServer rejects invalid media types and invalid scenes", "[api]") {
-  auto store = std::make_shared<core::SceneStore>(domain::CreateSample2DSceneDocument());
-  auto codec = std::make_shared<domain::SceneJsonCodec>();
+  auto sceneStore = std::make_shared<core::SceneStore>(domain::CreateSample2DSceneDocument());
+  auto sceneJsonCodec = std::make_shared<domain::SceneJsonCodec>();
   auto runtimeLog = std::make_shared<core::RuntimeLog>(100);
 
-  api::ApiServerConfig config;
-  config.host = "127.0.0.1";
-  config.port = 0;
+  api::ApiServerConfig serverConfiguration;
+  serverConfiguration.host = "127.0.0.1";
+  serverConfiguration.port = 0;
 
-  api::ApiServer server(config, store, codec, runtimeLog);
-  server.Start();
+  api::ApiServer apiServer(serverConfiguration, sceneStore, sceneJsonCodec, runtimeLog);
+  apiServer.Start();
 
-  httplib::Client client("127.0.0.1", server.GetBoundPort());
-  client.set_connection_timeout(5, 0);
-  client.set_read_timeout(5, 0);
+  httplib::Client httpClient("127.0.0.1", apiServer.GetBoundPort());
+  httpClient.set_connection_timeout(5, 0);
+  httpClient.set_read_timeout(5, 0);
 
-  const auto badMediaTypeResponse = client.Post("/api/v1/scene", "{}", "text/plain");
+  const auto badMediaTypeResponse = httpClient.Post("/api/v1/scene", "{}", "text/plain");
   REQUIRE(badMediaTypeResponse);
   CHECK(badMediaTypeResponse->status == 415);
 
   const auto invalidSceneResponse =
-      client.Post("/api/v1/scene", R"({"sceneType":"3d","vertices":[]})", "application/json");
+      httpClient.Post("/api/v1/scene", R"({"sceneType":"3d","vertices":[]})", "application/json");
   REQUIRE(invalidSceneResponse);
   CHECK(invalidSceneResponse->status == 400);
   CHECK(invalidSceneResponse->body.find("\"invalid-request\"") != std::string::npos);
 
-  server.Stop();
+  apiServer.Stop();
 }
 } // namespace halcyn::tests

@@ -2,10 +2,14 @@
 
 namespace halcyn::domain {
 SceneDocument CreateDefaultSceneDocument() {
+  // The default scene is intentionally a 2D sample because it is the smallest,
+  // friendliest possible success case when the app starts for the first time.
   return CreateSample2DSceneDocument();
 }
 
 SceneDocument CreateSample2DSceneDocument() {
+  // This built-in sample doubles as a visual smoke test: if the app can render
+  // one colorful triangle, the basic 2D pipeline is working.
   Scene2D scene;
   scene.primitiveType = PrimitiveType::Triangles;
   scene.pointSize = 10.0F;
@@ -18,6 +22,8 @@ SceneDocument CreateSample2DSceneDocument() {
   SceneDocument document;
   document.kind = SceneKind::TwoDimensional;
   document.payload = scene;
+  // Keeping a matching JSON copy makes the sample easy to expose through the API
+  // and easy for humans to inspect in logs or docs.
   document.originalJson = R"({
   "sceneType": "2d",
   "primitive": "triangles",
@@ -32,6 +38,8 @@ SceneDocument CreateSample2DSceneDocument() {
 }
 
 SceneDocument CreateSample3DSceneDocument() {
+  // The 3D sample is a simple colored tetrahedron-like shape that exercises the
+  // camera, depth testing, indexed drawing, and basic perspective rendering path.
   Scene3D scene;
   scene.primitiveType = PrimitiveType::Triangles;
   scene.clearColor = {0.04F, 0.05F, 0.08F, 1.0F};

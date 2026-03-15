@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="assets/styles.css">
     <script defer src="assets/app.js"></script>
   </head>
-  <body>
+  <body data-page="control-center">
     <div class="page-shell">
       <header class="topbar">
         <div class="brand">
@@ -19,7 +19,7 @@
         </div>
         <div class="topbar-actions">
           <button class="button" data-theme-toggle>Toggle theme</button>
-          <a class="button" href="http://127.0.0.1:9001">Open control plane</a>
+          <a class="button" href="/">Open control plane root</a>
         </div>
       </header>
 
@@ -33,7 +33,9 @@
             <li><a href="architecture.html">Architecture</a></li>
             <li><a href="testing.html">Testing</a></li>
             <li><a href="field-reference.html">Field Reference</a></li>
-            <li><a href="client-studio.html">Client Studio</a></li>
+            <li><a href="code-docs.html" data-nav-link="code-docs">Code Docs</a></li>
+            <li><a href="control-center.html" data-nav-link="control-center">Control Center</a></li>
+            <li><a href="client-studio.html" data-nav-link="client-studio">Client Studio</a></li>
           </ul>
         </nav>
 
@@ -46,6 +48,11 @@
               log viewing from one browser tab.
             </p>
             <pre><code>.\scripts\studio.ps1</code></pre>
+            <p>
+              The button above points at the control-plane root path. That works when these docs are being served by the
+              control plane itself. If you are viewing the docs from the standalone docs server, launch
+              <code>.\scripts\studio.ps1</code> separately and open the address it prints.
+            </p>
           </section>
 
           <section class="panel">

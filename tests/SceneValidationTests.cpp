@@ -8,18 +8,18 @@
 namespace halcyn::tests {
 TEST_CASE("ValidateSceneDocument rejects degenerate 3D camera definitions",
           "[validation][camera]") {
-  auto document = domain::CreateSample3DSceneDocument();
-  auto& scene = std::get<domain::Scene3D>(document.payload);
+  auto sceneDocument = domain::CreateSample3DSceneDocument();
+  auto& cameraScene = std::get<domain::Scene3D>(sceneDocument.payload);
 
-  scene.camera.position = {1.0F, 1.0F, 1.0F};
-  scene.camera.target = {1.0F, 1.0F, 1.0F};
-  scene.camera.up = {0.0F, 0.0F, 0.0F};
+  cameraScene.camera.position = {1.0F, 1.0F, 1.0F};
+  cameraScene.camera.target = {1.0F, 1.0F, 1.0F};
+  cameraScene.camera.up = {0.0F, 0.0F, 0.0F};
 
-  const auto errors = domain::ValidateSceneDocument(document);
+  const auto validationErrors = domain::ValidateSceneDocument(sceneDocument);
 
   bool foundTargetError = false;
   bool foundUpError = false;
-  for (const auto& error : errors) {
+  for (const auto& error : validationErrors) {
     if (error.path == "$.camera.target") {
       foundTargetError = true;
     }
@@ -34,28 +34,28 @@ TEST_CASE("ValidateSceneDocument rejects degenerate 3D camera definitions",
 }
 
 TEST_CASE("ValidateSceneDocument enforces scene size limits", "[validation][limits]") {
-  domain::SceneDocument document;
-  document.kind = domain::SceneKind::TwoDimensional;
+  domain::SceneDocument sceneDocument;
+  sceneDocument.kind = domain::SceneKind::TwoDimensional;
 
-  domain::Scene2D scene;
-  scene.primitiveType = domain::PrimitiveType::Points;
-  scene.vertices.resize(domain::SceneLimits::kMaxVertexCount + 1U);
-  document.payload = scene;
+  domain::Scene2D oversizedScene;
+  oversizedScene.primitiveType = domain::PrimitiveType::Points;
+  oversizedScene.vertices.resize(domain::SceneLimits::kMaxVertexCount + 1U);
+  sceneDocument.payload = oversizedScene;
 
-  const auto errors = domain::ValidateSceneDocument(document);
+  const auto validationErrors = domain::ValidateSceneDocument(sceneDocument);
 
-  REQUIRE_FALSE(errors.empty());
-  CHECK(errors.front().path == "$.vertices");
+  REQUIRE_FALSE(validationErrors.empty());
+  CHECK(validationErrors.front().path == "$.vertices");
 }
 
 TEST_CASE("SceneJsonCodec rejects oversized payloads before parsing", "[json][limits]") {
-  const domain::SceneJsonCodec codec;
+  const domain::SceneJsonCodec sceneJsonCodec;
   const std::string oversizedPayload(domain::SceneLimits::kMaxRequestPayloadBytes + 1U, 'x');
 
-  const auto result = codec.Parse(oversizedPayload);
+  const auto sceneParseResult = sceneJsonCodec.Parse(oversizedPayload);
 
-  REQUIRE_FALSE(result.succeeded);
-  REQUIRE_FALSE(result.errors.empty());
-  CHECK(result.errors.front().path == "$");
+  REQUIRE_FALSE(sceneParseResult.succeeded);
+  REQUIRE_FALSE(sceneParseResult.errors.empty());
+  CHECK(sceneParseResult.errors.front().path == "$");
 }
 } // namespace halcyn::tests
