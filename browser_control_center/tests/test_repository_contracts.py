@@ -166,6 +166,46 @@ class RepositoryContractTests(unittest.TestCase):
                     retired_term, page_text, f"{relative_path} still contains {retired_term!r}"
                 )
 
+    def test_docs_site_keeps_full_docs_map_links(self) -> None:
+        """Every docs page should expose the same core navigation destinations."""
+
+        expected_doc_links = {
+            "index.html",
+            "tutorial.html",
+            "api.html",
+            "architecture.html",
+            "testing.html",
+            "code-docs.html",
+            "field-reference.html",
+            "control-center.html",
+            "scene-studio.html",
+        }
+
+        for relative_path in [
+            "docs/site/index.html",
+            "docs/site/tutorial.html",
+            "docs/site/api.html",
+            "docs/site/architecture.html",
+            "docs/site/testing.html",
+            "docs/site/code-docs.html",
+            "docs/site/field-reference.html",
+            "docs/site/control-center.html",
+            "docs/site/scene-studio.html",
+        ]:
+            parser = self._parse_html(relative_path)
+            missing_doc_links = sorted(expected_doc_links - parser.hrefs)
+            self.assertFalse(
+                missing_doc_links,
+                f"{relative_path} is missing docs map links: {missing_doc_links}",
+            )
+
+    def test_docs_site_uses_browser_rendered_architecture_text(self) -> None:
+        """The architecture page should be real HTML text, not an SVG diagram reference."""
+
+        architecture_page_text = self._read_text("docs/site/architecture.html")
+        self.assertNotIn("<svg", architecture_page_text.lower())
+        self.assertFalse((self.project_root / "docs/site/assets/images/architecture.svg").exists())
+
     def test_codeql_workflow_keeps_dependency_builds_out_of_scope(self) -> None:
         """CodeQL should stay focused on repository-owned code.
 
