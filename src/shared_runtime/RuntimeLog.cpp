@@ -1,3 +1,8 @@
+/**
+ * @file
+ * @brief Implements the bounded runtime log shared by the app, API, and browser tooling.
+ */
+
 #include "shared_runtime/RuntimeLog.hpp"
 
 #include <algorithm>

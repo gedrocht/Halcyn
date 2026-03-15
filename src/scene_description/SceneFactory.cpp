@@ -1,3 +1,8 @@
+/**
+ * @file
+ * @brief Implements the built-in sample scenes used by startup, tests, docs, and example endpoints.
+ */
+
 #include "scene_description/SceneFactory.hpp"
 
 namespace halcyn::scene_description {

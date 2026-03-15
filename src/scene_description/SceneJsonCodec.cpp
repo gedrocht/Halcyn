@@ -1,3 +1,19 @@
+/**
+ * @file
+ * @brief Implements JSON parsing and serialization for Halcyn scene documents.
+ *
+ * @details
+ * This file contains the detailed JSON-to-type translation rules that back
+ * `halcyn::scene_description::SceneJsonCodec`.
+ *
+ * Helpful external references:
+ *
+ * - [nlohmann/json overview](https://nlohmann.github.io/json/api/basic_json/)
+ * - [`json::parse`](https://nlohmann.github.io/json/api/basic_json/parse/)
+ * - [`json::dump`](https://nlohmann.github.io/json/api/basic_json/dump/)
+ * - [`json::get`](https://nlohmann.github.io/json/api/basic_json/get/)
+ */
+
 #include "scene_description/SceneJsonCodec.hpp"
 
 #include "scene_description/SceneLimits.hpp"

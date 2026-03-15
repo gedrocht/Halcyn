@@ -10,6 +10,10 @@ if ([string]::IsNullOrWhiteSpace($doxygen)) {
   throw 'Doxygen is not installed. Install Doxygen, then rerun this script.'
 }
 
+if (Test-Path $outputDirectory) {
+  Remove-Item -Recurse -Force $outputDirectory
+}
+
 New-Item -ItemType Directory -Force -Path $outputDirectory | Out-Null
 Push-Location $projectRoot
 

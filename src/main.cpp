@@ -1,3 +1,9 @@
+/**
+ * @file
+ * @brief Defines the executable entry point that builds the argument vector, parses configuration,
+ * and launches the desktop application.
+ */
+
 #include "desktop_app/Application.hpp"
 
 #include <exception>

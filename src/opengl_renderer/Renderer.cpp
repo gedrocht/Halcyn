@@ -1,3 +1,23 @@
+/**
+ * @file
+ * @brief Implements the OpenGL renderer, including window creation, GPU setup, buffer uploads, and
+ * frame drawing.
+ *
+ * @details
+ * This file is the lowest-level part of the core C++ application. It is where Halcyn moves from
+ * "typed scene data" into actual OpenGL commands.
+ *
+ * Helpful external references:
+ *
+ * - [GLFW documentation](https://www.glfw.org/documentation.html)
+ * - [glad C quickstart](https://github.com/Dav1dde/glad/wiki/C)
+ * - [OpenGL Vertex Specification](https://wikis.khronos.org/opengl/Vertex_Specification)
+ * - [OpenGL Buffer Object overview](https://wikis.khronos.org/opengl/Buffer_Object)
+ * - [OpenGL primitive overview](https://wikis.khronos.org/opengl/primitive)
+ * - [GLM matrix transform docs](https://glm.g-truc.net/0.9.9/api/a00668.html)
+ * - [GLM clip-space docs](https://glm.g-truc.net/0.9.9/api/a00665.html)
+ */
+
 #include "opengl_renderer/Renderer.hpp"
 
 #include <glad/gl.h>
