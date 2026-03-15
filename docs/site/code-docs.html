@@ -33,9 +33,9 @@
             <li><a href="architecture.html" data-nav-link="architecture">Architecture</a></li>
             <li><a href="testing.html" data-nav-link="testing">Testing</a></li>
             <li><a href="code-docs.html" data-nav-link="code-docs">Code Docs</a></li>
-            <li><a href="field-reference.html">Field Reference</a></li>
-            <li><a href="control-center.html">Control Center</a></li>
-            <li><a href="scene-studio.html">Scene Studio</a></li>
+            <li><a href="field-reference.html" data-nav-link="field-reference">Field Reference</a></li>
+            <li><a href="control-center.html" data-nav-link="control-center">Control Center</a></li>
+            <li><a href="scene-studio.html" data-nav-link="scene-studio">Scene Studio</a></li>
           </ul>
         </nav>
 
@@ -53,7 +53,12 @@
             <pre><code>.\scripts\generate-code-reference-docs.ps1</code></pre>
             <p>
               The generated site is written to <code>docs/generated/code-reference</code>. The included
-              <code>Doxyfile</code> already scans <code>src</code> and <code>README.md</code>.
+              <code>Doxyfile</code> now scans <code>src</code>, <code>README.md</code>, and the
+              narrative pages under <code>docs/doxygen</code>.
+            </p>
+            <p>
+              The generation script also clears stale output first, so renamed classes or old page
+              fragments do not linger in the published reference after big refactors.
             </p>
           </section>
 

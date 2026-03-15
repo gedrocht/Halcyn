@@ -14,7 +14,7 @@
           <div class="brand-mark" aria-hidden="true"></div>
           <div class="brand-copy">
             <h1>Architecture</h1>
-            <p>Why the codebase is split the way it is.</p>
+            <p>The real runtime picture: what owns what, what talks to what, and why.</p>
           </div>
         </div>
         <div class="topbar-actions">
@@ -33,78 +33,276 @@
             <li><a href="architecture.html" data-nav-link="architecture">Architecture</a></li>
             <li><a href="testing.html" data-nav-link="testing">Testing</a></li>
             <li><a href="code-docs.html" data-nav-link="code-docs">Code Docs</a></li>
-            <li><a href="field-reference.html">Field Reference</a></li>
-            <li><a href="control-center.html">Control Center</a></li>
-            <li><a href="scene-studio.html">Scene Studio</a></li>
+            <li><a href="field-reference.html" data-nav-link="field-reference">Field Reference</a></li>
+            <li><a href="control-center.html" data-nav-link="control-center">Control Center</a></li>
+            <li><a href="scene-studio.html" data-nav-link="scene-studio">Scene Studio</a></li>
           </ul>
         </nav>
 
         <main>
           <section class="panel">
-            <h3>High-level flow</h3>
-            <div class="cards">
-              <div class="card">
-                <h4>External callers</h4>
-                <p>People, scripts, the Control Center, and the Scene Studio all begin by sending JSON or control requests.</p>
-              </div>
-              <div class="card">
+            <h3>What this page is about</h3>
+            <p>
+              This page is intentionally about the <strong>runtime architecture</strong> of Halcyn:
+              the pieces that are alive while the app is being used. It focuses on who owns the
+              scene data, how requests move through the process, and where rendering actually
+              happens.
+            </p>
+            <div class="callout">
+              This page deliberately leaves out CI, packaging, branch rules, and release mechanics.
+              Those matter for engineering quality, but they are not part of the runtime path that
+              turns requests into pixels.
+            </div>
+          </section>
+
+          <section class="panel">
+            <h3>Runtime map</h3>
+            <div class="architecture-flow">
+              <section class="architecture-stage">
+                <div class="architecture-stage-header">
+                  <p class="eyebrow">Stage 1</p>
+                  <h4>Entry points</h4>
+                  <p>
+                    These are the ways a person or tool asks Halcyn to do something. None of these
+                    entry points draw directly; they all feed into a smaller number of canonical
+                    runtime services.
+                  </p>
+                </div>
+                <div class="architecture-stage-grid">
+                  <div class="architecture-node emphasis">
+                    <strong>Desktop startup</strong>
+                    <p>
+                      PowerShell launch scripts and command-line arguments choose the startup sample,
+                      the HTTP port, the window size, and optional scene files.
+                    </p>
+                  </div>
+                  <div class="architecture-node">
+                    <strong>Browser Control Center</strong>
+                    <p>
+                      The browser dashboard helps with launching, testing, docs access, log viewing,
+                      and request orchestration before or during a desktop app session.
+                    </p>
+                  </div>
+                  <div class="architecture-node">
+                    <strong>Browser Scene Studio</strong>
+                    <p>
+                      The scene authoring UI sends control changes that become scene updates or
+                      server-driven live-session output.
+                    </p>
+                  </div>
+                  <div class="architecture-node">
+                    <strong>Direct HTTP callers</strong>
+                    <p>
+                      PowerShell scripts, tests, curl, and other tools can submit or validate scene
+                      JSON without going through a browser at all.
+                    </p>
+                  </div>
+                </div>
+              </section>
+
+              <section class="architecture-stage">
+                <div class="architecture-stage-header">
+                  <p class="eyebrow">Stage 2</p>
+                  <h4>Acceptance pipeline</h4>
+                  <p>
+                    Once a request reaches the C++ application, the data follows one deliberate path
+                    so parsing, validation, and rendering stay clearly separated.
+                  </p>
+                </div>
+                <div class="architecture-stage-grid">
+                  <div class="architecture-node emphasis">
+                    <strong><code>src/http_api</code></strong>
+                    <p>
+                      The embedded HTTP server receives requests, enforces payload limits, and
+                      turns success or failure into readable JSON responses.
+                    </p>
+                  </div>
+                  <div class="architecture-node">
+                    <strong><code>src/scene_description/SceneJsonCodec</code></strong>
+                    <p>
+                      The codec parses raw JSON into typed scene objects and can serialize stored
+                      snapshots back into JSON for diagnostics.
+                    </p>
+                  </div>
+                  <div class="architecture-node">
+                    <strong><code>ValidateSceneDocument</code></strong>
+                    <p>
+                      Semantic validation checks things the JSON parser alone cannot prove, such as
+                      primitive alignment, index bounds, and sane 3D camera settings.
+                    </p>
+                  </div>
+                  <div class="architecture-node">
+                    <strong><code>BuildRenderScene</code></strong>
+                    <p>
+                      Both 2D and 3D scenes are normalized into one render-friendly shape so the GPU
+                      upload path can stay simple.
+                    </p>
+                  </div>
+                </div>
+              </section>
+
+              <section class="architecture-stage">
+                <div class="architecture-stage-header">
+                  <p class="eyebrow">Stage 3</p>
+                  <h4>Authoritative shared runtime state</h4>
+                  <p>
+                    After validation succeeds, the new scene becomes shared application state. This
+                    is the hand-off point between "request handling" and "ongoing rendering".
+                  </p>
+                </div>
+                <div class="architecture-stage-grid">
+                  <div class="architecture-node emphasis">
+                    <strong><code>SceneStore</code></strong>
+                    <p>
+                      Owns the current immutable scene snapshot, including version number, source
+                      label, and activation time. This is the renderer's source of truth.
+                    </p>
+                  </div>
+                  <div class="architecture-node">
+                    <strong><code>RuntimeLog</code></strong>
+                    <p>
+                      Keeps the shared log stream used by the terminal, the embedded API, and the
+                      browser tooling. This is the observability spine of the app.
+                    </p>
+                  </div>
+                  <div class="architecture-node">
+                    <strong><code>desktop_app::Application</code></strong>
+                    <p>
+                      Wires the codec, scene store, log, API server, and renderer together and owns
+                      their startup/shutdown order.
+                    </p>
+                  </div>
+                </div>
+              </section>
+
+              <section class="architecture-stage">
+                <div class="architecture-stage-header">
+                  <p class="eyebrow">Stage 4</p>
+                  <h4>Frame production</h4>
+                  <p>
+                    Rendering begins only after a valid snapshot already exists. The renderer never
+                    needs to parse JSON or reason about partially updated scene state.
+                  </p>
+                </div>
+                <div class="architecture-stage-grid">
+                  <div class="architecture-node emphasis">
+                    <strong><code>Renderer</code></strong>
+                    <p>
+                      Watches the snapshot version, uploads new buffers only when the scene changes,
+                      and drives the frame loop on the main thread.
+                    </p>
+                  </div>
+                  <div class="architecture-node">
+                    <strong><code>ShaderProgram</code></strong>
+                    <p>
+                      Wraps shader compilation, linking, and uniform uploads so the render loop can
+                      focus on rendering decisions instead of low-level program management.
+                    </p>
+                  </div>
+                  <div class="architecture-node">
+                    <strong>OpenGL + GPU window</strong>
+                    <p>
+                      The GPU transforms vertices, rasterizes primitives, blends colors, and fills
+                      the framebuffer that eventually appears in the visible app window.
+                    </p>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h3>Request-to-pixels sequence</h3>
+            <ol class="architecture-sequence">
+              <li>
+                A person, script, Control Center action, or Scene Studio control emits a request or
+                startup instruction.
+              </li>
+              <li>
+                The desktop app or embedded HTTP API receives that input and turns it into a scene
+                loading or scene submission attempt.
+              </li>
+              <li>
+                The JSON codec converts raw text into typed scene objects and preserves readable
+                error information if the input is malformed.
+              </li>
+              <li>
+                Semantic validation checks that the scene would make sense to draw, not just that the
+                JSON has the right shape.
+              </li>
+              <li>
+                The validated scene is converted into the normalized render format and published into
+                the shared scene store as a brand-new immutable snapshot.
+              </li>
+              <li>
+                The renderer notices the new snapshot version on a later frame and uploads the latest
+                vertex and index data to GPU buffers.
+              </li>
+              <li>
+                The renderer builds either an orthographic 2D matrix or a perspective 3D matrix,
+                depending on the scene kind.
+              </li>
+              <li>
+                OpenGL executes the draw call and the GPU fills the window with the new image.
+              </li>
+            </ol>
+          </section>
+
+          <section class="panel">
+            <h3>Responsibility boundaries</h3>
+            <div class="architecture-boundary-grid">
+              <section class="architecture-boundary">
+                <h4><code>src/desktop_app</code></h4>
+                <ul>
+                  <li>Owns startup, shutdown, and command-line parsing.</li>
+                  <li>Does not own HTTP transport details or OpenGL draw logic.</li>
+                </ul>
+              </section>
+              <section class="architecture-boundary">
                 <h4><code>src/http_api</code></h4>
-                <p>The embedded HTTP API receives requests, validates scene payloads, and translates errors into readable responses.</p>
-              </div>
-              <div class="card">
+                <ul>
+                  <li>Owns request routing, response formatting, and transport-level checks.</li>
+                  <li>Does not own the canonical scene model or GPU behavior.</li>
+                </ul>
+              </section>
+              <section class="architecture-boundary">
                 <h4><code>src/scene_description</code></h4>
-                <p>The scene description layer defines the legal scene vocabulary and turns JSON into typed scene objects.</p>
-              </div>
-              <div class="card">
+                <ul>
+                  <li>Owns the scene language, JSON codec, examples, and validation rules.</li>
+                  <li>Does not own threading, sockets, or rendering loop state.</li>
+                </ul>
+              </section>
+              <section class="architecture-boundary">
                 <h4><code>src/shared_runtime</code></h4>
-                <p>The shared runtime owns the versioned scene snapshot and runtime logs so other parts of the app can safely coordinate.</p>
-              </div>
-              <div class="card">
+                <ul>
+                  <li>Owns immutable scene snapshots and shared log history.</li>
+                  <li>Does not own parsing rules or drawing commands.</li>
+                </ul>
+              </section>
+              <section class="architecture-boundary">
                 <h4><code>src/opengl_renderer</code></h4>
-                <p>The renderer watches for new scene versions, uploads geometry to GPU buffers, and draws the newest scene every frame.</p>
-              </div>
-              <div class="card">
-                <h4>The GPU</h4>
-                <p>The GPU transforms vertices and fills the window with pixels after the CPU has prepared the draw call data.</p>
-              </div>
+                <ul>
+                  <li>Owns GLFW, glad, shader use, matrix building, buffers, and draw calls.</li>
+                  <li>Does not own JSON parsing, request validation, or browser orchestration.</li>
+                </ul>
+              </section>
+              <section class="architecture-boundary">
+                <h4>Browser tooling</h4>
+                <ul>
+                  <li>Owns operator workflow, authoring UX, and orchestration affordances.</li>
+                  <li>Does not replace the scene store as the canonical source of truth.</li>
+                </ul>
+              </section>
             </div>
           </section>
 
           <section class="panel">
-            <h3>Why one process and two main execution paths?</h3>
+            <h3>Why there are separate browser tools</h3>
             <p>
-              The renderer must own the graphics context on the main thread. The HTTP server blocks while it listens for
-              requests. Those two needs would fight each other if they ran on the same thread, so Halcyn starts the API
-              server on a background thread and keeps rendering on the main thread.
-            </p>
-          </section>
-
-          <section class="panel">
-            <h3>Layer responsibilities</h3>
-            <div class="cards">
-              <div class="card"><h4><code>src/scene_description</code></h4><p>Defines the scene language, validation rules, JSON codec, and example scene builders.</p></div>
-              <div class="card"><h4><code>src/shared_runtime</code></h4><p>Owns synchronization, versioned scene snapshots, and the in-memory runtime log.</p></div>
-              <div class="card"><h4><code>src/http_api</code></h4><p>Owns HTTP transport, route selection, and response formatting.</p></div>
-              <div class="card"><h4><code>src/opengl_renderer</code></h4><p>Owns OpenGL, shaders, buffers, camera transforms, and draw calls.</p></div>
-              <div class="card"><h4><code>src/desktop_app</code></h4><p>Owns process startup, command-line parsing, and assembling the application layers into one running desktop app.</p></div>
-            </div>
-          </section>
-
-          <section class="panel">
-            <h3>Why immutable scene snapshots?</h3>
-            <p>
-              The API thread and the render thread should not share a mutable scene object that one thread edits while
-              the other thread reads. Instead, Halcyn replaces the entire current scene snapshot with a new one when a
-              request succeeds. The renderer then picks up the new snapshot on a later frame.
-            </p>
-          </section>
-
-          <section class="panel">
-            <h3>Why normalize both 2D and 3D into one render format?</h3>
-            <p>
-              The GPU upload path becomes easier to understand if it always sees one flat vertex format:
-              position plus color. A 2D vertex becomes a 3D vertex with <code>z = 0</code>. A 3D vertex already has all
-              three position coordinates.
+              The Control Center and Scene Studio serve different jobs. The Control Center is about
+              orchestration: builds, tests, logs, docs, and API experiments. The Scene Studio is
+              about live scene authoring. Keeping them separate avoids one overloaded UI that tries
+              to be both a dashboard and a creative surface at once.
             </p>
           </section>
         </main>
