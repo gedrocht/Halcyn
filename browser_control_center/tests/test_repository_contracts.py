@@ -217,7 +217,10 @@ class RepositoryContractTests(unittest.TestCase):
             root_relative_links = sorted(href for href in parser.hrefs if href.startswith("/"))
             self.assertFalse(
                 root_relative_links,
-                f"{relative_path} contains root-relative links that break on GitHub Pages: {root_relative_links}",
+                (
+                    f"{relative_path} contains root-relative links that break on "
+                    f"GitHub Pages: {root_relative_links}"
+                ),
             )
 
     def test_docs_overview_links_to_the_repository_readme_not_a_local_markdown_path(self) -> None:
