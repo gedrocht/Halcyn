@@ -226,7 +226,7 @@ Run `.\scripts\package.ps1` to produce a versioned ZIP file under `artifacts/`. 
 - C++ warnings are treated as build failures by default.
 - The control plane is linted, type-checked, and required to maintain at least 90% Python coverage.
 - GitHub Actions lint the control plane, type-check it, run coverage for it, build the native project in Debug and Release, and run the native tests.
-- CodeQL analyzes the repository-owned C/C++ code on pushes, pull requests, and a weekly schedule.
+- CodeQL analyzes the native code on pushes, pull requests, and a weekly schedule.
 - The Pages workflow now publishes the static docs site together with generated Doxygen output.
 - Repository formatting is explicitly governed by `.clang-format` and `.editorconfig`.
 

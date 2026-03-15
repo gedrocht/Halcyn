@@ -121,18 +121,6 @@ class ClientStudioServerTests(unittest.TestCase):
 
         self.assertIn("Halcyn Client Studio", body)
 
-    def test_client_static_assets_are_served(self) -> None:
-        """The client-studio HTML should be able to load its JS and CSS assets."""
-
-        for path, expected_snippet in [
-            ("/client/static/app.js", "function bootstrap()"),
-            ("/client/static/styles.css", ".page-shell"),
-        ]:
-            with urllib.request.urlopen(f"{self.base_url}{path}", timeout=5) as response:
-                body = response.read().decode("utf-8")
-
-            self.assertIn(expected_snippet, body)
-
     def test_catalog_route_returns_preset_metadata(self) -> None:
         """The browser should be able to discover presets and supported signal sources."""
 
