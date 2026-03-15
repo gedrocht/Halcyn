@@ -551,6 +551,19 @@ class ControlPlaneState:
 
         return {"status": "ok", "session": self._client_studio_session.snapshot()}
 
+    def wait_for_client_studio_session_update(
+        self,
+        after_revision: int,
+        timeout_seconds: float = 15.0,
+    ) -> tuple[dict[str, Any], bool]:
+        """Wait for the live Client Studio snapshot to change."""
+
+        snapshot, changed = self._client_studio_session.wait_for_update(
+            after_revision,
+            timeout_seconds=timeout_seconds,
+        )
+        return {"status": "ok", "session": snapshot}, changed
+
     def configure_client_studio_session(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Update the live Client Studio session without starting or stopping it."""
 

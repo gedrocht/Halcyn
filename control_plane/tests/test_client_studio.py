@@ -146,6 +146,22 @@ class ClientStudioServerTests(unittest.TestCase):
         self.assertIn("session", payload)
         self.assertEqual(payload["session"]["status"], "stopped")
 
+    def test_session_stream_route_emits_initial_snapshot_event(self) -> None:
+        """The browser should be able to subscribe to session updates without polling."""
+
+        with urllib.request.urlopen(
+            f"{self.base_url}/api/client-studio/session/stream",
+            timeout=5,
+        ) as response:
+            self.assertEqual(response.headers.get_content_type(), "text/event-stream")
+            event_line = response.readline().decode("utf-8").strip()
+            data_line = response.readline().decode("utf-8").strip()
+
+        self.assertEqual(event_line, "event: session")
+        payload = json.loads(data_line.removeprefix("data: "))
+        self.assertEqual(payload["status"], "ok")
+        self.assertEqual(payload["session"]["status"], "stopped")
+
     def test_preview_route_returns_generated_scene_payload(self) -> None:
         """Preview requests should return generated scenes without requiring the native app."""
 
@@ -291,6 +307,27 @@ class ClientStudioLiveSessionTests(unittest.TestCase):
         self.assertEqual(payload["target_port"], 9090)
         self.assertEqual(payload["cadence_ms"], 85)
 
+    def test_wait_for_update_returns_the_next_revision(self) -> None:
+        """Waiting for updates should unblock when the session changes."""
+
+        initial = self.session.snapshot()
+        timer = threading.Timer(
+            0.05,
+            lambda: self.session.configure({"session": {"cadenceMs": 90}}),
+        )
+        timer.start()
+        try:
+            snapshot, changed = self.session.wait_for_update(
+                initial["revision"],
+                timeout_seconds=1.0,
+            )
+        finally:
+            timer.join(timeout=1)
+
+        self.assertTrue(changed)
+        self.assertGreater(snapshot["revision"], initial["revision"])
+        self.assertEqual(snapshot["cadence_ms"], 90)
+
     def test_start_streams_multiple_frames_until_stopped(self) -> None:
         """Starting the session should keep applying frames until it is explicitly stopped."""
 
@@ -340,6 +377,39 @@ class ClientStudioLiveSessionTests(unittest.TestCase):
         self.assertEqual(snapshot["last_submission_reason"], "exception")
         self.assertIn("boom", snapshot["last_error"])
         self.assertTrue(any("crashed" in message for _, _, message in self.logs))
+
+    def test_stop_reports_stopping_when_the_current_frame_has_not_finished_yet(self) -> None:
+        """Stopping should stay honest if the active frame is still winding down."""
+
+        release_frame = threading.Event()
+        frame_started = threading.Event()
+
+        def slow_callback(host: str, port: int, scene_json: str) -> dict:
+            frame_started.set()
+            release_frame.wait(timeout=0.5)
+            return {
+                "ok": True,
+                "status": 202,
+                "reason": "Accepted",
+                "body": "{}",
+                "headers": {},
+            }
+
+        self.session.close()
+        self.session = ClientStudioLiveSession(
+            slow_callback,
+            self._log_callback,
+            stop_join_timeout_seconds=0.01,
+        )
+        self.session.start({"session": {"cadenceMs": 40}})
+        self.assertTrue(frame_started.wait(timeout=1.0))
+
+        snapshot = self.session.stop()
+        self.assertEqual(snapshot["status"], "stopping")
+        self.assertTrue(any("still finishing" in message for _, _, message in self.logs))
+
+        release_frame.set()
+        self._wait_for(lambda: self.session.snapshot()["status"] == "stopped")
 
 
 if __name__ == "__main__":
