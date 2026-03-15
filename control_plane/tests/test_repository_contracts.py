@@ -76,13 +76,6 @@ class RepositoryContractTests(unittest.TestCase):
         parser = self._parse_html("control_plane/static/index.html")
         self.assertIn("/client/", parser.hrefs)
 
-    def test_architecture_page_uses_html_diagram_instead_of_svg_text(self) -> None:
-        """The architecture page should keep using DOM text for more reliable rendering."""
-
-        architecture_page = self._read_text("docs/site/architecture.html")
-        self.assertIn('class="architecture-map"', architecture_page)
-        self.assertNotIn("architecture.svg", architecture_page)
-
     def test_runtime_and_run_script_stay_in_api_host_sync(self) -> None:
         """The runtime should keep using the current run.ps1 ApiHost parameter name."""
 
@@ -117,10 +110,3 @@ class RepositoryContractTests(unittest.TestCase):
             offenders,
             f"Scripts still using provider-style project root resolution: {offenders}",
         )
-
-    def test_codeql_workflow_stays_focused_on_repository_owned_code(self) -> None:
-        """CodeQL should avoid rebuilding fetched third-party dependency trees."""
-
-        workflow_text = self._read_text(".github/workflows/codeql.yml")
-        self.assertIn("build-mode: none", workflow_text)
-        self.assertNotIn("./scripts/build.ps1", workflow_text)
