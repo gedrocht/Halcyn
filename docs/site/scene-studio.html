@@ -1,0 +1,114 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Halcyn Scene Studio</title>
+    <link rel="stylesheet" href="assets/styles.css">
+    <script defer src="assets/app.js"></script>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true"></div>
+          <div class="brand-copy">
+            <h1>Scene Studio Guide</h1>
+            <p>How the browser client turns live signals into server-driven 3D scene streaming.</p>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <button class="button" data-theme-toggle>Toggle theme</button>
+          <a class="button" href="/scene-studio/">Open Scene Studio</a>
+        </div>
+      </header>
+
+      <div class="content-grid">
+        <nav class="nav-card">
+          <h3>Docs map</h3>
+          <ul>
+            <li><a href="index.html">Overview</a></li>
+            <li><a href="tutorial.html">Tutorial</a></li>
+            <li><a href="api.html">API Reference</a></li>
+            <li><a href="architecture.html">Architecture</a></li>
+            <li><a href="testing.html">Testing</a></li>
+            <li><a href="control-center.html">Control Center</a></li>
+          </ul>
+        </nav>
+
+        <main>
+          <section class="panel">
+            <h3>What it is</h3>
+            <p>
+              Scene Studio is the separate browser-facing scene authoring surface for Halcyn. It
+              lives in its own top-level folder, but it still relies on the existing Control Center
+              server for routing, live-session control, logging, and test coverage.
+            </p>
+            <pre><code>/scene-studio/</code></pre>
+          </section>
+
+          <section class="panel">
+            <h3>Signal inputs</h3>
+            <div class="cards">
+              <div class="card"><h4>Unix time</h4><p>Provides a stable animated phase even when no hardware input is active.</p></div>
+              <div class="card"><h4>Noise</h4><p>Adds deterministic variation so repeated frames do not feel too rigid.</p></div>
+              <div class="card"><h4>Pointer</h4><p>Uses normalized mouse position and motion speed captured in the browser.</p></div>
+              <div class="card"><h4>Microphone</h4><p>Uses browser-side microphone analysis when the user explicitly enables it.</p></div>
+              <div class="card"><h4>Manual drive</h4><p>Lets the operator push the preset without depending on external input at all.</p></div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h3>Why this stays in the same repo</h3>
+            <p>
+              The client and renderer share one scene contract. Keeping the client in this
+              repository means the contract, docs, CI, and release rules stay synchronized. The UI
+              is still physically separated under <code>browser_scene_studio/</code>, so it can evolve
+              independently without dragging the rest of the Control Center around.
+            </p>
+          </section>
+
+          <section class="panel">
+            <h3>How live streaming works now</h3>
+            <p>
+              The browser does not need to send a full JSON scene every time the pointer or audio
+              input changes. Instead, it sends lighter control updates to the Control Center. The
+              Control Center keeps a persistent live session, regenerates scenes server-side on a
+              fixed cadence, and streams those scenes into the live Halcyn API.
+            </p>
+            <p>
+              Session status now travels back to the browser over a server-sent event stream, so
+              the client does not need to keep polling the Control Center every few hundred
+              milliseconds just to learn whether anything changed.
+            </p>
+          </section>
+
+          <section class="panel">
+            <h3>Why it is still build-free HTML instead of React</h3>
+            <p>
+              The main latency improvement came from moving the streaming loop to the server side,
+              not from changing frontend frameworks. Keeping the client as a static HTML, CSS, and
+              JavaScript app preserves the repo's existing quality gates on machines without a Node
+              toolchain. If the UI grows more state-heavy later, the backend contract is now stable
+              enough to support a React migration without changing the renderer-facing design.
+            </p>
+          </section>
+
+          <section class="panel">
+            <h3>Control Center routes behind the client</h3>
+            <p>
+              Scene Studio uses the catalog, preview, one-shot apply, and live-session routes under
+              <code>/api/scene-studio/...</code>. The live-session endpoints are what make the
+              browser feel more responsive during continuous manipulation.
+            </p>
+            <p>
+              The session stream route is the lean part of that loop: it lets the Control Center push
+              session updates when something actually changes instead of making the browser ask over
+              and over again.
+            </p>
+          </section>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

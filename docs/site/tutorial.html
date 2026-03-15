@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
@@ -35,6 +35,7 @@
             <li><a href="code-docs.html" data-nav-link="code-docs">Code Docs</a></li>
             <li><a href="field-reference.html">Field Reference</a></li>
             <li><a href="control-center.html">Control Center</a></li>
+            <li><a href="scene-studio.html">Scene Studio</a></li>
           </ul>
         </nav>
 
@@ -42,10 +43,10 @@
           <section class="panel">
             <h3>Step 1: check prerequisites</h3>
             <p>
-              Run the bootstrap script first. This does not build anything. It only tells you whether CMake, Python,
+              Run the prerequisite report first. This does not build anything. It only tells you whether CMake, Python,
               Git, a compiler, and optional documentation tools are present.
             </p>
-            <pre><code>.\scripts\bootstrap.ps1</code></pre>
+            <pre><code>.\scripts\report-prerequisites.ps1</code></pre>
           </section>
 
           <section class="panel">
@@ -54,8 +55,8 @@
               The build script configures the project with CMake and then compiles it. By default it produces a Debug
               build. You can also choose Release.
             </p>
-            <pre><code>.\scripts\build.ps1
-.\scripts\build.ps1 -Configuration Release</code></pre>
+            <pre><code>.\scripts\build-halcyn-app.ps1
+.\scripts\build-halcyn-app.ps1 -Configuration Release</code></pre>
           </section>
 
           <section class="panel">
@@ -64,10 +65,10 @@
               The run script builds the app if necessary, starts the HTTP API, and opens the render window. You can
               choose a startup sample or load a scene file immediately.
             </p>
-            <pre><code>.\scripts\run.ps1
-.\scripts\run.ps1 -Sample 3d
-.\scripts\run.ps1 -SceneFile .\examples\scene_2d_lines.json
-.\scripts\run.ps1 -Port 0</code></pre>
+            <pre><code>.\scripts\launch-halcyn-app.ps1
+.\scripts\launch-halcyn-app.ps1 -Sample 3d
+.\scripts\launch-halcyn-app.ps1 -SceneFile .\examples\scene_2d_lines.json
+.\scripts\launch-halcyn-app.ps1 -Port 0</code></pre>
             <p>
               If you use <code>-Port 0</code>, Windows chooses any free TCP port. Halcyn then prints the real port in
               its startup summary so you can connect to the correct address.
@@ -80,9 +81,9 @@
               Open a second PowerShell terminal and post a sample scene. When the request succeeds, the renderer picks
               up the new scene on the next frame.
             </p>
-            <pre><code>.\scripts\post-sample-2d.ps1
-.\scripts\post-sample-3d.ps1</code></pre>
-            <pre><code>.\scripts\post-scene.ps1 -SceneFile .\examples\scene_3d_wireframe_lines.json</code></pre>
+            <pre><code>.\scripts\post-example-2d-scene.ps1
+.\scripts\post-example-3d-scene.ps1</code></pre>
+            <pre><code>.\scripts\post-scene-json-file.ps1 -SceneFile .\examples\scene_3d_wireframe_lines.json</code></pre>
           </section>
 
           <section class="panel">
@@ -104,13 +105,13 @@
           </section>
 
           <section class="panel">
-            <h3>Step 5: use the browser control plane</h3>
+            <h3>Step 5: use the browser Control Center</h3>
             <p>
-              If you prefer a web-based workflow, launch the control plane and open it in your browser. From there you
+              If you prefer a web-based workflow, launch the Control Center and open it in your browser. From there you
               can run bootstrap, build, test, docs generation, smoke checks, and API requests without remembering the
               individual terminal commands.
             </p>
-            <pre><code>.\scripts\studio.ps1</code></pre>
+            <pre><code>.\scripts\launch-browser-control-center.ps1</code></pre>
           </section>
         </main>
       </div>

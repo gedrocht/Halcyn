@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
@@ -19,7 +19,7 @@
         </div>
         <div class="topbar-actions">
           <button class="button" data-theme-toggle>Toggle theme</button>
-          <a class="button" href="http://127.0.0.1:9001">Open control plane</a>
+          <a class="button" href="/">Open Control Center</a>
         </div>
       </header>
 
@@ -33,29 +33,29 @@
             <li><a href="architecture.html">Architecture</a></li>
             <li><a href="testing.html">Testing</a></li>
             <li><a href="field-reference.html">Field Reference</a></li>
-            <li><a href="client-studio.html">Client Studio</a></li>
+            <li><a href="scene-studio.html">Scene Studio</a></li>
           </ul>
         </nav>
 
         <main>
           <section class="panel">
-            <h3>What the control plane does</h3>
+            <h3>What the Control Center does</h3>
             <p>
-              The control plane is a separate Python server that can run before the C++ application exists. That means
+              The Control Center is a separate Python server that can run before the C++ application exists. That means
               it can help with first-time setup, build orchestration, test execution, docs access, API experiments, and
               log viewing from one browser tab.
             </p>
-            <pre><code>.\scripts\studio.ps1</code></pre>
+            <pre><code>.\scripts\launch-browser-control-center.ps1</code></pre>
           </section>
 
           <section class="panel">
             <h3>Main areas in the UI</h3>
             <div class="cards">
-              <div class="card"><h4>Dashboard</h4><p>Shows tool availability, app state, recent jobs, and control-plane logs.</p></div>
+              <div class="card"><h4>Dashboard</h4><p>Shows tool availability, app state, recent jobs, and Control Center logs.</p></div>
               <div class="card"><h4>Build & Run</h4><p>Starts bootstrap, build, format, docs generation, and the managed app process.</p></div>
               <div class="card"><h4>Testing</h4><p>Runs smoke checks against the live API and summarizes the results.</p></div>
-              <div class="card"><h4>API Lab</h4><p>Sends browser-originated requests through the control plane into the live Halcyn API.</p></div>
-              <div class="card"><h4>Client Studio</h4><p>Opens the separate preset-driven scene GUI for live visual manipulation.</p></div>
+              <div class="card"><h4>API Lab</h4><p>Sends browser-originated requests through the Control Center into the live Halcyn API.</p></div>
+              <div class="card"><h4>Scene Studio</h4><p>Opens the separate preset-driven scene authoring surface for live visual manipulation.</p></div>
             </div>
           </section>
 

@@ -102,83 +102,95 @@ function(halcyn_configure_target target_name)
   endif()
 endfunction()
 
-set(HALCYN_DOMAIN_HEADERS
-  src/domain/SceneLimits.hpp
-  src/domain/SceneFactory.hpp
-  src/domain/SceneJsonCodec.hpp
-  src/domain/SceneTypes.hpp
-  src/domain/SceneValidation.hpp
+set(HALCYN_SCENE_DESCRIPTION_HEADERS
+  src/scene_description/SceneLimits.hpp
+  src/scene_description/SceneFactory.hpp
+  src/scene_description/SceneJsonCodec.hpp
+  src/scene_description/SceneTypes.hpp
+  src/scene_description/SceneValidation.hpp
 )
 
-set(HALCYN_DOMAIN_SOURCES
-  src/domain/SceneFactory.cpp
-  src/domain/SceneJsonCodec.cpp
-  src/domain/SceneValidation.cpp
+set(HALCYN_SCENE_DESCRIPTION_SOURCES
+  src/scene_description/SceneFactory.cpp
+  src/scene_description/SceneJsonCodec.cpp
+  src/scene_description/SceneValidation.cpp
 )
 
-add_library(halcyn_domain STATIC ${HALCYN_DOMAIN_HEADERS} ${HALCYN_DOMAIN_SOURCES})
-add_library(Halcyn::Domain ALIAS halcyn_domain)
-halcyn_configure_target(halcyn_domain)
+add_library(
+  halcyn_scene_description STATIC
+  ${HALCYN_SCENE_DESCRIPTION_HEADERS}
+  ${HALCYN_SCENE_DESCRIPTION_SOURCES}
+)
+add_library(Halcyn::SceneDescription ALIAS halcyn_scene_description)
+halcyn_configure_target(halcyn_scene_description)
 target_link_libraries(
-  halcyn_domain
+  halcyn_scene_description
   PUBLIC
     nlohmann_json::nlohmann_json
 )
 
-set(HALCYN_CORE_HEADERS
-  src/core/RuntimeLog.hpp
-  src/core/SceneStore.hpp
+set(HALCYN_SHARED_RUNTIME_HEADERS
+  src/shared_runtime/RuntimeLog.hpp
+  src/shared_runtime/SceneStore.hpp
 )
 
-set(HALCYN_CORE_SOURCES
-  src/core/RuntimeLog.cpp
-  src/core/SceneStore.cpp
+set(HALCYN_SHARED_RUNTIME_SOURCES
+  src/shared_runtime/RuntimeLog.cpp
+  src/shared_runtime/SceneStore.cpp
 )
 
-add_library(halcyn_core STATIC ${HALCYN_CORE_HEADERS} ${HALCYN_CORE_SOURCES})
-add_library(Halcyn::Core ALIAS halcyn_core)
-halcyn_configure_target(halcyn_core)
+add_library(
+  halcyn_shared_runtime STATIC
+  ${HALCYN_SHARED_RUNTIME_HEADERS}
+  ${HALCYN_SHARED_RUNTIME_SOURCES}
+)
+add_library(Halcyn::SharedRuntime ALIAS halcyn_shared_runtime)
+halcyn_configure_target(halcyn_shared_runtime)
 target_link_libraries(
-  halcyn_core
+  halcyn_shared_runtime
   PUBLIC
-    Halcyn::Domain
+    Halcyn::SceneDescription
 )
 
-set(HALCYN_API_HEADERS
-  src/api/ApiServer.hpp
+set(HALCYN_HTTP_API_HEADERS
+  src/http_api/ApiServer.hpp
 )
 
-set(HALCYN_API_SOURCES
-  src/api/ApiServer.cpp
+set(HALCYN_HTTP_API_SOURCES
+  src/http_api/ApiServer.cpp
 )
 
-add_library(halcyn_api STATIC ${HALCYN_API_HEADERS} ${HALCYN_API_SOURCES})
-add_library(Halcyn::Api ALIAS halcyn_api)
-halcyn_configure_target(halcyn_api)
+add_library(halcyn_http_api STATIC ${HALCYN_HTTP_API_HEADERS} ${HALCYN_HTTP_API_SOURCES})
+add_library(Halcyn::HttpApi ALIAS halcyn_http_api)
+halcyn_configure_target(halcyn_http_api)
 target_link_libraries(
-  halcyn_api
+  halcyn_http_api
   PUBLIC
-    Halcyn::Core
+    Halcyn::SharedRuntime
     httplib::httplib
 )
 
-set(HALCYN_RENDERER_HEADERS
-  src/renderer/Renderer.hpp
-  src/renderer/ShaderProgram.hpp
+set(HALCYN_OPENGL_RENDERER_HEADERS
+  src/opengl_renderer/Renderer.hpp
+  src/opengl_renderer/ShaderProgram.hpp
 )
 
-set(HALCYN_RENDERER_SOURCES
-  src/renderer/Renderer.cpp
-  src/renderer/ShaderProgram.cpp
+set(HALCYN_OPENGL_RENDERER_SOURCES
+  src/opengl_renderer/Renderer.cpp
+  src/opengl_renderer/ShaderProgram.cpp
 )
 
-add_library(halcyn_renderer STATIC ${HALCYN_RENDERER_HEADERS} ${HALCYN_RENDERER_SOURCES})
-add_library(Halcyn::Renderer ALIAS halcyn_renderer)
-halcyn_configure_target(halcyn_renderer)
+add_library(
+  halcyn_opengl_renderer STATIC
+  ${HALCYN_OPENGL_RENDERER_HEADERS}
+  ${HALCYN_OPENGL_RENDERER_SOURCES}
+)
+add_library(Halcyn::OpenGLRenderer ALIAS halcyn_opengl_renderer)
+halcyn_configure_target(halcyn_opengl_renderer)
 target_link_libraries(
-  halcyn_renderer
+  halcyn_opengl_renderer
   PUBLIC
-    Halcyn::Core
+    Halcyn::SharedRuntime
     glm::glm
     glfw
     halcyn_glad
@@ -186,33 +198,37 @@ target_link_libraries(
     OpenGL::GL
 )
 target_compile_definitions(
-  halcyn_renderer
+  halcyn_opengl_renderer
   PUBLIC
     GLFW_INCLUDE_NONE
 )
 
-set(HALCYN_APP_HEADERS
-  src/app/Application.hpp
+set(HALCYN_DESKTOP_APP_HEADERS
+  src/desktop_app/Application.hpp
 )
 
-set(HALCYN_APP_SOURCES
-  src/app/Application.cpp
+set(HALCYN_DESKTOP_APP_SOURCES
+  src/desktop_app/Application.cpp
 )
 
-add_library(halcyn_app_support STATIC ${HALCYN_APP_HEADERS} ${HALCYN_APP_SOURCES})
-add_library(Halcyn::AppSupport ALIAS halcyn_app_support)
-halcyn_configure_target(halcyn_app_support)
+add_library(
+  halcyn_desktop_app_support STATIC
+  ${HALCYN_DESKTOP_APP_HEADERS}
+  ${HALCYN_DESKTOP_APP_SOURCES}
+)
+add_library(Halcyn::DesktopAppSupport ALIAS halcyn_desktop_app_support)
+halcyn_configure_target(halcyn_desktop_app_support)
 target_link_libraries(
-  halcyn_app_support
+  halcyn_desktop_app_support
   PUBLIC
-    Halcyn::Api
-    Halcyn::Renderer
+    Halcyn::HttpApi
+    Halcyn::OpenGLRenderer
 )
 
-add_executable(halcyn_app src/main.cpp)
-halcyn_configure_target(halcyn_app)
-target_link_libraries(halcyn_app PRIVATE Halcyn::AppSupport)
-set_target_properties(halcyn_app PROPERTIES OUTPUT_NAME halcyn_app)
+add_executable(halcyn_desktop_app src/main.cpp)
+halcyn_configure_target(halcyn_desktop_app)
+target_link_libraries(halcyn_desktop_app PRIVATE Halcyn::DesktopAppSupport)
+set_target_properties(halcyn_desktop_app PROPERTIES OUTPUT_NAME halcyn_app)
 
 if(HALCYN_ENABLE_TESTS)
   add_executable(
@@ -228,9 +244,9 @@ if(HALCYN_ENABLE_TESTS)
     halcyn_tests
     PRIVATE
       Catch2::Catch2WithMain
-      Halcyn::Api
-      Halcyn::Core
-      Halcyn::Domain
+      Halcyn::HttpApi
+      Halcyn::SharedRuntime
+      Halcyn::SceneDescription
   )
 
   include(Catch)

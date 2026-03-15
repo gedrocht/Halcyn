@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
@@ -45,11 +45,11 @@
             <h3>Start here</h3>
             <dl>
               <dt>1.</dt>
-              <dd>Run <code>.\scripts\bootstrap.ps1</code> to inspect prerequisites.</dd>
+              <dd>Run <code>.\scripts\report-prerequisites.ps1</code> to inspect prerequisites.</dd>
               <dt>2.</dt>
-              <dd>Run <code>.\scripts\run.ps1</code> to build and launch the app.</dd>
+              <dd>Run <code>.\scripts\launch-halcyn-app.ps1</code> to build and launch the app.</dd>
               <dt>3.</dt>
-              <dd>Run <code>.\scripts\post-sample-2d.ps1</code> or <code>.\scripts\post-sample-3d.ps1</code>.</dd>
+              <dd>Run <code>.\scripts\post-example-2d-scene.ps1</code> or <code>.\scripts\post-example-3d-scene.ps1</code>.</dd>
               <dt>4.</dt>
               <dd>Read the tutorial page to learn how each layer works.</dd>
             </dl>
@@ -69,6 +69,7 @@
             <li><a href="code-docs.html" data-nav-link="code-docs">Code Docs</a></li>
             <li><a href="field-reference.html">Field Reference</a></li>
             <li><a href="control-center.html">Control Center</a></li>
+            <li><a href="scene-studio.html">Scene Studio</a></li>
           </ul>
         </nav>
 
@@ -87,11 +88,11 @@
                 <p>Receives JSON over HTTP, validates it, and returns readable error messages when a request is invalid.</p>
               </div>
               <div class="card">
-                <h4>Domain layer</h4>
+                <h4>Scene description layer</h4>
                 <p>Defines what a valid 2D scene and a valid 3D scene actually are.</p>
               </div>
               <div class="card">
-                <h4>Renderer layer</h4>
+                <h4>OpenGL renderer layer</h4>
                 <p>Uploads vertices to OpenGL buffers and asks the GPU to draw the latest scene.</p>
               </div>
             </div>
@@ -121,20 +122,24 @@
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>src/domain</code></td>
+                    <td><code>src/scene_description</code></td>
                     <td>Scene types, validation, JSON codec, and scene factory helpers.</td>
                   </tr>
                   <tr>
-                    <td><code>src/core</code></td>
-                    <td>Thread-safe storage for the latest scene snapshot.</td>
+                    <td><code>src/shared_runtime</code></td>
+                    <td>Thread-safe storage for the latest scene snapshot and shared runtime logs.</td>
                   </tr>
                   <tr>
-                    <td><code>src/api</code></td>
+                    <td><code>src/http_api</code></td>
                     <td>Embedded HTTP routes for health, scene retrieval, and scene submission.</td>
                   </tr>
                   <tr>
-                    <td><code>src/renderer</code></td>
+                    <td><code>src/opengl_renderer</code></td>
                     <td>Window creation, shader setup, GPU uploads, and frame loop.</td>
+                  </tr>
+                  <tr>
+                    <td><code>src/desktop_app</code></td>
+                    <td>Application startup, command-line parsing, and the glue that wires the runtime together.</td>
                   </tr>
                   <tr>
                     <td><code>tests</code></td>
@@ -153,16 +158,16 @@
             <h3>New in the second iteration</h3>
             <div class="cards">
               <div class="card">
-                <h4>Browser control plane</h4>
-                <p>Launch <code>.\scripts\studio.ps1</code> to get a web dashboard for builds, tests, logs, docs, and API requests.</p>
+                <h4>Browser Control Center</h4>
+                <p>Launch <code>.\scripts\launch-browser-control-center.ps1</code> to get a web dashboard for builds, tests, logs, docs, and API requests.</p>
+              </div>
+              <div class="card">
+                <h4>Browser Scene Studio</h4>
+                <p>Launch <code>.\scripts\launch-browser-scene-studio.ps1</code> to get a separate live scene authoring surface for presets, signal inputs, and streaming control.</p>
               </div>
               <div class="card">
                 <h4>Safer runtime behavior</h4>
                 <p>The API now has startup readiness checks, payload size limits, and stronger 3D camera validation.</p>
-              </div>
-              <div class="card">
-                <h4>Cheaper testing</h4>
-                <p>The CMake targets are split so parser, API, and store tests no longer need the full OpenGL renderer stack.</p>
               </div>
             </div>
           </section>

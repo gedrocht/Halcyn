@@ -1,0 +1,306 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Halcyn Control Center</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <script defer src="/static/app.js"></script>
+  </head>
+  <body data-theme="dark">
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark"></div>
+          <div>
+            <h1>Halcyn</h1>
+            <p>Control Center</p>
+          </div>
+        </div>
+
+        <nav class="nav">
+          <button class="nav-link active" data-section-link="dashboard">Dashboard</button>
+          <button class="nav-link" data-section-link="workbench">Build & Run</button>
+          <button class="nav-link" data-section-link="testing">Testing</button>
+          <button class="nav-link" data-section-link="api-lab">API Lab</button>
+          <button class="nav-link" data-section-link="logs">Logs</button>
+          <button class="nav-link" data-section-link="docs">Docs</button>
+        </nav>
+
+        <div class="sidebar-footer">
+          <button class="ghost-button" id="theme-toggle">Toggle theme</button>
+          <button class="ghost-button" id="refresh-button">Refresh now</button>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="hero">
+          <div>
+            <p class="eyebrow">Local engineering cockpit</p>
+            <h2>Build, run, test, inspect logs, and exercise the API from one browser tab.</h2>
+            <p class="hero-copy">
+              This Control Center works even before the C++ toolchain is fully installed, so first-time setup can start
+              in the browser instead of in a maze of terminals.
+            </p>
+          </div>
+          <div class="hero-status">
+            <div class="hero-card">
+              <span class="label">Project root</span>
+              <strong id="project-root">Loading...</strong>
+            </div>
+            <div class="hero-card">
+              <span class="label">Managed app</span>
+              <strong id="app-status-pill" class="status-pill status-stopped">Stopped</strong>
+            </div>
+            <div class="hero-card">
+              <span class="label">Latest refresh</span>
+              <strong id="last-refresh">Never</strong>
+            </div>
+          </div>
+        </header>
+
+        <section class="section active" data-section="dashboard">
+          <div class="panel-grid">
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Toolchain health</h3>
+                <p>What this machine can do right now.</p>
+              </div>
+              <div id="tool-grid" class="tool-grid"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-header">
+                <h3>App snapshot</h3>
+                <p>The currently managed Halcyn desktop process.</p>
+              </div>
+              <div id="app-summary" class="stack-list"></div>
+            </section>
+          </div>
+
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Recent jobs</h3>
+              <p>Background tasks kicked off by this Control Center.</p>
+            </div>
+            <div id="job-list" class="job-list"></div>
+          </section>
+        </section>
+
+        <section class="section" data-section="workbench">
+          <div class="panel-grid">
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Repository automation</h3>
+                <p>Kick off scripted workflows without leaving the browser.</p>
+              </div>
+              <div class="button-grid">
+                <button class="action-button" data-job-action="bootstrap">Run bootstrap</button>
+                <button class="action-button" data-job-action="build" data-configuration="Debug">Build Debug</button>
+                <button class="action-button" data-job-action="build" data-configuration="Release">Build Release</button>
+                <button class="action-button" data-job-action="test" data-configuration="Debug">Run tests</button>
+                <button class="action-button" data-job-action="format">Format sources</button>
+                <button class="action-button" data-job-action="generate-code-docs">Generate code docs</button>
+              </div>
+              <div class="button-row">
+                <a class="secondary-button" href="/scene-studio/" target="_blank" rel="noreferrer">Open Scene Studio</a>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-header">
+                <h3>App lifecycle</h3>
+                <p>Launch or stop the desktop app while capturing its output.</p>
+              </div>
+              <form id="app-form" class="form-grid">
+                <label>
+                  Configuration
+                  <select name="configuration">
+                    <option>Debug</option>
+                    <option>Release</option>
+                  </select>
+                </label>
+                <label>
+                  Host
+                  <input name="host" value="127.0.0.1">
+                </label>
+                <label>
+                  Port
+                  <input name="port" type="number" value="8080">
+                </label>
+                <label>
+                  Startup sample
+                  <select name="sample">
+                    <option>default</option>
+                    <option>2d</option>
+                    <option>3d</option>
+                  </select>
+                </label>
+                <label>
+                  Scene file
+                  <input name="sceneFile" placeholder="Optional absolute or repo-relative path">
+                </label>
+                <label>
+                  Window title
+                  <input name="title" value="Halcyn">
+                </label>
+                <label>
+                  Width
+                  <input name="width" type="number" value="1280">
+                </label>
+                <label>
+                  Height
+                  <input name="height" type="number" value="720">
+                </label>
+                <label>
+                  FPS
+                  <input name="fps" type="number" value="60">
+                </label>
+              </form>
+              <div class="button-row">
+                <button class="action-button" id="start-app-button">Start app</button>
+                <button class="danger-button" id="stop-app-button">Stop app</button>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="section" data-section="testing">
+          <div class="panel-grid">
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Online smoke checks</h3>
+                <p>Exercise the live Halcyn API from the browser.</p>
+              </div>
+              <form id="smoke-form" class="form-grid compact">
+                <label>
+                  Host
+                  <input name="host" value="127.0.0.1">
+                </label>
+                <label>
+                  Port
+                  <input name="port" type="number" value="8080">
+                </label>
+              </form>
+              <div class="button-row">
+                <button class="action-button" id="run-smoke-button">Run smoke checks</button>
+              </div>
+              <div id="smoke-results" class="response-panel empty-state">No smoke checks run yet.</div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Test strategy notes</h3>
+                <p>What to run when you want different confidence levels.</p>
+              </div>
+              <div class="stack-list">
+                <div><strong>Bootstrap</strong><span>Use first on a new machine to see what prerequisites still need installation.</span></div>
+                <div><strong>Build</strong><span>Compiles the C++ app and test targets once the toolchain is ready.</span></div>
+                <div><strong>Unit tests</strong><span>Validate parsing, bounds, camera validation, scene store behavior, and API routes.</span></div>
+                <div><strong>Smoke checks</strong><span>Hit live HTTP endpoints after the app is already running.</span></div>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="section" data-section="api-lab">
+          <div class="panel-grid">
+            <section class="panel">
+              <div class="panel-header">
+                <h3>API Playground</h3>
+                <p>Send live requests to the Halcyn API through the Control Center.</p>
+              </div>
+              <form id="api-form" class="form-grid compact">
+                <label>
+                  Host
+                  <input name="host" value="127.0.0.1">
+                </label>
+                <label>
+                  Port
+                  <input name="port" type="number" value="8080">
+                </label>
+                <label>
+                  Method
+                  <select name="method">
+                    <option>GET</option>
+                    <option>POST</option>
+                  </select>
+                </label>
+                <label>
+                  Path
+                  <input name="path" value="/api/v1/health">
+                </label>
+                <label>
+                  Content-Type
+                  <input name="contentType" value="application/json">
+                </label>
+              </form>
+              <div class="button-row">
+                <button class="secondary-button" data-playground-sample="health">Health sample</button>
+                <button class="secondary-button" data-playground-sample="validate2d">Validate 2D sample</button>
+                <button class="secondary-button" data-playground-sample="post3d">Post 3D sample</button>
+                <button class="action-button" id="send-api-button">Send request</button>
+              </div>
+              <textarea id="api-body" class="editor" spellcheck="false"></textarea>
+            </section>
+
+            <section class="panel">
+              <div class="panel-header">
+                <h3>API response</h3>
+                <p>Downstream status, headers, and body from the live Halcyn API.</p>
+              </div>
+              <div id="api-response" class="response-panel empty-state">No API request sent yet.</div>
+            </section>
+          </div>
+        </section>
+
+        <section class="section" data-section="logs">
+          <div class="panel-grid">
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Control-plane log stream</h3>
+                <p>Browser dashboard events, job output, and managed app output.</p>
+              </div>
+              <pre id="control-center-logs" class="log-console">Loading logs...</pre>
+            </section>
+
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Managed app output</h3>
+                <p>The latest captured stdout/stderr from the Halcyn app process tree.</p>
+              </div>
+              <pre id="app-output" class="log-console">The app is not running.</pre>
+            </section>
+          </div>
+        </section>
+
+        <section class="section" data-section="docs">
+          <div class="panel-grid">
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Guided docs</h3>
+                <p>Tutorial-style docs for first-time contributors and operators.</p>
+              </div>
+              <div id="docs-links" class="docs-grid"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-header">
+                <h3>How to use this Control Center</h3>
+                <p>A simple sequence for new users.</p>
+              </div>
+              <ol class="ordered-list">
+                <li>Open Dashboard and confirm which tools are installed.</li>
+                <li>Run Bootstrap for a human-readable prerequisite report.</li>
+                <li>Use Build Debug once the toolchain is available.</li>
+                <li>Start the app from the Build & Run section.</li>
+                <li>Use API Lab and Smoke Checks to interact with the live API.</li>
+                <li>Read the docs site for deeper architecture and code explanations.</li>
+              </ol>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

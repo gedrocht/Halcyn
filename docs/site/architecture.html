@@ -35,13 +35,39 @@
             <li><a href="code-docs.html" data-nav-link="code-docs">Code Docs</a></li>
             <li><a href="field-reference.html">Field Reference</a></li>
             <li><a href="control-center.html">Control Center</a></li>
+            <li><a href="scene-studio.html">Scene Studio</a></li>
           </ul>
         </nav>
 
         <main>
           <section class="panel">
             <h3>High-level flow</h3>
-            <img class="diagram" src="assets/images/architecture.svg" alt="Architecture diagram showing the flow from HTTP clients to the API server, scene store, renderer, and GPU.">
+            <div class="cards">
+              <div class="card">
+                <h4>External callers</h4>
+                <p>People, scripts, the Control Center, and the Scene Studio all begin by sending JSON or control requests.</p>
+              </div>
+              <div class="card">
+                <h4><code>src/http_api</code></h4>
+                <p>The embedded HTTP API receives requests, validates scene payloads, and translates errors into readable responses.</p>
+              </div>
+              <div class="card">
+                <h4><code>src/scene_description</code></h4>
+                <p>The scene description layer defines the legal scene vocabulary and turns JSON into typed scene objects.</p>
+              </div>
+              <div class="card">
+                <h4><code>src/shared_runtime</code></h4>
+                <p>The shared runtime owns the versioned scene snapshot and runtime logs so other parts of the app can safely coordinate.</p>
+              </div>
+              <div class="card">
+                <h4><code>src/opengl_renderer</code></h4>
+                <p>The renderer watches for new scene versions, uploads geometry to GPU buffers, and draws the newest scene every frame.</p>
+              </div>
+              <div class="card">
+                <h4>The GPU</h4>
+                <p>The GPU transforms vertices and fills the window with pixels after the CPU has prepared the draw call data.</p>
+              </div>
+            </div>
           </section>
 
           <section class="panel">
@@ -56,10 +82,11 @@
           <section class="panel">
             <h3>Layer responsibilities</h3>
             <div class="cards">
-              <div class="card"><h4><code>src/domain</code></h4><p>Defines the scene language and validation rules.</p></div>
-              <div class="card"><h4><code>src/core</code></h4><p>Owns synchronization and versioned scene snapshots.</p></div>
-              <div class="card"><h4><code>src/api</code></h4><p>Owns HTTP transport and response handling.</p></div>
-              <div class="card"><h4><code>src/renderer</code></h4><p>Owns OpenGL, shaders, buffers, matrices, and draw calls.</p></div>
+              <div class="card"><h4><code>src/scene_description</code></h4><p>Defines the scene language, validation rules, JSON codec, and example scene builders.</p></div>
+              <div class="card"><h4><code>src/shared_runtime</code></h4><p>Owns synchronization, versioned scene snapshots, and the in-memory runtime log.</p></div>
+              <div class="card"><h4><code>src/http_api</code></h4><p>Owns HTTP transport, route selection, and response formatting.</p></div>
+              <div class="card"><h4><code>src/opengl_renderer</code></h4><p>Owns OpenGL, shaders, buffers, camera transforms, and draw calls.</p></div>
+              <div class="card"><h4><code>src/desktop_app</code></h4><p>Owns process startup, command-line parsing, and assembling the application layers into one running desktop app.</p></div>
             </div>
           </section>
 

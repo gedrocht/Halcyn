@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
@@ -35,6 +35,7 @@
             <li><a href="code-docs.html" data-nav-link="code-docs">Code Docs</a></li>
             <li><a href="field-reference.html">Field Reference</a></li>
             <li><a href="control-center.html">Control Center</a></li>
+            <li><a href="scene-studio.html">Scene Studio</a></li>
           </ul>
         </nav>
 
@@ -49,7 +50,7 @@
 
           <section class="panel">
             <h3>How to generate full HTML code docs</h3>
-            <pre><code>.\scripts\generate-code-docs.ps1</code></pre>
+            <pre><code>.\scripts\generate-code-reference-docs.ps1</code></pre>
             <p>
               The generated site is written to <code>docs/generated/code-reference</code>. The included
               <code>Doxyfile</code> already scans <code>src</code> and <code>README.md</code>.
@@ -59,11 +60,11 @@
           <section class="panel">
             <h3>Recommended reading order</h3>
             <ol>
-              <li>Read <code>src/domain/SceneTypes.hpp</code> to understand the data model.</li>
-              <li>Read <code>src/domain/SceneJsonCodec.hpp</code> and <code>.cpp</code> to learn how JSON becomes a scene.</li>
-              <li>Read <code>src/core/SceneStore.hpp</code> to see how the latest scene is shared safely.</li>
-              <li>Read <code>src/api/ApiServer.hpp</code> to learn the HTTP surface.</li>
-              <li>Read <code>src/renderer/Renderer.hpp</code> and <code>.cpp</code> last, because it is the most graphics-heavy layer.</li>
+              <li>Read <code>src/scene_description/SceneTypes.hpp</code> to understand the data model.</li>
+              <li>Read <code>src/scene_description/SceneJsonCodec.hpp</code> and <code>.cpp</code> to learn how JSON becomes a scene.</li>
+              <li>Read <code>src/shared_runtime/SceneStore.hpp</code> to see how the latest scene is shared safely.</li>
+              <li>Read <code>src/http_api/ApiServer.hpp</code> to learn the HTTP surface.</li>
+              <li>Read <code>src/opengl_renderer/Renderer.hpp</code> and <code>.cpp</code> last, because it is the most graphics-heavy layer.</li>
             </ol>
           </section>
         </main>
