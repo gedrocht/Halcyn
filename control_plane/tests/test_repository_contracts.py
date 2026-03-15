@@ -80,6 +80,41 @@ class RepositoryContractTests(unittest.TestCase):
         parser = self._parse_html("control_plane/static/index.html")
         self.assertIn("/client/", parser.hrefs)
 
+    def test_docs_site_avoids_hardcoded_local_ports(self) -> None:
+        """Docs should describe routes without assuming one specific localhost port."""
+
+        hardcoded_localhost_references: list[str] = []
+        for docs_page in (self.project_root / "docs" / "site").glob("*.html"):
+            page_text = docs_page.read_text(encoding="utf-8")
+            if "127.0.0.1:9001" in page_text:
+                hardcoded_localhost_references.append(docs_page.name)
+
+        self.assertFalse(
+            hardcoded_localhost_references,
+            "Docs pages still hardcode the default control-plane port: "
+            f"{hardcoded_localhost_references}",
+        )
+
+    def test_architecture_page_uses_html_layout_instead_of_svg_text(self) -> None:
+        """The architecture docs should rely on normal HTML text instead of SVG text rendering."""
+
+        architecture_page = self._read_text("docs/site/architecture.html")
+        self.assertNotIn("architecture.svg", architecture_page)
+        self.assertIn("architecture-flow", architecture_page)
+
+    def test_generated_code_docs_reflect_current_renderer_member_names(self) -> None:
+        """Tracked generated code docs should stay aligned with the renamed renderer members."""
+
+        generated_renderer_reference = self._read_text(
+            "docs/generated/code-reference/_Renderer_8hpp_source.html"
+        )
+        self.assertIn("vertexArrayObjectHandle_", generated_renderer_reference)
+        self.assertIn("vertexBufferObjectHandle_", generated_renderer_reference)
+        self.assertIn("elementBufferObjectHandle_", generated_renderer_reference)
+        self.assertNotIn(">vao_<", generated_renderer_reference)
+        self.assertNotIn(">vbo_<", generated_renderer_reference)
+        self.assertNotIn(">ebo_<", generated_renderer_reference)
+
     def test_runtime_and_run_script_stay_in_api_host_sync(self) -> None:
         """The runtime should keep using the current run.ps1 ApiHost parameter name."""
 

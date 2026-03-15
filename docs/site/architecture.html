@@ -34,14 +34,77 @@
             <li><a href="testing.html" data-nav-link="testing">Testing</a></li>
             <li><a href="code-docs.html" data-nav-link="code-docs">Code Docs</a></li>
             <li><a href="field-reference.html">Field Reference</a></li>
-            <li><a href="control-center.html">Control Center</a></li>
+            <li><a href="control-center.html" data-nav-link="control-center">Control Center</a></li>
+            <li><a href="client-studio.html" data-nav-link="client-studio">Client Studio</a></li>
           </ul>
         </nav>
 
         <main>
           <section class="panel">
             <h3>High-level flow</h3>
-            <img class="diagram" src="assets/images/architecture.svg" alt="Architecture diagram showing the flow from HTTP clients to the API server, scene store, renderer, and GPU.">
+            <div class="architecture-flow">
+              <div class="architecture-lane">
+                <div class="architecture-node emphasis">
+                  <strong>Browsers and scripts</strong>
+                  <p>
+                    Human operators, helper scripts, the control plane, and Client Studio all start by
+                    sending HTTP requests or control updates.
+                  </p>
+                </div>
+                <div class="architecture-arrow" aria-hidden="true">→</div>
+                <div class="architecture-node">
+                  <strong><code>src/api</code></strong>
+                  <p>
+                    The embedded API server receives requests, validates them, and translates them into
+                    safe scene-store updates or JSON responses.
+                  </p>
+                </div>
+                <div class="architecture-arrow" aria-hidden="true">→</div>
+                <div class="architecture-node">
+                  <strong><code>src/core</code></strong>
+                  <p>
+                    The scene store publishes a fresh immutable snapshot whenever the API accepts a new
+                    scene.
+                  </p>
+                </div>
+              </div>
+
+              <div class="architecture-lane">
+                <div class="architecture-annotation">
+                  <h4>Separate orchestration path</h4>
+                  <p>
+                    The browser control plane and Client Studio are outside the renderer process. They
+                    can still build, launch, inspect, and steer the app because they talk to it over
+                    HTTP instead of living inside the draw loop.
+                  </p>
+                </div>
+                <div class="architecture-arrow" aria-hidden="true">→</div>
+                <div class="architecture-node">
+                  <strong><code>src/domain</code></strong>
+                  <p>
+                    Domain helpers define what valid 2D and 3D scenes look like and normalize those
+                    scenes into one render-friendly format.
+                  </p>
+                </div>
+                <div class="architecture-arrow" aria-hidden="true">→</div>
+                <div class="architecture-stack">
+                  <div class="architecture-node">
+                    <strong><code>src/renderer</code></strong>
+                    <p>
+                      The renderer notices new snapshots, uploads the geometry into clearly named OpenGL
+                      objects, and prepares a frame.
+                    </p>
+                  </div>
+                  <div class="architecture-node">
+                    <strong>GPU + window</strong>
+                    <p>
+                      OpenGL and the graphics driver turn the uploaded vertices into visible pixels in
+                      the desktop window.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </section>
 
           <section class="panel">
