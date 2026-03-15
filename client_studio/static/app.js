@@ -5,8 +5,12 @@ const state = {
   selectedPresetId: null,
   previewBusy: false,
   applyBusy: false,
+  previewTimerId: null,
   configureTimerId: null,
   sessionPollTimerId: null,
+  sessionEventSource: null,
+  lastConfigureSignature: null,
+  lastPreviewSignature: null,
   pointer: {
     x: 0.5,
     y: 0.5,
@@ -50,6 +54,10 @@ async function postJson(url, payload = {}) {
     body: JSON.stringify(payload),
   });
   return response.json();
+}
+
+function buildPayloadSignature(payload) {
+  return JSON.stringify(payload);
 }
 
 function form() {
@@ -257,14 +265,54 @@ async function refreshLiveSession() {
   }
 }
 
-async function previewScene() {
+function clearSessionPolling() {
+  if (state.sessionPollTimerId !== null) {
+    window.clearInterval(state.sessionPollTimerId);
+    state.sessionPollTimerId = null;
+  }
+}
+
+function connectSessionStream() {
+  clearSessionPolling();
+  if (state.sessionEventSource !== null) {
+    state.sessionEventSource.close();
+    state.sessionEventSource = null;
+  }
+  if (!window.EventSource) {
+    state.sessionPollTimerId = window.setInterval(() => {
+      void refreshLiveSession();
+    }, 1500);
+    return;
+  }
+
+  const source = new window.EventSource("/api/client-studio/session/stream");
+  source.addEventListener("session", (event) => {
+    const payload = JSON.parse(event.data);
+    renderLiveSessionSnapshot(payload);
+  });
+  state.sessionEventSource = source;
+}
+
+function teardownSessionStream() {
+  clearSessionPolling();
+  if (state.sessionEventSource !== null) {
+    state.sessionEventSource.close();
+    state.sessionEventSource = null;
+  }
+}
+
+async function previewScene(
+  payload = buildRequestPayload(),
+  signature = buildPayloadSignature(payload),
+) {
   if (state.previewBusy) {
     return;
   }
 
   state.previewBusy = true;
   try {
-    const bundle = await postJson("/api/client-studio/preview", buildRequestPayload());
+    const bundle = await postJson("/api/client-studio/preview", payload);
+    state.lastPreviewSignature = signature;
     renderPreview(bundle);
   } catch (error) {
     writeApplyLog({ status: "preview-error", message: String(error) });
@@ -272,6 +320,22 @@ async function previewScene() {
   } finally {
     state.previewBusy = false;
   }
+}
+
+function queuePreviewScene() {
+  if (state.previewTimerId !== null) {
+    window.clearTimeout(state.previewTimerId);
+  }
+
+  state.previewTimerId = window.setTimeout(() => {
+    state.previewTimerId = null;
+    const payload = buildRequestPayload();
+    const signature = buildPayloadSignature(payload);
+    if (signature === state.lastPreviewSignature && state.latestPreview !== null) {
+      return;
+    }
+    void previewScene(payload, signature);
+  }, 60);
 }
 
 async function applyScene() {
@@ -301,8 +365,11 @@ async function applyScene() {
 }
 
 async function startLiveSession() {
+  const payload = buildRequestPayload();
+  const signature = buildPayloadSignature(payload);
   try {
-    const response = await postJson("/api/client-studio/session/start", buildRequestPayload());
+    const response = await postJson("/api/client-studio/session/start", payload);
+    state.lastConfigureSignature = signature;
     renderLiveSessionSnapshot(response);
     setLastAction(`Live stream started at ${response.session.cadence_ms} ms`);
   } catch (error) {
@@ -317,6 +384,7 @@ async function stopLiveSession() {
     window.clearTimeout(state.configureTimerId);
     state.configureTimerId = null;
   }
+  state.lastConfigureSignature = null;
 
   try {
     const response = await postJson("/api/client-studio/session/stop", {});
@@ -333,6 +401,10 @@ function queueLiveSessionConfigure() {
     return;
   }
 
+  if (buildPayloadSignature(buildRequestPayload()) === state.lastConfigureSignature) {
+    return;
+  }
+
   if (state.configureTimerId !== null) {
     return;
   }
@@ -342,8 +414,14 @@ function queueLiveSessionConfigure() {
     if (!isLiveStreaming()) {
       return;
     }
+    const payload = buildRequestPayload();
+    const signature = buildPayloadSignature(payload);
+    if (signature === state.lastConfigureSignature) {
+      return;
+    }
     try {
-      const response = await postJson("/api/client-studio/session/configure", buildRequestPayload());
+      const response = await postJson("/api/client-studio/session/configure", payload);
+      state.lastConfigureSignature = signature;
       renderLiveSessionSnapshot(response);
     } catch (error) {
       setLastAction(`Live update failed: ${String(error)}`);
@@ -351,7 +429,17 @@ function queueLiveSessionConfigure() {
   }, 40);
 }
 
-function stopAudioCapture() {
+function queueInteractiveUpdate() {
+  if (isLiveStreaming()) {
+    queueLiveSessionConfigure();
+    return;
+  }
+  if (state.latestPreview !== null) {
+    queuePreviewScene();
+  }
+}
+
+function stopAudioCapture(suppressInteractiveUpdate = false) {
   if (state.audio.frameId) {
     cancelAnimationFrame(state.audio.frameId);
   }
@@ -377,7 +465,9 @@ function stopAudioCapture() {
     data: null,
   };
   renderSignalReadouts();
-  queueLiveSessionConfigure();
+  if (!suppressInteractiveUpdate) {
+    queueInteractiveUpdate();
+  }
 }
 
 function pumpAudioMetrics() {
@@ -401,7 +491,7 @@ function pumpAudioMetrics() {
   state.audio.mid = clamp(averageBand(mid), 0, 1);
   state.audio.treble = clamp(averageBand(treble), 0, 1);
   renderSignalReadouts();
-  queueLiveSessionConfigure();
+  queueInteractiveUpdate();
   state.audio.frameId = requestAnimationFrame(pumpAudioMetrics);
 }
 
@@ -466,7 +556,20 @@ function handlePointerMove(event) {
     lastY: y,
   };
   renderSignalReadouts();
-  queueLiveSessionConfigure();
+  queueInteractiveUpdate();
+}
+
+function teardownClientStudio() {
+  if (state.previewTimerId !== null) {
+    window.clearTimeout(state.previewTimerId);
+    state.previewTimerId = null;
+  }
+  if (state.configureTimerId !== null) {
+    window.clearTimeout(state.configureTimerId);
+    state.configureTimerId = null;
+  }
+  teardownSessionStream();
+  stopAudioCapture(true);
 }
 
 function wireEvents() {
@@ -490,7 +593,7 @@ function wireEvents() {
   document.getElementById("pointer-stage").addEventListener("pointerleave", () => {
     state.pointer.speed = 0;
     renderSignalReadouts();
-    queueLiveSessionConfigure();
+    queueInteractiveUpdate();
   });
 
   document.getElementById("audio-toggle").addEventListener("change", async (event) => {
@@ -507,10 +610,7 @@ function wireEvents() {
       updateAllRangeValues();
       syncTargetSummary();
       renderSignalReadouts();
-      queueLiveSessionConfigure();
-      if (state.latestPreview && !isLiveStreaming()) {
-        void previewScene();
-      }
+      queueInteractiveUpdate();
     });
   });
 }
@@ -526,11 +626,13 @@ async function bootstrap() {
   wireEvents();
   await previewScene();
   await refreshLiveSession();
-  state.sessionPollTimerId = window.setInterval(() => {
-    void refreshLiveSession();
-  }, 300);
+  connectSessionStream();
 }
 
 document.addEventListener("DOMContentLoaded", () => {
   void bootstrap();
+});
+
+window.addEventListener("beforeunload", () => {
+  teardownClientStudio();
 });

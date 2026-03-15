@@ -15,7 +15,9 @@ the backend contract stable if this grows into a React/Vite app later.
 The current latency-sensitive architecture uses a server-side live session instead of sending one full
 scene from the browser on every interactive change. The browser now sends lighter control updates to
 the control plane, and the control plane owns the steady stream of generated scenes sent to the live
-renderer.
+renderer. Session status now flows back to the browser over a server-sent event stream instead of
+tight polling, and the browser deduplicates/debounces live control updates so it does less useless
+work while you manipulate the scene.
 
 ## What it does
 
@@ -25,6 +27,7 @@ renderer.
 - can submit one scene immediately on demand
 - can run a persistent live session that keeps streaming scenes to the renderer on a server-side cadence
 - keeps the browser-to-control-plane messages smaller than the browser-to-renderer scene payloads
+- receives live-session telemetry from the server without polling every few hundred milliseconds
 
 ## Main pieces
 
@@ -42,6 +45,7 @@ The browser UI talks to these control-plane routes:
 - `POST /api/client-studio/preview`
 - `POST /api/client-studio/apply`
 - `GET /api/client-studio/session`
+- `GET /api/client-studio/session/stream`
 - `POST /api/client-studio/session/configure`
 - `POST /api/client-studio/session/start`
 - `POST /api/client-studio/session/stop`

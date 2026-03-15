@@ -76,6 +76,11 @@
               control plane keeps a persistent live session, regenerates scenes server-side on a
               fixed cadence, and streams those scenes into the live Halcyn API.
             </p>
+            <p>
+              Session status now travels back to the browser over a server-sent event stream, so
+              the client does not need to keep polling the control plane every few hundred
+              milliseconds just to learn whether anything changed.
+            </p>
           </section>
 
           <section class="panel">
@@ -95,6 +100,11 @@
               Client Studio uses the catalog, preview, one-shot apply, and live-session routes under
               <code>/api/client-studio/...</code>. The live-session endpoints are what make the
               browser feel more responsive during continuous manipulation.
+            </p>
+            <p>
+              The session stream route is the lean part of that loop: it lets the control plane push
+              session updates when something actually changes instead of making the browser ask over
+              and over again.
             </p>
           </section>
         </main>

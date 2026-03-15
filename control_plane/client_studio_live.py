@@ -31,6 +31,7 @@ def _utc_now_iso() -> str:
 class ClientStudioLiveSnapshot:
     """Describe the current server-side live-stream session."""
 
+    revision: int = 0
     status: str = "stopped"
     preset_id: str = DEFAULT_PRESET_ID
     target_host: str = DEFAULT_TARGET_HOST
@@ -55,12 +56,19 @@ class ClientStudioLiveSnapshot:
 class ClientStudioLiveSession:
     """Own the long-running server-side loop that streams scenes to Halcyn."""
 
-    def __init__(self, apply_callback: ApplyCallback, log_callback: LogCallback) -> None:
+    def __init__(
+        self,
+        apply_callback: ApplyCallback,
+        log_callback: LogCallback,
+        stop_join_timeout_seconds: float = 2.0,
+    ) -> None:
         self._apply_callback = apply_callback
         self._log_callback = log_callback
         self._lock = threading.Lock()
+        self._update_condition = threading.Condition(self._lock)
         self._thread: threading.Thread | None = None
         self._stop_event = threading.Event()
+        self._stop_join_timeout_seconds = stop_join_timeout_seconds
         self._config = _default_live_payload()
         self._snapshot = ClientStudioLiveSnapshot()
         self._last_logged_failure: tuple[int | None, str] | None = None
@@ -70,6 +78,20 @@ class ClientStudioLiveSession:
 
         with self._lock:
             return copy.deepcopy(self._snapshot.to_dict())
+
+    def wait_for_update(
+        self,
+        after_revision: int,
+        timeout_seconds: float = 15.0,
+    ) -> tuple[dict[str, Any], bool]:
+        """Wait until the snapshot revision advances or the timeout expires."""
+
+        with self._update_condition:
+            changed = self._update_condition.wait_for(
+                lambda: self._snapshot.revision > after_revision,
+                timeout=timeout_seconds,
+            )
+            return copy.deepcopy(self._snapshot.to_dict()), changed
 
     def configure(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Update the desired preset, target, controls, and session cadence."""
@@ -82,6 +104,7 @@ class ClientStudioLiveSession:
             self._snapshot.target_port = int(target.get("port", DEFAULT_TARGET_PORT))
             session = self._config.get("session", {})
             self._snapshot.cadence_ms = int(session.get("cadenceMs", DEFAULT_AUTO_APPLY_MS))
+            self._mark_updated_locked()
             return copy.deepcopy(self._snapshot.to_dict())
 
     def start(self, payload: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -101,6 +124,7 @@ class ClientStudioLiveSession:
             self._snapshot.last_error = ""
             self._last_logged_failure = None
             self._thread = threading.Thread(target=self._run_loop, daemon=True)
+            self._mark_updated_locked()
             self._thread.start()
 
         self._log_callback("INFO", "client-studio", "Started the live Client Studio session.")
@@ -118,20 +142,35 @@ class ClientStudioLiveSession:
                 if self._snapshot.last_stopped_at_utc is None:
                     self._snapshot.last_stopped_at_utc = _utc_now_iso()
                 self._thread = None
+                self._mark_updated_locked()
                 return copy.deepcopy(self._snapshot.to_dict())
 
             self._snapshot.status = "stopping"
             self._stop_event.set()
+            self._mark_updated_locked()
 
-        thread.join(timeout=2)
+        thread.join(timeout=self._stop_join_timeout_seconds)
 
         with self._lock:
-            if self._thread is None or not self._thread.is_alive():
+            stopped = self._thread is None or not self._thread.is_alive()
+            if stopped:
                 self._snapshot.status = "stopped"
                 self._snapshot.last_stopped_at_utc = _utc_now_iso()
+                self._mark_updated_locked()
+            snapshot = copy.deepcopy(self._snapshot.to_dict())
 
-        self._log_callback("INFO", "client-studio", "Stopped the live Client Studio session.")
-        return self.snapshot()
+        if stopped:
+            self._log_callback("INFO", "client-studio", "Stopped the live Client Studio session.")
+        else:
+            self._log_callback(
+                "WARNING",
+                "client-studio",
+                (
+                    "Stop requested for the live Client Studio session, "
+                    "but the current frame is still finishing."
+                ),
+            )
+        return snapshot
 
     def close(self) -> None:
         """Stop the session during application shutdown."""
@@ -141,6 +180,7 @@ class ClientStudioLiveSession:
     def _run_loop(self) -> None:
         with self._lock:
             self._snapshot.status = "running"
+            self._mark_updated_locked()
 
         try:
             while not self._stop_event.is_set():
@@ -162,6 +202,7 @@ class ClientStudioLiveSession:
                 self._snapshot.last_submission_status = 0
                 self._snapshot.last_submission_reason = "exception"
                 self._snapshot.last_stopped_at_utc = _utc_now_iso()
+                self._mark_updated_locked()
             self._log_callback(
                 "ERROR",
                 "client-studio",
@@ -172,6 +213,7 @@ class ClientStudioLiveSession:
                 if self._snapshot.status != "error":
                     self._snapshot.status = "stopped"
                     self._snapshot.last_stopped_at_utc = _utc_now_iso()
+                    self._mark_updated_locked()
                 self._thread = None
 
     def _build_frame_payload(self) -> tuple[dict[str, Any], int]:
@@ -207,10 +249,12 @@ class ClientStudioLiveSession:
                 snapshot.last_applied_at_utc = _utc_now_iso()
                 snapshot.last_error = ""
                 self._last_logged_failure = None
+                self._mark_updated_locked()
                 return
 
             snapshot.frames_failed += 1
             snapshot.last_error = error_body[:500]
+            self._mark_updated_locked()
 
         failure_key = (submission_status, submission_reason)
         if self._last_logged_failure != failure_key:
@@ -223,6 +267,10 @@ class ClientStudioLiveSession:
                     f"{submission_status} {submission_reason}."
                 ),
             )
+
+    def _mark_updated_locked(self) -> None:
+        self._snapshot.revision += 1
+        self._update_condition.notify_all()
 
 
 def _default_live_payload() -> dict[str, Any]:
