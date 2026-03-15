@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "http_api/ApiServer.hpp"
 #include "opengl_renderer/Renderer.hpp"
@@ -24,7 +24,7 @@ struct ApplicationConfig {
   /**
    * Stores every host, port, and payload-size setting used by the embedded HTTP API.
    */
-  http_api::ApiServerConfig api{};
+  http_api::ApiServerConfig httpApi{};
 
   /**
    * Optionally points at a JSON file that should be loaded before the app starts accepting live API
@@ -51,7 +51,7 @@ public:
   /**
    * Builds the application with the requested runtime settings.
    */
-  explicit Application(ApplicationConfig config);
+  explicit Application(ApplicationConfig applicationConfiguration);
 
   /**
    * Starts the API and render loop, then returns the process exit code.
@@ -79,7 +79,7 @@ private:
   /**
    * Stores the chosen runtime settings.
    */
-  ApplicationConfig config_;
+  ApplicationConfig applicationConfig_;
 };
 
 /**

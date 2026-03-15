@@ -55,6 +55,6 @@ private:
   /**
    * Stores the linked program object handle.
    */
-  GLuint programId_ = 0;
+  GLuint shaderProgramHandle_ = 0;
 };
 } // namespace halcyn::opengl_renderer

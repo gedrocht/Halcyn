@@ -109,6 +109,8 @@ class SceneStudioServerTests(unittest.TestCase):
         cls.thread.join(timeout=2)
 
     def _post_json(self, path: str, payload: object) -> tuple[int, dict]:
+        """Send one JSON POST request to the in-process Scene Studio server."""
+
         data = json.dumps(payload).encode("utf-8")
         request = urllib.request.Request(
             f"{self.base_url}{path}",
@@ -195,6 +197,8 @@ class SceneStudioServerTests(unittest.TestCase):
     def test_apply_route_submits_scene_once(self) -> None:
         """Apply requests should submit directly to the live Halcyn API."""
 
+        # The fast apply path should make exactly one live API call. If that count
+        # ever increases, this test catches accidental extra network hops.
         submission_response = {
             "ok": True,
             "status": 202,
@@ -217,7 +221,7 @@ class SceneStudioServerTests(unittest.TestCase):
         self.assertEqual(payload["status"], "applied")
         self.assertGreater(payload["networkBytes"], 0)
         patched.assert_called_once()
-        self.assertEqual(patched.call_args.kwargs["path"], "/api/v1/scene")
+        self.assertEqual(patched.call_args.kwargs["request_path"], "/api/v1/scene")
 
     def test_apply_route_surfaces_validation_failures_from_submission(self) -> None:
         """The fast apply path should still expose renderer-side validation failures."""
@@ -303,6 +307,8 @@ class SceneStudioLiveSessionTests(unittest.TestCase):
         self.session.close()
 
     def _wait_for(self, predicate, timeout_seconds: float = 2.0) -> None:
+        """Poll until the live session reaches the expected state."""
+
         deadline = time.time() + timeout_seconds
         while time.time() < deadline:
             if predicate():
@@ -399,6 +405,8 @@ class SceneStudioLiveSessionTests(unittest.TestCase):
     def test_stop_reports_stopping_when_the_current_frame_has_not_finished_yet(self) -> None:
         """Stopping should stay honest if the active frame is still winding down."""
 
+        # This test deliberately blocks one frame submission so stop() has to report
+        # an in-between "stopping" state instead of claiming the loop is already done.
         release_frame = threading.Event()
         frame_started = threading.Event()
 

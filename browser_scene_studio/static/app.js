@@ -25,15 +25,18 @@ const state = {
     bass: 0,
     mid: 0,
     treble: 0,
-    stream: null,
-    context: null,
-    analyser: null,
-    source: null,
-    frameId: 0,
-    data: null,
+    microphoneStream: null,
+    audioContext: null,
+    frequencyAnalyser: null,
+    microphoneSourceNode: null,
+    animationFrameId: 0,
+    frequencyByteData: null,
   },
 };
 
+// The browser keeps fast-changing interaction state locally so it can respond
+// immediately to pointer and microphone input, while the server stays responsible
+// for authoritative scene generation and live-session state.
 function clamp(value, lower, upper) {
   return Math.max(lower, Math.min(upper, value));
 }
@@ -42,25 +45,27 @@ function fract(value) {
   return value - Math.floor(value);
 }
 
-async function fetchJson(url) {
-  const response = await fetch(url);
-  return response.json();
+async function fetchJson(requestUrl) {
+  const httpResponse = await fetch(requestUrl);
+  return httpResponse.json();
 }
 
-async function postJson(url, payload = {}) {
-  const response = await fetch(url, {
+async function postJson(requestUrl, requestPayload = {}) {
+  const httpResponse = await fetch(requestUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(requestPayload),
   });
-  return response.json();
+  return httpResponse.json();
 }
 
-function buildPayloadSignature(payload) {
-  return JSON.stringify(payload);
+function buildPayloadSignature(requestPayload) {
+  // Signatures let us skip redundant network requests when the generated payload
+  // would be identical to the one we already sent.
+  return JSON.stringify(requestPayload);
 }
 
-function form() {
+function getControlForm() {
   return document.getElementById("control-form");
 }
 
@@ -68,14 +73,14 @@ function setLastAction(text) {
   document.getElementById("last-action").textContent = text;
 }
 
-function writeApplyLog(payload) {
-  document.getElementById("apply-log").textContent = JSON.stringify(payload, null, 2);
+function writeApplyLog(logPayload) {
+  document.getElementById("apply-log").textContent = JSON.stringify(logPayload, null, 2);
 }
 
 function updateRangeValue(inputId, labelId, digits = 2) {
-  const input = document.getElementById(inputId);
-  const label = document.getElementById(labelId);
-  label.textContent = Number.parseFloat(input.value).toFixed(digits);
+  const rangeInput = document.getElementById(inputId);
+  const valueLabel = document.getElementById(labelId);
+  valueLabel.textContent = Number.parseFloat(rangeInput.value).toFixed(digits);
 }
 
 function updateAllRangeValues() {
@@ -89,15 +94,16 @@ function updateAllRangeValues() {
 }
 
 function currentTarget() {
-  const data = new FormData(form());
-  const host = String(data.get("host") || "127.0.0.1").trim() || "127.0.0.1";
-  const port = Number.parseInt(String(data.get("port") || "8080"), 10) || 8080;
+  const formData = new FormData(getControlForm());
+  const host = String(formData.get("host") || "127.0.0.1").trim() || "127.0.0.1";
+  const port = Number.parseInt(String(formData.get("port") || "8080"), 10) || 8080;
   return { host, port };
 }
 
 function syncTargetSummary() {
-  const target = currentTarget();
-  document.getElementById("target-summary").textContent = `${target.host}:${target.port}`;
+  const targetConnection = currentTarget();
+  document.getElementById("target-summary").textContent =
+    `${targetConnection.host}:${targetConnection.port}`;
 }
 
 function getSelectedPreset() {
@@ -114,7 +120,9 @@ function selectPreset(presetId) {
     return;
   }
 
-  const controls = form().elements;
+  // Resetting the controls to preset defaults gives every preset a predictable
+  // starting point before the user begins customizing it.
+  const controls = getControlForm().elements;
   const defaults = preset.defaults;
   controls.density.value = defaults.density;
   controls.pointSize.value = defaults.pointSize;
@@ -133,8 +141,8 @@ function selectPreset(presetId) {
 }
 
 function renderPresetDeck() {
-  const target = document.getElementById("preset-grid");
-  target.innerHTML = "";
+  const presetGrid = document.getElementById("preset-grid");
+  presetGrid.innerHTML = "";
 
   for (const preset of state.catalog.presets) {
     const button = document.createElement("button");
@@ -150,7 +158,7 @@ function renderPresetDeck() {
       queueLiveSessionConfigure();
       void previewScene();
     });
-    target.appendChild(button);
+    presetGrid.appendChild(button);
   }
 }
 
@@ -159,6 +167,8 @@ function isLiveStreaming() {
 }
 
 function buildSignalsPayload() {
+  // Signals arrive from different browser features, but the server wants one
+  // normalized structure no matter which inputs are enabled.
   return {
     useEpoch: document.getElementById("epoch-toggle").checked,
     useNoise: document.getElementById("noise-toggle").checked,
@@ -178,29 +188,31 @@ function buildSignalsPayload() {
       treble: state.audio.treble,
     },
     manual: {
-      drive: Number.parseFloat(form().elements.manualDrive.value),
+      drive: Number.parseFloat(getControlForm().elements.manualDrive.value),
     },
   };
 }
 
 function buildRequestPayload() {
-  const data = new FormData(form());
+  // Preview, apply, and live-session routes all share this same payload shape.
+  // Using one builder helps keep those browser-to-server contracts aligned.
+  const formData = new FormData(getControlForm());
   return {
     presetId: state.selectedPresetId,
     target: currentTarget(),
     settings: {
-      density: Number.parseInt(String(data.get("density")), 10),
-      pointSize: Number.parseFloat(String(data.get("pointSize"))),
-      lineWidth: Number.parseFloat(String(data.get("lineWidth"))),
-      speed: Number.parseFloat(String(data.get("speed"))),
-      gain: Number.parseFloat(String(data.get("gain"))),
-      manualDrive: Number.parseFloat(String(data.get("manualDrive"))),
-      background: String(data.get("background")),
-      primaryColor: String(data.get("primaryColor")),
-      secondaryColor: String(data.get("secondaryColor")),
+      density: Number.parseInt(String(formData.get("density")), 10),
+      pointSize: Number.parseFloat(String(formData.get("pointSize"))),
+      lineWidth: Number.parseFloat(String(formData.get("lineWidth"))),
+      speed: Number.parseFloat(String(formData.get("speed"))),
+      gain: Number.parseFloat(String(formData.get("gain"))),
+      manualDrive: Number.parseFloat(String(formData.get("manualDrive"))),
+      background: String(formData.get("background")),
+      primaryColor: String(formData.get("primaryColor")),
+      secondaryColor: String(formData.get("secondaryColor")),
     },
     session: {
-      cadenceMs: Number.parseInt(String(data.get("autoApplyMs")), 10),
+      cadenceMs: Number.parseInt(String(formData.get("autoApplyMs")), 10),
     },
     signals: buildSignalsPayload(),
   };
@@ -213,7 +225,9 @@ function renderPointerBlip() {
 }
 
 function localEnergyEstimate() {
-  const manualDrive = Number.parseFloat(form().elements.manualDrive.value) || 0;
+  // This estimate is only for immediate browser feedback. The server computes the
+  // authoritative energy value again when it builds the actual scene.
+  const manualDrive = Number.parseFloat(getControlForm().elements.manualDrive.value) || 0;
   const pointerSpeed = document.getElementById("pointer-toggle").checked ? state.pointer.speed : 0;
   const audioLevel = document.getElementById("audio-toggle").checked ? state.audio.level : 0;
   const useNoise = document.getElementById("noise-toggle").checked;
@@ -230,36 +244,37 @@ function renderSignalReadouts() {
   renderPointerBlip();
 }
 
-function renderPreview(bundle) {
-  state.latestPreview = bundle;
-  document.getElementById("scene-preview").textContent = JSON.stringify(bundle.scene, null, 2);
+function renderPreview(sceneBundle) {
+  state.latestPreview = sceneBundle;
+  document.getElementById("scene-preview").textContent = JSON.stringify(sceneBundle.scene, null, 2);
   document.getElementById("analysis-summary").textContent =
-    `${bundle.preset.name}: ${bundle.analysis.primitive}, ${bundle.analysis.vertexCount} vertices, sources ${bundle.analysis.activeSources.join(", ")}, energy ${bundle.analysis.energy.toFixed(2)}.`;
-  setLastAction(`Previewed ${bundle.preset.name}`);
+    `${sceneBundle.preset.name}: ${sceneBundle.analysis.primitive}, ${sceneBundle.analysis.vertexCount} vertices, sources ${sceneBundle.analysis.activeSources.join(", ")}, energy ${sceneBundle.analysis.energy.toFixed(2)}.`;
+  setLastAction(`Previewed ${sceneBundle.preset.name}`);
 }
 
-function renderLiveSession(payload) {
-  state.liveSession = payload.session;
-  const session = payload.session;
-  const target = document.getElementById("session-summary");
+function renderLiveSession(sessionPayload) {
+  state.liveSession = sessionPayload.session;
+  const session = sessionPayload.session;
+  const sessionSummaryTarget = document.getElementById("session-summary");
+  const target = sessionSummaryTarget;
   const framesSummary = `${session.frames_applied} ok / ${session.frames_failed} failed`;
   const cadenceSummary = `${session.cadence_ms} ms`;
-  target.textContent = `${session.status} • ${cadenceSummary} • ${framesSummary}`;
+  target.textContent = `${session.status} | ${cadenceSummary} | ${framesSummary}`;
 }
 
-function renderLiveSessionSnapshot(payload) {
-  state.liveSession = payload.session;
-  const session = payload.session;
-  const target = document.getElementById("session-summary");
+function renderLiveSessionSnapshot(sessionPayload) {
+  state.liveSession = sessionPayload.session;
+  const session = sessionPayload.session;
+  const sessionSummaryTarget = document.getElementById("session-summary");
   const framesSummary = `${session.frames_applied} ok / ${session.frames_failed} failed`;
   const cadenceSummary = `${session.cadence_ms} ms`;
-  target.textContent = `${session.status} - ${cadenceSummary} - ${framesSummary}`;
+  sessionSummaryTarget.textContent = `${session.status} - ${cadenceSummary} - ${framesSummary}`;
 }
 
 async function refreshLiveSession() {
   try {
-    const payload = await fetchJson("/api/scene-studio/session");
-    renderLiveSessionSnapshot(payload);
+    const sessionPayload = await fetchJson("/api/scene-studio/session");
+    renderLiveSessionSnapshot(sessionPayload);
   } catch {
     document.getElementById("session-summary").textContent = "Unavailable";
   }
@@ -285,12 +300,24 @@ function connectSessionStream() {
     return;
   }
 
-  const source = new window.EventSource("/api/scene-studio/session/stream");
-  source.addEventListener("session", (event) => {
-    const payload = JSON.parse(event.data);
-    renderLiveSessionSnapshot(payload);
+  // Server-Sent Events let the server push state changes to the browser without
+  // the browser repeatedly polling for updates.
+  const sessionEventSource = new window.EventSource("/api/scene-studio/session/stream");
+  sessionEventSource.addEventListener("session", (event) => {
+    const sessionPayload = JSON.parse(event.data);
+    renderLiveSessionSnapshot(sessionPayload);
   });
-  state.sessionEventSource = source;
+  sessionEventSource.addEventListener("error", () => {
+    sessionEventSource.close();
+    if (state.sessionEventSource === sessionEventSource) {
+      state.sessionEventSource = null;
+    }
+    state.sessionPollTimerId = window.setInterval(() => {
+      void refreshLiveSession();
+    }, 1500);
+    setLastAction("Live session stream disconnected; using polling fallback");
+  });
+  state.sessionEventSource = sessionEventSource;
 }
 
 function teardownSessionStream() {
@@ -302,8 +329,8 @@ function teardownSessionStream() {
 }
 
 async function previewScene(
-  payload = buildRequestPayload(),
-  signature = buildPayloadSignature(payload),
+  requestPayload = buildRequestPayload(),
+  requestSignature = buildPayloadSignature(requestPayload),
 ) {
   if (state.previewBusy) {
     return;
@@ -311,9 +338,9 @@ async function previewScene(
 
   state.previewBusy = true;
   try {
-    const bundle = await postJson("/api/scene-studio/preview", payload);
-    state.lastPreviewSignature = signature;
-    renderPreview(bundle);
+    const sceneBundle = await postJson("/api/scene-studio/preview", requestPayload);
+    state.lastPreviewSignature = requestSignature;
+    renderPreview(sceneBundle);
   } catch (error) {
     writeApplyLog({ status: "preview-error", message: String(error) });
     setLastAction("Preview failed");
@@ -329,12 +356,14 @@ function queuePreviewScene() {
 
   state.previewTimerId = window.setTimeout(() => {
     state.previewTimerId = null;
-    const payload = buildRequestPayload();
-    const signature = buildPayloadSignature(payload);
-    if (signature === state.lastPreviewSignature && state.latestPreview !== null) {
+    const requestPayload = buildRequestPayload();
+    const requestSignature = buildPayloadSignature(requestPayload);
+    // Debouncing keeps quick slider drags from generating many previews the user
+    // never has time to see.
+    if (requestSignature === state.lastPreviewSignature && state.latestPreview !== null) {
       return;
     }
-    void previewScene(payload, signature);
+    void previewScene(requestPayload, requestSignature);
   }, 60);
 }
 
@@ -345,15 +374,16 @@ async function applyScene() {
 
   state.applyBusy = true;
   try {
-    const response = await postJson("/api/scene-studio/apply", buildRequestPayload());
-    writeApplyLog(response);
-    if (response.scene) {
-      document.getElementById("scene-preview").textContent = JSON.stringify(response.scene, null, 2);
+    const applyResponse = await postJson("/api/scene-studio/apply", buildRequestPayload());
+    writeApplyLog(applyResponse);
+    if (applyResponse.scene) {
+      document.getElementById("scene-preview").textContent =
+        JSON.stringify(applyResponse.scene, null, 2);
     }
     setLastAction(
-      response.status === "applied"
-        ? `Applied ${response.preset.name}`
-        : response.status
+      applyResponse.status === "applied"
+        ? `Applied ${applyResponse.preset.name}`
+        : applyResponse.status
     );
   } catch (error) {
     writeApplyLog({ status: "apply-error", message: String(error) });
@@ -365,13 +395,13 @@ async function applyScene() {
 }
 
 async function startLiveSession() {
-  const payload = buildRequestPayload();
-  const signature = buildPayloadSignature(payload);
+  const requestPayload = buildRequestPayload();
+  const requestSignature = buildPayloadSignature(requestPayload);
   try {
-    const response = await postJson("/api/scene-studio/session/start", payload);
-    state.lastConfigureSignature = signature;
-    renderLiveSessionSnapshot(response);
-    setLastAction(`Live stream started at ${response.session.cadence_ms} ms`);
+    const sessionResponse = await postJson("/api/scene-studio/session/start", requestPayload);
+    state.lastConfigureSignature = requestSignature;
+    renderLiveSessionSnapshot(sessionResponse);
+    setLastAction(`Live stream started at ${sessionResponse.session.cadence_ms} ms`);
   } catch (error) {
     writeApplyLog({ status: "session-start-error", message: String(error) });
     setLastAction("Live stream failed to start");
@@ -387,8 +417,8 @@ async function stopLiveSession() {
   state.lastConfigureSignature = null;
 
   try {
-    const response = await postJson("/api/scene-studio/session/stop", {});
-    renderLiveSessionSnapshot(response);
+    const sessionResponse = await postJson("/api/scene-studio/session/stop", {});
+    renderLiveSessionSnapshot(sessionResponse);
     setLastAction("Live stream stopped");
   } catch (error) {
     writeApplyLog({ status: "session-stop-error", message: String(error) });
@@ -401,6 +431,8 @@ function queueLiveSessionConfigure() {
     return;
   }
 
+  // Configure requests are deduplicated and slightly delayed so the browser feels
+  // responsive without sending a request on every tiny input change.
   if (buildPayloadSignature(buildRequestPayload()) === state.lastConfigureSignature) {
     return;
   }
@@ -414,15 +446,18 @@ function queueLiveSessionConfigure() {
     if (!isLiveStreaming()) {
       return;
     }
-    const payload = buildRequestPayload();
-    const signature = buildPayloadSignature(payload);
-    if (signature === state.lastConfigureSignature) {
+    const requestPayload = buildRequestPayload();
+    const requestSignature = buildPayloadSignature(requestPayload);
+    if (requestSignature === state.lastConfigureSignature) {
       return;
     }
     try {
-      const response = await postJson("/api/scene-studio/session/configure", payload);
-      state.lastConfigureSignature = signature;
-      renderLiveSessionSnapshot(response);
+      const sessionResponse = await postJson(
+        "/api/scene-studio/session/configure",
+        requestPayload
+      );
+      state.lastConfigureSignature = requestSignature;
+      renderLiveSessionSnapshot(sessionResponse);
     } catch (error) {
       setLastAction(`Live update failed: ${String(error)}`);
     }
@@ -440,16 +475,16 @@ function queueInteractiveUpdate() {
 }
 
 function stopAudioCapture(suppressInteractiveUpdate = false) {
-  if (state.audio.frameId) {
-    cancelAnimationFrame(state.audio.frameId);
+  if (state.audio.animationFrameId) {
+    cancelAnimationFrame(state.audio.animationFrameId);
   }
-  if (state.audio.stream) {
-    for (const track of state.audio.stream.getTracks()) {
+  if (state.audio.microphoneStream) {
+    for (const track of state.audio.microphoneStream.getTracks()) {
       track.stop();
     }
   }
-  if (state.audio.context) {
-    void state.audio.context.close();
+  if (state.audio.audioContext) {
+    void state.audio.audioContext.close();
   }
   state.audio = {
     enabled: false,
@@ -457,12 +492,12 @@ function stopAudioCapture(suppressInteractiveUpdate = false) {
     bass: 0,
     mid: 0,
     treble: 0,
-    stream: null,
-    context: null,
-    analyser: null,
-    source: null,
-    frameId: 0,
-    data: null,
+    microphoneStream: null,
+    audioContext: null,
+    frequencyAnalyser: null,
+    microphoneSourceNode: null,
+    animationFrameId: 0,
+    frequencyByteData: null,
   };
   renderSignalReadouts();
   if (!suppressInteractiveUpdate) {
@@ -471,12 +506,18 @@ function stopAudioCapture(suppressInteractiveUpdate = false) {
 }
 
 function pumpAudioMetrics() {
-  if (!state.audio.enabled || !state.audio.analyser || !state.audio.data) {
+  if (
+    !state.audio.enabled ||
+    !state.audio.frequencyAnalyser ||
+    !state.audio.frequencyByteData
+  ) {
     return;
   }
 
-  state.audio.analyser.getByteFrequencyData(state.audio.data);
-  const values = Array.from(state.audio.data);
+  // The analyser provides a full frequency spectrum. We collapse that into broad
+  // bands because the scene generators only need coarse musical energy buckets.
+  state.audio.frequencyAnalyser.getByteFrequencyData(state.audio.frequencyByteData);
+  const values = Array.from(state.audio.frequencyByteData);
   const average = values.reduce((sum, value) => sum + value, 0) / Math.max(values.length, 1);
   const third = Math.max(1, Math.floor(values.length / 3));
   const bass = values.slice(0, third);
@@ -492,7 +533,7 @@ function pumpAudioMetrics() {
   state.audio.treble = clamp(averageBand(treble), 0, 1);
   renderSignalReadouts();
   queueInteractiveUpdate();
-  state.audio.frameId = requestAnimationFrame(pumpAudioMetrics);
+  state.audio.animationFrameId = requestAnimationFrame(pumpAudioMetrics);
 }
 
 async function startAudioCapture() {
@@ -509,24 +550,24 @@ async function startAudioCapture() {
   }
 
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const context = new window.AudioContext();
-    const analyser = context.createAnalyser();
-    analyser.fftSize = 256;
-    const source = context.createMediaStreamSource(stream);
-    source.connect(analyser);
+    const microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const audioContext = new window.AudioContext();
+    const frequencyAnalyser = audioContext.createAnalyser();
+    frequencyAnalyser.fftSize = 256;
+    const microphoneSourceNode = audioContext.createMediaStreamSource(microphoneStream);
+    microphoneSourceNode.connect(frequencyAnalyser);
     state.audio = {
       enabled: true,
       level: 0,
       bass: 0,
       mid: 0,
       treble: 0,
-      stream,
-      context,
-      analyser,
-      source,
-      frameId: 0,
-      data: new Uint8Array(analyser.frequencyBinCount),
+      microphoneStream,
+      audioContext,
+      frequencyAnalyser,
+      microphoneSourceNode,
+      animationFrameId: 0,
+      frequencyByteData: new Uint8Array(frequencyAnalyser.frequencyBinCount),
     };
     pumpAudioMetrics();
     setLastAction("Microphone capture enabled");
@@ -543,14 +584,14 @@ function handlePointerMove(event) {
   const x = clamp((event.clientX - rect.left) / rect.width, 0, 1);
   const y = clamp((event.clientY - rect.top) / rect.height, 0, 1);
   const now = performance.now();
-  const dt = Math.max(16, now - state.pointer.lastTimestamp);
-  const distance = Math.hypot(x - state.pointer.lastX, y - state.pointer.lastY);
-  const speed = clamp(distance / (dt / 1000), 0, 1);
+  const elapsedMilliseconds = Math.max(16, now - state.pointer.lastTimestamp);
+  const pointerDistance = Math.hypot(x - state.pointer.lastX, y - state.pointer.lastY);
+  const pointerSpeed = clamp(pointerDistance / (elapsedMilliseconds / 1000), 0, 1);
 
   state.pointer = {
     x,
     y,
-    speed,
+    speed: pointerSpeed,
     lastTimestamp: now,
     lastX: x,
     lastY: y,
@@ -559,7 +600,7 @@ function handlePointerMove(event) {
   queueInteractiveUpdate();
 }
 
-function teardownClientStudio() {
+function teardownSceneStudio() {
   if (state.previewTimerId !== null) {
     window.clearTimeout(state.previewTimerId);
     state.previewTimerId = null;
@@ -573,6 +614,8 @@ function teardownClientStudio() {
 }
 
 function wireEvents() {
+  // Keeping event hookup in one place makes the startup path easier to follow and
+  // gives future contributors one obvious place to look for UI behavior.
   document.getElementById("preview-button").addEventListener("click", () => {
     void previewScene();
   });
@@ -616,6 +659,8 @@ function wireEvents() {
 }
 
 async function bootstrap() {
+  // The page boots in three stages: fetch catalog metadata, hydrate the controls,
+  // then request the first preview and live-session snapshot.
   state.catalog = await fetchJson("/api/scene-studio/catalog");
   state.selectedPresetId = state.catalog.defaults.presetId;
   document.getElementById("auto-apply-ms-input").value = state.catalog.defaults.autoApplyMs;
@@ -630,9 +675,14 @@ async function bootstrap() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  void bootstrap();
+  void bootstrap().catch((error) => {
+    writeApplyLog({ status: "bootstrap-error", message: String(error) });
+    setLastAction("Scene Studio failed to start");
+  });
 });
 
 window.addEventListener("beforeunload", () => {
-  teardownClientStudio();
+  // Release timers, streams, and audio capture when the page closes so the browser
+  // does not keep background work alive unnecessarily.
+  teardownSceneStudio();
 });

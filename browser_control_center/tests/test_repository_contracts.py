@@ -127,11 +127,12 @@ class RepositoryContractTests(unittest.TestCase):
             "src/core",
             "src/domain",
             "src/renderer",
-            "launch-browser-scene-launch-browser-control-center.ps1",
-            "lint-control-center.ps1",
-            "coverage-control-center.ps1",
-            "typecheck-control-center.ps1",
-            "test-control-center.ps1",
+            r".\scripts\studio.ps1",
+            r".\scripts\client-studio.ps1",
+            r".\scripts\lint-control-plane.ps1",
+            r".\scripts\coverage-control-plane.ps1",
+            r".\scripts\typecheck-control-plane.ps1",
+            r".\scripts\test-control-plane.ps1",
             "client-studio.html",
         ]:
             self.assertNotIn(retired_name, readme_text)

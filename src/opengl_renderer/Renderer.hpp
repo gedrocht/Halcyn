@@ -45,7 +45,8 @@ public:
   /**
    * Builds the renderer with access to the shared scene store.
    */
-  Renderer(RendererConfig config, std::shared_ptr<shared_runtime::SceneStore> sceneStore,
+  Renderer(RendererConfig rendererConfiguration,
+           std::shared_ptr<shared_runtime::SceneStore> sceneStore,
            std::shared_ptr<shared_runtime::RuntimeLog> runtimeLog);
 
   /**
@@ -112,7 +113,7 @@ private:
   /**
    * Stores the chosen window settings.
    */
-  RendererConfig config_;
+  RendererConfig rendererConfiguration_;
 
   /**
    * Points at the shared scene store.
@@ -127,27 +128,27 @@ private:
   /**
    * Stores the current GLFW window.
    */
-  GLFWwindow* window_ = nullptr;
+  GLFWwindow* renderWindow_ = nullptr;
 
   /**
    * Stores the GPU shader program used for both 2D and 3D scenes.
    */
-  std::unique_ptr<ShaderProgram> shaderProgram_;
+  std::unique_ptr<ShaderProgram> sceneShaderProgram_;
 
   /**
    * Stores the main vertex array object.
    */
-  GLuint vao_ = 0;
+  GLuint vertexArrayObjectHandle_ = 0;
 
   /**
    * Stores the vertex buffer object.
    */
-  GLuint vbo_ = 0;
+  GLuint vertexBufferObjectHandle_ = 0;
 
   /**
    * Stores the index buffer object.
    */
-  GLuint ebo_ = 0;
+  GLuint elementBufferObjectHandle_ = 0;
 
   /**
    * Tracks the last scene version uploaded to the GPU so unchanged frames avoid unnecessary

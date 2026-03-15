@@ -10,14 +10,14 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'shared-script-helpers.ps1')
 
 $scenePath = Resolve-FilesystemPath -Path $SceneFile
-$body = Get-Content -Raw -Path $scenePath
-$uri = "http://$ApiHost`:$Port/api/v1/scene"
+$sceneJson = Get-Content -Raw -Path $scenePath
+$requestUri = "http://$ApiHost`:$Port/api/v1/scene"
 
-Write-Host "Posting $scenePath to $uri"
+Write-Host "Posting $scenePath to $requestUri"
 
 try {
-  $response = Invoke-RestMethod -Method Post -Uri $uri -ContentType 'application/json' -Body $body
-  $response | ConvertTo-Json -Depth 10
+  $httpResponse = Invoke-RestMethod -Method Post -Uri $requestUri -ContentType 'application/json' -Body $sceneJson
+  $httpResponse | ConvertTo-Json -Depth 10
 }
 catch {
   if ($_.Exception.Response -and $_.Exception.Response.GetResponseStream) {

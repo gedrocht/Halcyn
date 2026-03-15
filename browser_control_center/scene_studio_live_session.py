@@ -24,6 +24,8 @@ LogCallback = Callable[[str, str, str], None]
 
 
 def _utc_now_iso() -> str:
+    """Return the current UTC time in the JSON-friendly format used by the UI."""
+
     return datetime.now(timezone.utc).isoformat()
 
 
@@ -65,6 +67,8 @@ class SceneStudioLiveSession:
         self._apply_callback = apply_callback
         self._log_callback = log_callback
         self._lock = threading.Lock()
+        # A condition variable lets HTTP streaming code wait efficiently for state
+        # changes instead of polling the session in a tight loop.
         self._update_condition = threading.Condition(self._lock)
         self._thread: threading.Thread | None = None
         self._stop_event = threading.Event()
@@ -97,6 +101,8 @@ class SceneStudioLiveSession:
         """Update the desired preset, target, controls, and session cadence."""
 
         with self._lock:
+            # Configuration is stored separately from the live loop so the browser can
+            # tweak values whether the session is stopped, starting, or already running.
             self._config = _merge_live_payload(self._config, payload)
             self._snapshot.preset_id = str(self._config.get("presetId", DEFAULT_PRESET_ID))
             target = self._config.get("target", {})
@@ -149,6 +155,8 @@ class SceneStudioLiveSession:
             self._stop_event.set()
             self._mark_updated_locked()
 
+        # The join has a timeout because frame submission may already be in progress.
+        # That lets the UI report "stopping" honestly instead of freezing indefinitely.
         thread.join(timeout=self._stop_join_timeout_seconds)
 
         with self._lock:
@@ -178,6 +186,11 @@ class SceneStudioLiveSession:
         self.stop()
 
     def _run_loop(self) -> None:
+        # The live loop is deliberately small:
+        # 1. build the next payload
+        # 2. generate a scene bundle
+        # 3. submit it to the live API
+        # 4. record what happened
         with self._lock:
             self._snapshot.status = "running"
             self._mark_updated_locked()
@@ -187,9 +200,13 @@ class SceneStudioLiveSession:
                 frame_started = time.perf_counter()
                 payload, cadence_ms = self._build_frame_payload()
                 bundle = build_scene_bundle(payload)
-                target = bundle["target"]
+                target_connection = bundle["target"]
                 scene_json = json.dumps(bundle["scene"], separators=(",", ":"))
-                submission = self._apply_callback(target["host"], int(target["port"]), scene_json)
+                submission = self._apply_callback(
+                    target_connection["host"],
+                    int(target_connection["port"]),
+                    scene_json,
+                )
                 self._record_frame(bundle["analysis"], submission, len(scene_json.encode("utf-8")))
                 elapsed = time.perf_counter() - frame_started
                 remaining_seconds = max(0.0, cadence_ms / 1000.0 - elapsed)
@@ -217,11 +234,15 @@ class SceneStudioLiveSession:
                 self._thread = None
 
     def _build_frame_payload(self) -> tuple[dict[str, Any], int]:
+        """Capture the latest desired configuration and inject fresh time-based signals."""
+
         with self._lock:
             payload = copy.deepcopy(self._config)
             cadence_ms = self._snapshot.cadence_ms
 
         signals = payload.setdefault("signals", {})
+        # Epoch seconds are injected on the server so every frame gets a fresh notion
+        # of "now" even if the browser is not sending new input.
         signals["epochSeconds"] = time.time()
         return payload, cadence_ms
 
@@ -231,6 +252,8 @@ class SceneStudioLiveSession:
         submission: dict[str, Any],
         network_bytes: int,
     ) -> None:
+        """Update counters and diagnostics after one attempted live frame submission."""
+
         submission_status = int(submission.get("status", 0) or 0)
         submission_reason = str(submission.get("reason", "unknown"))
         applied = submission_status in (200, 202)
@@ -256,6 +279,9 @@ class SceneStudioLiveSession:
             snapshot.last_error = error_body[:500]
             self._mark_updated_locked()
 
+        # Repeated failures of the same type are expected when the target app is
+        # offline or rejecting frames. We log the first distinct failure, then avoid
+        # spamming the log buffer with identical messages every cadence tick.
         failure_key = (submission_status, submission_reason)
         if self._last_logged_failure != failure_key:
             self._last_logged_failure = failure_key
@@ -274,6 +300,8 @@ class SceneStudioLiveSession:
 
 
 def _default_live_payload() -> dict[str, Any]:
+    """Return the control payload used before the browser sends any customization."""
+
     return {
         "presetId": DEFAULT_PRESET_ID,
         "target": {"host": DEFAULT_TARGET_HOST, "port": DEFAULT_TARGET_PORT},
@@ -294,6 +322,8 @@ def _default_live_payload() -> dict[str, Any]:
 
 
 def _merge_live_payload(existing: dict[str, Any], update: dict[str, Any]) -> dict[str, Any]:
+    """Deep-merge browser session updates into the stored live-session payload."""
+
     merged = copy.deepcopy(existing)
 
     preset_id = update.get("presetId")
@@ -316,11 +346,15 @@ def _merge_live_payload(existing: dict[str, Any], update: dict[str, Any]) -> dic
         if isinstance(incoming_settings, dict):
             cadence_candidate = incoming_settings.get("autoApplyMs")
 
+    # Cadence is clamped separately because it can arrive from either the explicit
+    # session block or the older settings.autoApplyMs field.
     session["cadenceMs"] = _clamp_int(cadence_candidate, DEFAULT_AUTO_APPLY_MS, 40, 1000)
     return merged
 
 
 def _deep_merge(target: dict[str, Any], update: dict[str, Any]) -> None:
+    """Recursively merge nested dictionaries in-place."""
+
     for key, value in update.items():
         if isinstance(value, dict):
             child = target.get(key)

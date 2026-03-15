@@ -8,7 +8,8 @@
   [string]$SceneFile = '',
   [int]$Width = 1280,
   [int]$Height = 720,
-  [int]$Fps = 60,
+  [Alias('Fps')]
+  [int]$TargetFramesPerSecond = 60,
   [string]$Title = 'Halcyn'
 )
 
@@ -18,26 +19,26 @@ $ErrorActionPreference = 'Stop'
 
 & (Join-Path $PSScriptRoot 'build-halcyn-app.ps1') -Configuration $Configuration
 
-$executable = Get-HalcynExecutablePath -Configuration $Configuration
-if (-not (Test-Path $executable)) {
-  throw "The Halcyn executable was not found at $executable"
+$halcynExecutablePath = Get-HalcynExecutablePath -Configuration $Configuration
+if (-not (Test-Path $halcynExecutablePath)) {
+  throw "The Halcyn executable was not found at $halcynExecutablePath"
 }
 
-$arguments = @(
+$applicationArguments = @(
   '--host', $ApiHost,
   '--port', $Port,
   '--width', $Width,
   '--height', $Height,
-  '--fps', $Fps,
+  '--fps', $TargetFramesPerSecond,
   '--title', $Title
 )
 
 if ([string]::IsNullOrWhiteSpace($SceneFile)) {
-  $arguments += @('--sample', $Sample)
+  $applicationArguments += @('--sample', $Sample)
 }
 else {
-  $arguments += @('--scene-file', $SceneFile)
+  $applicationArguments += @('--scene-file', $SceneFile)
 }
 
-Write-Host "Starting $executable"
-& $executable @arguments
+Write-Host "Starting $halcynExecutablePath"
+& $halcynExecutablePath @applicationArguments

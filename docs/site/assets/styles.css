@@ -336,6 +336,59 @@ th {
   background: rgba(255, 255, 255, 0.03);
 }
 
+.architecture-flow {
+  display: grid;
+  gap: 18px;
+}
+
+.architecture-lane {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.architecture-node,
+.architecture-annotation {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 16px 18px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.architecture-node h4,
+.architecture-annotation h4 {
+  margin: 0 0 8px;
+}
+
+.architecture-node p,
+.architecture-annotation p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.architecture-node strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.architecture-node.emphasis {
+  background: linear-gradient(145deg, rgba(18, 54, 86, 0.94), rgba(15, 39, 66, 0.88));
+}
+
+.architecture-arrow {
+  align-self: center;
+  justify-self: center;
+  color: var(--accent);
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.architecture-stack {
+  display: grid;
+  gap: 12px;
+}
+
 @media (max-width: 980px) {
   .hero-grid,
   .content-grid {
@@ -345,5 +398,12 @@ th {
   .nav-card {
     position: static;
   }
-}
 
+  .architecture-lane {
+    grid-template-columns: 1fr;
+  }
+
+  .architecture-arrow {
+    transform: rotate(90deg);
+  }
+}

@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "scene_description/SceneFactory.hpp"
 #include "scene_description/SceneJsonCodec.hpp"
@@ -44,8 +44,9 @@ public:
   /**
    * Builds the server with the shared state and codec objects it needs to handle requests.
    */
-  ApiServer(ApiServerConfig config, std::shared_ptr<shared_runtime::SceneStore> sceneStore,
-            std::shared_ptr<scene_description::SceneJsonCodec> codec,
+  ApiServer(ApiServerConfig serverConfiguration,
+            std::shared_ptr<shared_runtime::SceneStore> sceneStore,
+            std::shared_ptr<scene_description::SceneJsonCodec> sceneJsonCodec,
             std::shared_ptr<shared_runtime::RuntimeLog> runtimeLog);
 
   /**
@@ -100,7 +101,7 @@ private:
   /**
    * Stores the chosen host and port values.
    */
-  ApiServerConfig config_;
+  ApiServerConfig serverConfiguration_;
 
   /**
    * Points at the shared scene store used by the renderer and API.
@@ -110,7 +111,7 @@ private:
   /**
    * Points at the codec used to parse and serialize JSON scene payloads.
    */
-  std::shared_ptr<scene_description::SceneJsonCodec> codec_;
+  std::shared_ptr<scene_description::SceneJsonCodec> sceneJsonCodec_;
 
   /**
    * Stores recent runtime log messages for API diagnostics and the browser-based Control Center.
@@ -120,7 +121,7 @@ private:
   /**
    * Owns the underlying HTTP server implementation.
    */
-  httplib::Server server_;
+  httplib::Server httpServer_;
 
   /**
    * Runs the blocking listen loop outside the render thread.
@@ -130,11 +131,11 @@ private:
   /**
    * Tracks whether the server is actively listening.
    */
-  std::atomic<bool> isRunning_ = false;
+  std::atomic<bool> serverIsRunning_ = false;
 
   /**
    * Stores the actual bound port after startup succeeds.
    */
-  std::atomic<int> boundPort_ = 0;
+  std::atomic<int> listeningPort_ = 0;
 };
 } // namespace halcyn::http_api

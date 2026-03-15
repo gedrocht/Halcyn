@@ -25,4 +25,4 @@ finally {
   Pop-Location
 }
 
-Write-Host 'Control-plane lint completed successfully.'
+Write-Host 'Control Center lint completed successfully.'

@@ -15,6 +15,8 @@ void RuntimeLog::Write(LogLevel level, std::string component, std::string messag
   RuntimeLogEntry entry;
 
   {
+    // We build the entry and push it into the bounded in-memory log while holding
+    // the mutex so readers always see a consistent ordered history.
     std::scoped_lock lock(mutex_);
     entry.sequence = nextSequence_++;
     entry.level = level;
@@ -28,6 +30,8 @@ void RuntimeLog::Write(LogLevel level, std::string component, std::string messag
     }
   }
 
+  // The runtime log doubles as a console log so local development and the control
+  // plane can both observe the same events without separate logging systems.
   std::cout << '[' << FormatTimestampUtc(entry.timestampUtc) << "] [" << ToString(entry.level)
             << "] [" << entry.component << "] " << entry.message << '\n';
 }
@@ -39,6 +43,8 @@ std::vector<RuntimeLogEntry> RuntimeLog::GetRecent(std::size_t limit) const {
   const std::size_t availableCount = entries_.size();
   const std::size_t startIndex = availableCount > safeLimit ? availableCount - safeLimit : 0;
 
+  // We return a copy so callers can inspect the recent log without holding the mutex
+  // after this function returns.
   std::vector<RuntimeLogEntry> snapshot;
   snapshot.reserve(availableCount - startIndex);
 

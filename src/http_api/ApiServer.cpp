@@ -14,11 +14,12 @@ namespace {
 using json = nlohmann::json;
 } // namespace
 
-ApiServer::ApiServer(ApiServerConfig config, std::shared_ptr<shared_runtime::SceneStore> sceneStore,
-                     std::shared_ptr<scene_description::SceneJsonCodec> codec,
+ApiServer::ApiServer(ApiServerConfig serverConfiguration,
+                     std::shared_ptr<shared_runtime::SceneStore> sceneStore,
+                     std::shared_ptr<scene_description::SceneJsonCodec> sceneJsonCodec,
                      std::shared_ptr<shared_runtime::RuntimeLog> runtimeLog)
-    : config_(std::move(config)), sceneStore_(std::move(sceneStore)), codec_(std::move(codec)),
-      runtimeLog_(std::move(runtimeLog)) {
+    : serverConfiguration_(std::move(serverConfiguration)), sceneStore_(std::move(sceneStore)),
+      sceneJsonCodec_(std::move(sceneJsonCodec)), runtimeLog_(std::move(runtimeLog)) {
   ConfigureRoutes();
 }
 
@@ -27,36 +28,47 @@ ApiServer::~ApiServer() {
 }
 
 void ApiServer::Start() {
-  if (isRunning_) {
+  if (serverIsRunning_) {
     return;
   }
 
-  server_.set_payload_max_length(config_.maxPayloadBytes);
+  // The underlying HTTP library can reject large request bodies before our own
+  // route handlers see them. We set that limit up front so oversized scene uploads
+  // fail early and predictably.
+  httpServer_.set_payload_max_length(serverConfiguration_.maxPayloadBytes);
 
-  const int boundPort =
-      (config_.port == 0) ? server_.bind_to_any_port(config_.host)
-                          : (server_.bind_to_port(config_.host, config_.port) ? config_.port : -1);
+  const int listeningPort =
+      (serverConfiguration_.port == 0)
+          ? httpServer_.bind_to_any_port(serverConfiguration_.host)
+          : (httpServer_.bind_to_port(serverConfiguration_.host, serverConfiguration_.port)
+                 ? serverConfiguration_.port
+                 : -1);
 
-  if (boundPort <= 0) {
-    throw std::runtime_error("The HTTP API could not bind to " + config_.host + ":" +
-                             std::to_string(config_.port) + '.');
+  if (listeningPort <= 0) {
+    throw std::runtime_error("The HTTP API could not bind to " + serverConfiguration_.host + ":" +
+                             std::to_string(serverConfiguration_.port) + '.');
   }
 
-  boundPort_ = boundPort;
+  listeningPort_ = listeningPort;
 
+  // listen_after_bind blocks until the server stops, so we run it on a dedicated
+  // thread and keep the main application thread free for the renderer.
   serverThread_ = std::thread([this]() {
-    const bool listenSucceeded = server_.listen_after_bind();
+    const bool listenSucceeded = httpServer_.listen_after_bind();
     if (!listenSucceeded && runtimeLog_ != nullptr) {
       runtimeLog_->Write(shared_runtime::LogLevel::Error, "api",
                          "The HTTP server stopped because listen_after_bind returned false.");
     }
 
-    isRunning_ = false;
-    boundPort_ = 0;
+    serverIsRunning_ = false;
+    listeningPort_ = 0;
   });
 
-  server_.wait_until_ready();
-  if (!server_.is_running()) {
+  // Binding a socket and actually entering the listening loop are two different
+  // phases. wait_until_ready gives us a clean hand-off point so callers do not
+  // announce "server is ready" too early.
+  httpServer_.wait_until_ready();
+  if (!httpServer_.is_running()) {
     if (serverThread_.joinable()) {
       serverThread_.join();
     }
@@ -64,30 +76,30 @@ void ApiServer::Start() {
     throw std::runtime_error("The HTTP API failed to enter the listening state after binding.");
   }
 
-  isRunning_ = true;
+  serverIsRunning_ = true;
 
   if (runtimeLog_ != nullptr) {
     runtimeLog_->Write(shared_runtime::LogLevel::Info, "api",
-                       "HTTP API listening on http://" + config_.host + ":" +
-                           std::to_string(boundPort));
+                       "HTTP API listening on http://" + serverConfiguration_.host + ":" +
+                           std::to_string(listeningPort));
   }
 }
 
 void ApiServer::Stop() {
-  if (server_.is_running()) {
-    server_.stop();
+  if (httpServer_.is_running()) {
+    httpServer_.stop();
   }
 
   if (!serverThread_.joinable()) {
-    isRunning_ = false;
-    boundPort_ = 0;
+    serverIsRunning_ = false;
+    listeningPort_ = 0;
     return;
   }
 
   serverThread_.join();
 
-  isRunning_ = false;
-  boundPort_ = 0;
+  serverIsRunning_ = false;
+  listeningPort_ = 0;
 
   if (runtimeLog_ != nullptr) {
     runtimeLog_->Write(shared_runtime::LogLevel::Info, "api", "HTTP API stopped.");
@@ -95,96 +107,117 @@ void ApiServer::Stop() {
 }
 
 bool ApiServer::IsRunning() const {
-  return isRunning_;
+  return serverIsRunning_;
 }
 
 int ApiServer::GetBoundPort() const {
-  return boundPort_;
+  return listeningPort_;
 }
 
 void ApiServer::ConfigureRoutes() {
-  server_.set_logger([this](const httplib::Request& request, const httplib::Response& response) {
-    if (runtimeLog_ == nullptr) {
-      return;
-    }
+  // The logger hook gives us a low-cost audit trail for every HTTP request. That
+  // helps both manual debugging and the browser Control Center's live logs view.
+  httpServer_.set_logger(
+      [this](const httplib::Request& request, const httplib::Response& response) {
+        if (runtimeLog_ == nullptr) {
+          return;
+        }
 
-    runtimeLog_->Write(shared_runtime::LogLevel::Info, "http",
-                       request.method + " " + request.path + " -> " +
-                           std::to_string(response.status));
+        runtimeLog_->Write(shared_runtime::LogLevel::Info, "http",
+                           request.method + " " + request.path + " -> " +
+                               std::to_string(response.status));
+      });
+
+  httpServer_.Get("/api/v1/health", [this](const httplib::Request&, httplib::Response& response) {
+    // The health endpoint is intentionally small and cheap: it exposes the minimum
+    // information an external tool needs to confirm that the app is alive and which
+    // scene version is currently active.
+    const auto currentSceneSnapshot = sceneStore_->GetCurrent();
+    json responseBody{
+        {"status", "ok"},
+        {"host", serverConfiguration_.host},
+        {"configuredPort", serverConfiguration_.port},
+        {"listeningPort", GetBoundPort()},
+        {"activeSceneVersion", currentSceneSnapshot->version},
+        {"activeSceneType", scene_description::ToString(currentSceneSnapshot->document.kind)},
+        {"activeSceneSource", currentSceneSnapshot->sourceLabel}};
+    response.set_content(responseBody.dump(2), "application/json");
   });
 
-  server_.Get("/api/v1/health", [this](const httplib::Request&, httplib::Response& response) {
-    const auto snapshot = sceneStore_->GetCurrent();
-    json body{{"status", "ok"},
-              {"host", config_.host},
-              {"configuredPort", config_.port},
-              {"listeningPort", GetBoundPort()},
-              {"activeSceneVersion", snapshot->version},
-              {"activeSceneType", scene_description::ToString(snapshot->document.kind)},
-              {"activeSceneSource", snapshot->sourceLabel}};
-    response.set_content(body.dump(2), "application/json");
+  httpServer_.Get("/api/v1/scene", [this](const httplib::Request&, httplib::Response& response) {
+    // Returning the exact active scene makes the API self-describing. A client can
+    // ask "what are you drawing right now?" without keeping its own copy in sync.
+    const auto currentSceneSnapshot = sceneStore_->GetCurrent();
+    response.set_content(sceneJsonCodec_->Serialize(*currentSceneSnapshot), "application/json");
   });
 
-  server_.Get("/api/v1/scene", [this](const httplib::Request&, httplib::Response& response) {
-    const auto snapshot = sceneStore_->GetCurrent();
-    response.set_content(codec_->Serialize(*snapshot), "application/json");
-  });
+  httpServer_.Get("/api/v1/runtime/limits",
+                  [this](const httplib::Request&, httplib::Response& response) {
+                    response.set_content(BuildRuntimeLimitsResponse(), "application/json");
+                  });
 
-  server_.Get("/api/v1/runtime/limits",
-              [this](const httplib::Request&, httplib::Response& response) {
-                response.set_content(BuildRuntimeLimitsResponse(), "application/json");
-              });
+  httpServer_.Get("/api/v1/runtime/logs",
+                  [this](const httplib::Request& request, httplib::Response& response) {
+                    // Logs can grow quickly, so the endpoint uses a capped "recent items"
+                    // model instead of attempting to expose an unbounded history.
+                    std::size_t limit = 200;
+                    if (request.has_param("limit")) {
+                      limit = static_cast<std::size_t>(
+                          std::max(1, std::atoi(request.get_param_value("limit").c_str())));
+                    }
 
-  server_.Get("/api/v1/runtime/logs",
-              [this](const httplib::Request& request, httplib::Response& response) {
-                std::size_t limit = 200;
-                if (request.has_param("limit")) {
-                  limit = static_cast<std::size_t>(
-                      std::max(1, std::atoi(request.get_param_value("limit").c_str())));
-                }
+                    response.set_content(BuildRuntimeLogResponse(limit), "application/json");
+                  });
 
-                response.set_content(BuildRuntimeLogResponse(limit), "application/json");
-              });
+  httpServer_.Get(
+      "/api/v1/examples/2d", [this](const httplib::Request&, httplib::Response& response) {
+        const auto exampleSceneDocument = scene_description::CreateSample2DSceneDocument();
+        auto exampleSnapshot = scene_description::SceneSnapshot{};
+        exampleSnapshot.version = 0;
+        exampleSnapshot.document = exampleSceneDocument;
+        exampleSnapshot.sourceLabel = "built-in-example";
+        response.set_content(sceneJsonCodec_->Serialize(exampleSnapshot), "application/json");
+      });
 
-  server_.Get("/api/v1/examples/2d", [this](const httplib::Request&, httplib::Response& response) {
-    const auto scene = scene_description::CreateSample2DSceneDocument();
-    auto snapshot = scene_description::SceneSnapshot{};
-    snapshot.version = 0;
-    snapshot.document = scene;
-    snapshot.sourceLabel = "built-in-example";
-    response.set_content(codec_->Serialize(snapshot), "application/json");
-  });
+  httpServer_.Get(
+      "/api/v1/examples/3d", [this](const httplib::Request&, httplib::Response& response) {
+        const auto exampleSceneDocument = scene_description::CreateSample3DSceneDocument();
+        auto exampleSnapshot = scene_description::SceneSnapshot{};
+        exampleSnapshot.version = 0;
+        exampleSnapshot.document = exampleSceneDocument;
+        exampleSnapshot.sourceLabel = "built-in-example";
+        response.set_content(sceneJsonCodec_->Serialize(exampleSnapshot), "application/json");
+      });
 
-  server_.Get("/api/v1/examples/3d", [this](const httplib::Request&, httplib::Response& response) {
-    const auto scene = scene_description::CreateSample3DSceneDocument();
-    auto snapshot = scene_description::SceneSnapshot{};
-    snapshot.version = 0;
-    snapshot.document = scene;
-    snapshot.sourceLabel = "built-in-example";
-    response.set_content(codec_->Serialize(snapshot), "application/json");
-  });
-
-  server_.Post("/api/v1/scene/validate", [this](const httplib::Request& request,
-                                                httplib::Response& response) {
-    const auto parseResult = codec_->Parse(request.body);
-    if (!parseResult.succeeded || !parseResult.scene.has_value()) {
+  httpServer_.Post("/api/v1/scene/validate", [this](const httplib::Request& request,
+                                                    httplib::Response& response) {
+    // Validation is intentionally separated from activation so tools can preview
+    // "would this scene be accepted?" without changing what the renderer shows.
+    const auto sceneParseResult = sceneJsonCodec_->Parse(request.body);
+    if (!sceneParseResult.succeeded || !sceneParseResult.scene.has_value()) {
       response.status = 400;
-      response.set_content(BuildValidationErrorResponse(parseResult.errors), "application/json");
+      response.set_content(BuildValidationErrorResponse(sceneParseResult.errors),
+                           "application/json");
       return;
     }
 
-    const auto& scene = *parseResult.scene;
-    const scene_description::RenderScene renderScene = scene_description::BuildRenderScene(scene);
-    json body{{"status", "valid"},
-              {"sceneType", scene_description::ToString(scene.kind)},
-              {"vertexCount", renderScene.vertices.size()},
-              {"indexCount", renderScene.indices.size()},
-              {"message", "The payload is valid and can be activated."}};
-    response.set_content(body.dump(2), "application/json");
+    const auto& sceneDocument = *sceneParseResult.scene;
+    // Building the render scene here proves not only that the JSON is well-formed,
+    // but also that it can be transformed into the normalized renderer payload.
+    const scene_description::RenderScene renderScene =
+        scene_description::BuildRenderScene(sceneDocument);
+    json responseBody{{"status", "valid"},
+                      {"sceneType", scene_description::ToString(sceneDocument.kind)},
+                      {"vertexCount", renderScene.vertices.size()},
+                      {"indexCount", renderScene.indices.size()},
+                      {"message", "The payload is valid and can be activated."}};
+    response.set_content(responseBody.dump(2), "application/json");
   });
 
-  server_.Post("/api/v1/scene", [this](const httplib::Request& request,
-                                       httplib::Response& response) {
+  httpServer_.Post("/api/v1/scene", [this](const httplib::Request& request,
+                                           httplib::Response& response) {
+    // We accept requests that omit Content-Type for convenience during manual
+    // testing, but if a caller does send the header it must agree with JSON.
     if (request.has_header("Content-Type") &&
         request.get_header_value("Content-Type").find("application/json") == std::string::npos) {
       response.status = 415;
@@ -194,32 +227,39 @@ void ApiServer::ConfigureRoutes() {
       return;
     }
 
-    const auto parseResult = codec_->Parse(request.body);
-    if (!parseResult.succeeded || !parseResult.scene.has_value()) {
+    const auto sceneParseResult = sceneJsonCodec_->Parse(request.body);
+    if (!sceneParseResult.succeeded || !sceneParseResult.scene.has_value()) {
       if (runtimeLog_ != nullptr) {
         runtimeLog_->Write(shared_runtime::LogLevel::Warning, "api",
                            "Rejected an invalid scene submission with " +
-                               std::to_string(parseResult.errors.size()) + " validation errors.");
+                               std::to_string(sceneParseResult.errors.size()) +
+                               " validation errors.");
       }
 
       response.status = 400;
-      response.set_content(BuildValidationErrorResponse(parseResult.errors), "application/json");
+      response.set_content(BuildValidationErrorResponse(sceneParseResult.errors),
+                           "application/json");
       return;
     }
 
-    const auto snapshot = sceneStore_->Replace(*parseResult.scene, "http-post");
+    // Replacing the scene in the store is the moment a submitted scene becomes the
+    // "next truth" for the renderer. The renderer notices the new version number on
+    // the following frame and uploads it to the GPU.
+    const auto updatedSceneSnapshot = sceneStore_->Replace(*sceneParseResult.scene, "http-post");
     if (runtimeLog_ != nullptr) {
-      runtimeLog_->Write(shared_runtime::LogLevel::Info, "api",
-                         "Accepted scene version " + std::to_string(snapshot->version) + " (" +
-                             scene_description::ToString(snapshot->document.kind) + ").");
+      runtimeLog_->Write(
+          shared_runtime::LogLevel::Info, "api",
+          "Accepted scene version " + std::to_string(updatedSceneSnapshot->version) + " (" +
+              scene_description::ToString(updatedSceneSnapshot->document.kind) + ").");
     }
 
-    json body{{"status", "accepted"},
-              {"version", snapshot->version},
-              {"sceneType", scene_description::ToString(snapshot->document.kind)},
-              {"message", "The renderer will use this scene on the next frame."}};
+    json responseBody{
+        {"status", "accepted"},
+        {"version", updatedSceneSnapshot->version},
+        {"sceneType", scene_description::ToString(updatedSceneSnapshot->document.kind)},
+        {"message", "The renderer will use this scene on the next frame."}};
     response.status = 202;
-    response.set_content(body.dump(2), "application/json");
+    response.set_content(responseBody.dump(2), "application/json");
   });
 }
 
@@ -230,6 +270,8 @@ std::string ApiServer::BuildValidationErrorResponse(
   body["message"] = "The submitted JSON could not be turned into a valid scene.";
   body["errors"] = json::array();
 
+  // We preserve the original machine-readable path for each error so tools and
+  // humans alike can see exactly which part of the submitted JSON failed.
   for (const scene_description::ValidationError& error : errors) {
     body["errors"].push_back(json{{"path", error.path}, {"message", error.message}});
   }
@@ -242,6 +284,8 @@ std::string ApiServer::BuildRuntimeLogResponse(std::size_t limit) const {
   body["status"] = "ok";
   body["entries"] = json::array();
 
+  // The API keeps working even if no runtime log was wired in. In that case we
+  // return an empty successful payload instead of turning "missing logs" into an error.
   if (runtimeLog_ == nullptr) {
     return body.dump(2);
   }
@@ -263,7 +307,7 @@ std::string ApiServer::BuildRuntimeLogResponse(std::size_t limit) const {
 
 std::string ApiServer::BuildRuntimeLimitsResponse() const {
   json body{{"status", "ok"},
-            {"maxPayloadBytes", config_.maxPayloadBytes},
+            {"maxPayloadBytes", serverConfiguration_.maxPayloadBytes},
             {"maxVertices", scene_description::SceneLimits::kMaxVertexCount},
             {"maxIndices", scene_description::SceneLimits::kMaxIndexCount}};
   return body.dump(2);

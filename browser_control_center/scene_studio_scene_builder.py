@@ -145,6 +145,9 @@ def build_catalog_payload() -> dict[str, Any]:
 def build_scene_bundle(request_payload: dict[str, Any]) -> dict[str, Any]:
     """Normalize one browser request and return the generated scene plus metadata."""
 
+    # The browser can send partially-filled payloads while a user is dragging sliders.
+    # We normalize everything first so the actual scene generators can assume they are
+    # working with complete, validated values.
     preset_id = str(request_payload.get("presetId", DEFAULT_PRESET_ID))
     if preset_id not in PRESETS:
         preset_id = DEFAULT_PRESET_ID
@@ -175,6 +178,8 @@ def build_scene_bundle(request_payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _normalize_target(target_payload: dict[str, Any]) -> dict[str, Any]:
+    """Normalize the renderer host/port pair sent from the browser."""
+
     return {
         "host": (
             str(target_payload.get("host", DEFAULT_TARGET_HOST)).strip() or DEFAULT_TARGET_HOST
@@ -189,6 +194,8 @@ def _normalize_target(target_payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _normalize_settings(preset_id: str, settings_payload: dict[str, Any]) -> dict[str, Any]:
+    """Merge browser-provided settings with the chosen preset defaults."""
+
     defaults = PRESETS[preset_id].defaults
     return {
         "density": _clamp_int(
@@ -233,6 +240,8 @@ def _normalize_settings(preset_id: str, settings_payload: dict[str, Any]) -> dic
 
 
 def _normalize_signals(signals_payload: dict[str, Any], settings: dict[str, Any]) -> dict[str, Any]:
+    """Turn raw browser signal input into one consistent signal dictionary."""
+
     pointer_payload = signals_payload.get("pointer", {})
     pointer = pointer_payload if isinstance(pointer_payload, dict) else {}
     audio_payload = signals_payload.get("audio", {})
@@ -276,6 +285,8 @@ def _normalize_signals(signals_payload: dict[str, Any], settings: dict[str, Any]
         manual_drive = _clamp_float(signals_payload.get("manualDrive"), manual_drive, 0.0, 2.0)
 
     noise_phase = _noise_value(epoch_seconds * 0.27 + noise_seed * 9.13) if use_noise else 0.0
+    # "Energy" is the shared summary knob most presets respond to. It blends manual
+    # drive, pointer movement, microphone level, and noise into one coarse intensity value.
     energy = _clamp_float(
         manual_drive * 0.5 + pointer_speed * 0.4 + audio_level * 0.9 + noise_phase * 0.25,
         0.0,
@@ -320,6 +331,8 @@ def _generate_scene(
     settings: dict[str, Any],
     signals: dict[str, Any],
 ) -> dict[str, Any]:
+    """Dispatch to the scene generator that matches the selected preset."""
+
     if preset_id == "lattice-bloom":
         return _generate_lattice_bloom(settings, signals)
     if preset_id == "comet-ribbon":
@@ -343,6 +356,8 @@ def _generate_aurora_orbit(settings: dict[str, Any], signals: dict[str, Any]) ->
     energy = float(signals["energy"])
     noise_phase = float(signals["noisePhase"])
 
+    # This preset builds a drifting point cloud by sweeping around an orbit-like
+    # path and then perturbing the radius with noise, pointer position, and audio.
     vertices = []
     for index in range(density):
         progress = index / max(density - 1, 1)
@@ -399,6 +414,8 @@ def _generate_lattice_bloom(settings: dict[str, Any], signals: dict[str, Any]) -
     energy = float(signals["energy"])
     noise_phase = float(signals["noisePhase"])
 
+    # The lattice preset lays points onto an approximate square grid, then lifts
+    # them in Z using overlapping sine/cosine waves to create a blooming volume.
     grid = max(5, int(math.sqrt(density)))
     vertices = []
     for gy in range(grid):
@@ -453,6 +470,9 @@ def _generate_comet_ribbon(settings: dict[str, Any], signals: dict[str, Any]) ->
     energy = float(signals["energy"])
     noise_phase = float(signals["noisePhase"])
 
+    # This preset first generates control points along a ribbon-like path, then
+    # turns each adjacent pair into a line segment because the renderer draws lines
+    # from explicit vertex pairs rather than from higher-level spline objects.
     control_points: list[tuple[float, float, float, float]] = []
     for index in range(density):
         progress = index / max(density - 1, 1)
@@ -502,6 +522,8 @@ def _line_vertex(
 
 
 def _build_camera(signals: dict[str, Any], distance: float, vertical_bias: float) -> dict[str, Any]:
+    """Build a simple orbit-style camera influenced by the active live signals."""
+
     pointer_x = float(signals["pointerX"])
     pointer_y = float(signals["pointerY"])
     energy = float(signals["energy"])
@@ -529,6 +551,8 @@ def _scene_analysis(
     preset_id: str,
     signals: dict[str, Any],
 ) -> dict[str, Any]:
+    """Summarize the generated scene so the UI can show lightweight diagnostics."""
+
     vertices = scene.get("vertices", [])
     indices = scene.get("indices", [])
     return {
@@ -543,6 +567,8 @@ def _scene_analysis(
 
 
 def _noise_value(seed: float) -> float:
+    """Return a deterministic pseudo-random value in the range [0, 1)."""
+
     return _fract(math.sin(seed * 127.1) * 43758.5453123)
 
 
@@ -569,6 +595,8 @@ def _mix_rgb(
     second: tuple[float, float, float],
     blend: float,
 ) -> tuple[float, float, float]:
+    """Linearly blend between two colors using a 0..1 interpolation value."""
+
     safe_blend = _clamp_float(blend, 0.0, 0.0, 1.0)
     return (
         round(first[0] + (second[0] - first[0]) * safe_blend, 5),

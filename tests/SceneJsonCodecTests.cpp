@@ -19,19 +19,19 @@ TEST_CASE("SceneJsonCodec parses a valid 2D scene", "[json][2d]") {
     ]
   })";
 
-  const scene_description::SceneJsonCodec codec;
-  const auto result = codec.Parse(jsonText);
+  const scene_description::SceneJsonCodec sceneJsonCodec;
+  const auto sceneParseResult = sceneJsonCodec.Parse(jsonText);
 
-  REQUIRE(result.succeeded);
-  REQUIRE(result.scene.has_value());
-  REQUIRE(result.scene->kind == scene_description::SceneKind::TwoDimensional);
+  REQUIRE(sceneParseResult.succeeded);
+  REQUIRE(sceneParseResult.scene.has_value());
+  REQUIRE(sceneParseResult.scene->kind == scene_description::SceneKind::TwoDimensional);
 
-  const auto& scene = std::get<scene_description::Scene2D>(result.scene->payload);
-  CHECK(scene.vertices.size() == 3);
-  CHECK(scene.pointSize == Catch::Approx(12.0F));
-  CHECK(scene.vertices[1].g == Catch::Approx(1.0F));
+  const auto& parsedScene = std::get<scene_description::Scene2D>(sceneParseResult.scene->payload);
+  CHECK(parsedScene.vertices.size() == 3);
+  CHECK(parsedScene.pointSize == Catch::Approx(12.0F));
+  CHECK(parsedScene.vertices[1].g == Catch::Approx(1.0F));
 
-  const auto renderScene = scene_description::BuildRenderScene(*result.scene);
+  const auto renderScene = scene_description::BuildRenderScene(*sceneParseResult.scene);
   CHECK(renderScene.vertices.size() == 3);
   CHECK(renderScene.vertices[2].z == Catch::Approx(0.0F));
   CHECK(renderScene.vertices[2].b == Catch::Approx(1.0F));
@@ -57,19 +57,19 @@ TEST_CASE("SceneJsonCodec parses a valid indexed 3D scene", "[json][3d]") {
     "indices": [0, 1, 2]
   })";
 
-  const scene_description::SceneJsonCodec codec;
-  const auto result = codec.Parse(jsonText);
+  const scene_description::SceneJsonCodec sceneJsonCodec;
+  const auto sceneParseResult = sceneJsonCodec.Parse(jsonText);
 
-  REQUIRE(result.succeeded);
-  REQUIRE(result.scene.has_value());
-  REQUIRE(result.scene->kind == scene_description::SceneKind::ThreeDimensional);
+  REQUIRE(sceneParseResult.succeeded);
+  REQUIRE(sceneParseResult.scene.has_value());
+  REQUIRE(sceneParseResult.scene->kind == scene_description::SceneKind::ThreeDimensional);
 
-  const auto& scene = std::get<scene_description::Scene3D>(result.scene->payload);
-  CHECK(scene.indices.size() == 3);
-  CHECK(scene.vertices[0].a == Catch::Approx(1.0F));
-  CHECK(scene.camera.fovYDegrees == Catch::Approx(55.0F));
+  const auto& parsedScene = std::get<scene_description::Scene3D>(sceneParseResult.scene->payload);
+  CHECK(parsedScene.indices.size() == 3);
+  CHECK(parsedScene.vertices[0].a == Catch::Approx(1.0F));
+  CHECK(parsedScene.camera.fovYDegrees == Catch::Approx(55.0F));
 
-  const auto renderScene = scene_description::BuildRenderScene(*result.scene);
+  const auto renderScene = scene_description::BuildRenderScene(*sceneParseResult.scene);
   CHECK(renderScene.vertices[2].z == Catch::Approx(1.0F));
   CHECK(renderScene.indices[1] == 1);
 }
@@ -91,15 +91,15 @@ TEST_CASE("SceneJsonCodec rejects malformed scenes with readable errors", "[json
     ]
   })";
 
-  const scene_description::SceneJsonCodec codec;
-  const auto result = codec.Parse(jsonText);
+  const scene_description::SceneJsonCodec sceneJsonCodec;
+  const auto sceneParseResult = sceneJsonCodec.Parse(jsonText);
 
-  REQUIRE_FALSE(result.succeeded);
-  REQUIRE_FALSE(result.errors.empty());
+  REQUIRE_FALSE(sceneParseResult.succeeded);
+  REQUIRE_FALSE(sceneParseResult.errors.empty());
 
   bool foundFovError = false;
   bool foundNearPlaneError = false;
-  for (const auto& error : result.errors) {
+  for (const auto& error : sceneParseResult.errors) {
     if (error.path == "$.camera.fovYDegrees") {
       foundFovError = true;
     }

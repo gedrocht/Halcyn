@@ -25,4 +25,4 @@ finally {
   Pop-Location
 }
 
-Write-Host 'Control-plane type checks completed successfully.'
+Write-Host 'Control Center type checks completed successfully.'

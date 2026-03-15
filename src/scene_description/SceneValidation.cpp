@@ -8,6 +8,8 @@
 namespace halcyn::scene_description {
 namespace {
 std::size_t MinimumVertexCountFor(PrimitiveType primitiveType) {
+  // The primitive type determines how many vertices are needed before we can
+  // even describe one drawable unit: one point, one line segment, or one triangle.
   switch (primitiveType) {
   case PrimitiveType::Points:
     return 1;
@@ -21,6 +23,8 @@ std::size_t MinimumVertexCountFor(PrimitiveType primitiveType) {
 }
 
 bool IsPrimitiveCountAligned(PrimitiveType primitiveType, std::size_t count) {
+  // "Aligned" means the vertex or index count can be consumed cleanly in groups
+  // required by the primitive type with nothing left over.
   switch (primitiveType) {
   case PrimitiveType::Points:
     return count >= 1;
@@ -55,6 +59,8 @@ std::vector<ValidationError> ValidateSceneDocument(const SceneDocument& document
   std::vector<ValidationError> errors;
 
   if (document.kind == SceneKind::TwoDimensional) {
+    // 2D validation is mostly about primitive counts and simple numeric bounds.
+    // There is no camera to validate, and there is no separate index buffer.
     const Scene2D& scene = std::get<Scene2D>(document.payload);
 
     if (scene.vertices.size() > SceneLimits::kMaxVertexCount) {
@@ -87,6 +93,8 @@ std::vector<ValidationError> ValidateSceneDocument(const SceneDocument& document
     return errors;
   }
 
+  // 3D scenes share many of the same limits as 2D scenes, then add index-buffer
+  // checks and camera sanity checks so the renderer receives a physically sensible view.
   const Scene3D& scene = std::get<Scene3D>(document.payload);
 
   if (scene.vertices.size() > SceneLimits::kMaxVertexCount) {
@@ -109,6 +117,8 @@ std::vector<ValidationError> ValidateSceneDocument(const SceneDocument& document
   }
 
   if (!scene.indices.empty()) {
+    // If indices are present, primitive alignment must be checked against the
+    // index list because that list describes the actual draw order.
     if (!IsPrimitiveCountAligned(scene.primitiveType, scene.indices.size())) {
       errors.push_back(
           {"$.indices",
@@ -160,6 +170,8 @@ std::vector<ValidationError> ValidateSceneDocument(const SceneDocument& document
 
   if (!IsApproximatelyZero(SquaredLength(forward)) &&
       !IsApproximatelyZero(SquaredLength(scene.camera.up))) {
+    // A valid camera needs a non-zero "up" vector that is not parallel to the
+    // viewing direction. Otherwise the view basis would collapse and matrices become invalid.
     const Vector3Value perpendicular = Cross(forward, scene.camera.up);
     if (IsApproximatelyZero(SquaredLength(perpendicular))) {
       errors.push_back(
@@ -176,6 +188,8 @@ RenderScene BuildRenderScene(const SceneDocument& document) {
   renderScene.kind = document.kind;
 
   if (document.kind == SceneKind::TwoDimensional) {
+    // The renderer consumes one normalized vertex format for both 2D and 3D.
+    // 2D scenes are promoted into that shared format by supplying z = 0.
     const Scene2D& scene = std::get<Scene2D>(document.payload);
     renderScene.primitiveType = scene.primitiveType;
     renderScene.pointSize = scene.pointSize;
@@ -192,6 +206,8 @@ RenderScene BuildRenderScene(const SceneDocument& document) {
   }
 
   const Scene3D& scene = std::get<Scene3D>(document.payload);
+  // 3D scenes already match the renderer's shape closely, so this step is mostly
+  // a transfer into the renderer-owned structure that also carries draw settings.
   renderScene.primitiveType = scene.primitiveType;
   renderScene.pointSize = scene.pointSize;
   renderScene.lineWidth = scene.lineWidth;
