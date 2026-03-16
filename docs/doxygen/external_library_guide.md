@@ -185,6 +185,7 @@ Official documentation:
 - [Themed widgets (`tkinter.ttk`)](https://docs.python.org/3/library/tkinter.ttk.html)
 - [ScrolledText widget](https://docs.python.org/3/library/tkinter.scrolledtext.html)
 - [Color chooser dialog](https://docs.python.org/3/library/tkinter.colorchooser.html)
+- [File dialogs (`tkinter.filedialog`)](https://docs.python.org/3/library/dialog.html#tkinter.filedialog)
 
 Why Halcyn uses it:
 
@@ -210,6 +211,27 @@ Why Halcyn uses it:
 - the desktop panel only needs a handful of simple HTTP calls
 - the standard library keeps that code dependency-light
 - it is easier for a beginner to study when the client layer is built on familiar Python docs
+
+## ctypes and Windows waveIn
+
+Halcyn uses **ctypes** plus the Windows **waveIn** APIs as a fallback way to enumerate desktop
+audio input devices when the optional `sounddevice` package is not installed yet.
+
+Where it appears:
+
+- `desktop_render_control_panel.audio_input_service.WindowsWaveInListingBackend`
+
+Official documentation:
+
+- [ctypes](https://docs.python.org/3/library/ctypes.html)
+- [`waveInGetNumDevs`](https://learn.microsoft.com/windows/win32/api/mmeapi/nf-mmeapi-waveingetnumdevs)
+- [`waveInGetDevCapsW`](https://learn.microsoft.com/windows/win32/api/mmeapi/nf-mmeapi-waveingetdevcapsw)
+
+Why Halcyn uses it:
+
+- it lets the desktop panel show Windows input devices even before live capture is configured
+- it gives the operator better feedback than an empty device list
+- it keeps the fallback dependency-light because it uses platform APIs that already exist on Windows
 
 ## sounddevice
 

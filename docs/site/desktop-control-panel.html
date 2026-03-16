@@ -60,8 +60,8 @@
             <h3>What it can do</h3>
             <div class="cards">
               <div class="card"><h4>Instant 2D and 3D switching</h4><p>One native panel can move between desktop-only 2D presets and the shared 3D preset catalog immediately.</p></div>
-              <div class="card"><h4>Local audio-device selection</h4><p>Unlike a browser-only surface, the desktop panel can enumerate real local input devices through the optional audio backend.</p></div>
-              <div class="card"><h4>Preview, validate, and apply</h4><p>You can inspect the generated JSON, validate it against the live API, or apply it immediately without leaving the window.</p></div>
+              <div class="card"><h4>Local audio-device selection</h4><p>Unlike a browser-only surface, the desktop panel can enumerate real local input devices and explain when capture still needs the optional audio backend.</p></div>
+              <div class="card"><h4>Preview, validate, apply, and save</h4><p>You can inspect the generated JSON, validate it against the live API, apply it immediately, or save the whole setup to a reusable JSON file.</p></div>
               <div class="card"><h4>Continuous live streaming</h4><p>The panel can keep submitting scenes on a controlled cadence while you adjust colors, density, motion, and signals.</p></div>
             </div>
           </section>
@@ -70,10 +70,20 @@
             <h3>Main areas in the window</h3>
             <div class="cards">
               <div class="card"><h4>Renderer connection</h4><p>Choose the API host, port, and live cadence, then run health, validate, apply, start, or stop actions.</p></div>
-              <div class="card"><h4>Scene controls</h4><p>Choose scene type, preset, geometry density, motion speed, gain, manual drive, and the active signal families.</p></div>
-              <div class="card"><h4>Audio input</h4><p>Refresh local devices, start or stop capture, and route the analyzed level, bass, mid, and treble bands into the current preset.</p></div>
-              <div class="card"><h4>Pointer pad and preview</h4><p>Drive pointer-based motion locally and inspect the exact JSON scene the renderer will receive.</p></div>
+              <div class="card"><h4>Scene controls</h4><p>Choose scene type and preset with stay-selected buttons, then tune geometry density, motion speed, gain, manual drive, and live color swatches.</p></div>
+              <div class="card"><h4>Audio input</h4><p>Refresh local devices, start or stop capture, and route the analyzed level, bass, mid, and treble bands into the current preset. On Windows, the panel can still list devices even before the optional capture package is installed.</p></div>
+              <div class="card"><h4>Pointer pad, settings, and preview</h4><p>Drive pointer-based motion on a larger pad, revert to preset defaults, save or load settings, and inspect the exact JSON scene the renderer will receive.</p></div>
             </div>
+          </section>
+
+          <section class="panel">
+            <h3>Dark mode and control feel</h3>
+            <p>
+              The polished desktop panel now ships in a dark-mode-first style so it feels more at
+              home beside the renderer window. Integer sliders snap to whole values, floating-point
+              sliders snap to practical increments, and the currently selected 2D or 3D mode stays
+              visibly pressed instead of hiding inside a dropdown.
+            </p>
           </section>
 
           <section class="panel">
@@ -104,7 +114,9 @@
             <p>
               Real device capture depends on the optional <code>sounddevice</code> package. If it is
               missing, the desktop panel still opens and the rest of the controls still work; only
-              live device capture is disabled.
+              live device capture is disabled. On Windows, the panel now tries to list available
+              input devices through the built-in waveIn API so the operator can still see what
+              hardware exists before installing the capture backend.
             </p>
             <pre><code>python -m pip install sounddevice</code></pre>
           </section>
@@ -121,7 +133,11 @@
               <li><a href="https://docs.python.org/3/library/tkinter.html">Tkinter overview</a></li>
               <li><a href="https://docs.python.org/3/library/tkinter.ttk.html">Tk themed widgets (`ttk`)</a></li>
               <li><a href="https://docs.python.org/3/library/tkinter.scrolledtext.html">ScrolledText widget</a></li>
+              <li><a href="https://docs.python.org/3/library/dialog.html#tkinter.filedialog">tkinter.filedialog</a></li>
               <li><a href="https://docs.python.org/3/library/urllib.request.html">urllib.request</a></li>
+              <li><a href="https://docs.python.org/3/library/ctypes.html">ctypes</a></li>
+              <li><a href="https://learn.microsoft.com/windows/win32/api/mmeapi/nf-mmeapi-waveingetnumdevs">waveInGetNumDevs</a></li>
+              <li><a href="https://learn.microsoft.com/windows/win32/api/mmeapi/nf-mmeapi-waveingetdevcapsw">waveInGetDevCapsW</a></li>
               <li><a href="https://docs.python.org/3/library/threading.html">threading</a></li>
               <li><a href="https://python-sounddevice.readthedocs.io/">sounddevice</a></li>
             </ul>

@@ -12,12 +12,17 @@ Helpful library references:
 - `sounddevice`: https://python-sounddevice.readthedocs.io/
 - PortAudio device query model: https://python-sounddevice.readthedocs.io/en/latest/api/checking-hardware.html
 - Python threading: https://docs.python.org/3/library/threading.html
+- `ctypes`: https://docs.python.org/3/library/ctypes.html
+- `waveInGetNumDevs`: https://learn.microsoft.com/windows/win32/api/mmeapi/nf-mmeapi-waveingetnumdevs
+- `waveInGetDevCaps`: https://learn.microsoft.com/windows/win32/api/mmeapi/nf-mmeapi-waveingetdevcapsw
 """
 
 from __future__ import annotations
 
+import ctypes
 import importlib
 import math
+import os
 import threading
 import time
 from collections.abc import Callable, Sequence
@@ -78,6 +83,10 @@ class AudioCaptureBackend(Protocol):
     def availability_error(self) -> str:
         ...
 
+    @property
+    def capture_available(self) -> bool:
+        ...
+
     def list_input_devices(self) -> list[AudioDeviceDescriptor]:
         ...
 
@@ -107,6 +116,10 @@ class UnavailableAudioCaptureBackend:
     @property
     def availability_error(self) -> str:
         return self._reason
+
+    @property
+    def capture_available(self) -> bool:
+        return False
 
     def list_input_devices(self) -> list[AudioDeviceDescriptor]:
         return []
@@ -145,22 +158,42 @@ class SoundDeviceAudioCaptureBackend:
     def availability_error(self) -> str:
         return self._availability_error
 
+    @property
+    def capture_available(self) -> bool:
+        return self._sounddevice is not None
+
     def list_input_devices(self) -> list[AudioDeviceDescriptor]:
         """Enumerate selectable input devices from PortAudio."""
 
         if self._sounddevice is None:
             return []
 
+        try:
+            queried_host_apis = self._sounddevice.query_hostapis()
+            queried_device_descriptors = self._sounddevice.query_devices()
+        except Exception as error:  # pragma: no cover - depends on local audio stack.
+            self._availability_error = f"Could not query audio devices: {error}"
+            return []
+
+        host_api_names_by_index = {
+            host_api_index: str(host_api_info.get("name", f"Host API {host_api_index}"))
+            for host_api_index, host_api_info in enumerate(queried_host_apis)
+        }
         available_input_devices = []
-        queried_device_descriptors = self._sounddevice.query_devices()
         for device_index, device_info in enumerate(queried_device_descriptors):
             max_input_channels = int(device_info.get("max_input_channels", 0) or 0)
             if max_input_channels < 1:
                 continue
+            raw_host_api_index = device_info.get("hostapi", -1)
+            host_api_index = -1 if raw_host_api_index is None else int(raw_host_api_index)
+            host_api_name = host_api_names_by_index.get(host_api_index, "")
+            device_name = str(device_info.get("name", f"Input device {device_index}"))
+            if host_api_name:
+                device_name = f"{device_name} ({host_api_name})"
             available_input_devices.append(
                 AudioDeviceDescriptor(
                     device_identifier=str(device_index),
-                    name=str(device_info.get("name", f"Input device {device_index}")),
+                    name=device_name,
                     max_input_channels=max_input_channels,
                     default_sample_rate=int(device_info.get("default_samplerate", 44100) or 44100),
                 )
@@ -226,6 +259,93 @@ class SoundDeviceAudioCaptureBackend:
         return stop_stream
 
 
+class WindowsWaveInListingBackend:
+    """Windows-only fallback backend that can at least enumerate input devices.
+
+    This backend does not capture audio. Its job is to prevent the desktop
+    control panel from looking completely broken on Windows machines where
+    `sounddevice` is not installed yet. Operators can still see which devices
+    exist and get an explicit instruction for how to enable capture.
+    """
+
+    class _WaveInCapsW(ctypes.Structure):
+        _fields_ = [
+            ("manufacturer_identifier", ctypes.c_ushort),
+            ("product_identifier", ctypes.c_ushort),
+            ("driver_version", ctypes.c_uint),
+            ("product_name", ctypes.c_wchar * 32),
+            ("formats", ctypes.c_uint),
+            ("channels", ctypes.c_ushort),
+            ("reserved", ctypes.c_ushort),
+        ]
+
+    def __init__(self, capture_unavailable_reason: str) -> None:
+        self._capture_unavailable_reason = capture_unavailable_reason
+        self._listing_error = ""
+        self._winmm_library: Any | None = None
+        if os.name == "nt":
+            try:
+                self._winmm_library = ctypes.WinDLL("winmm")
+            except Exception as error:  # pragma: no cover - depends on local Windows setup.
+                self._listing_error = f"Could not load winmm for device listing: {error}"
+        else:
+            self._listing_error = "Windows waveIn listing is only available on Windows."
+
+    @property
+    def backend_name(self) -> str:
+        return "windows-wavein-listing"
+
+    @property
+    def availability_error(self) -> str:
+        if self._listing_error:
+            return self._listing_error
+        return self._capture_unavailable_reason
+
+    @property
+    def capture_available(self) -> bool:
+        return False
+
+    def list_input_devices(self) -> list[AudioDeviceDescriptor]:
+        if self._winmm_library is None:
+            return []
+
+        try:
+            input_device_count = int(self._winmm_library.waveInGetNumDevs())
+        except Exception as error:  # pragma: no cover - depends on local Windows audio stack.
+            self._listing_error = f"Could not enumerate Windows input devices: {error}"
+            return []
+
+        discovered_devices: list[AudioDeviceDescriptor] = []
+        for device_index in range(input_device_count):
+            device_capabilities = self._WaveInCapsW()
+            result_code = self._winmm_library.waveInGetDevCapsW(
+                ctypes.c_uint(device_index),
+                ctypes.byref(device_capabilities),
+                ctypes.sizeof(device_capabilities),
+            )
+            if result_code != 0:
+                continue
+            discovered_devices.append(
+                AudioDeviceDescriptor(
+                    device_identifier=f"winmm:{device_index}",
+                    name=(
+                        str(device_capabilities.product_name).strip()
+                        or f"Input device {device_index}"
+                    ),
+                    max_input_channels=max(1, int(device_capabilities.channels or 1)),
+                    default_sample_rate=44100,
+                )
+            )
+        return discovered_devices
+
+    def open_input_stream(
+        self,
+        device_identifier: str,
+        on_snapshot: Callable[[AudioSignalSnapshot], None],
+    ) -> Callable[[], None]:
+        raise RuntimeError(self._capture_unavailable_reason)
+
+
 class DesktopAudioInputService:
     """High-level audio service used by the desktop control panel controller."""
 
@@ -238,7 +358,7 @@ class DesktopAudioInputService:
         # so the GUI can always display one coherent sentence to the user.
         self._snapshot = AudioSignalSnapshot(
             backend_name=self._backend.backend_name,
-            available=not bool(self._backend.availability_error),
+            available=bool(self._devices) or self._capture_available(),
             last_error=self._backend.availability_error,
         )
 
@@ -253,9 +373,8 @@ class DesktopAudioInputService:
 
         with self._lock:
             self._devices = self._backend.list_input_devices()
-            self._snapshot.available = not bool(self._backend.availability_error)
-            if self._backend.availability_error:
-                self._snapshot.last_error = self._backend.availability_error
+            self._snapshot.available = bool(self._devices) or self._capture_available()
+            self._snapshot.last_error = self._backend.availability_error
             return list(self._devices)
 
     def snapshot(self) -> AudioSignalSnapshot:
@@ -321,6 +440,17 @@ class DesktopAudioInputService:
         self._snapshot.capturing = False
         self._snapshot.updated_at_epoch_seconds = time.time()
 
+    def _capture_available(self) -> bool:
+        """Read backend capture capability without breaking older fake backends."""
+
+        return bool(
+            getattr(
+                self._backend,
+                "capture_available",
+                not self._backend.availability_error,
+            )
+        )
+
 
 def create_default_audio_capture_backend() -> AudioCaptureBackend:
     """Return the best available audio backend for the current machine.
@@ -333,6 +463,11 @@ def create_default_audio_capture_backend() -> AudioCaptureBackend:
 
     backend = SoundDeviceAudioCaptureBackend()
     if backend.availability_error:
+        listing_only_backend = WindowsWaveInListingBackend(
+            "Install the optional 'sounddevice' package to capture from the listed devices."
+        )
+        if listing_only_backend.list_input_devices():
+            return listing_only_backend
         return UnavailableAudioCaptureBackend(backend.availability_error)
     return backend
 

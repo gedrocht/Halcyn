@@ -159,6 +159,33 @@ class DesktopRenderControlPanelController:
             )
             return copy.deepcopy(self._current_request_payload)
 
+    def reset_current_preset_to_defaults(self) -> dict[str, Any]:
+        """Restore the current preset's default controls while preserving connection settings.
+
+        This is the safest interpretation of "revert to default" for an operator
+        panel: reset the visual-control knobs for the chosen preset, but do not
+        unexpectedly point the user at a different renderer host or wipe out the
+        preferred live-stream cadence.
+        """
+
+        with self._lock:
+            current_preset_identifier = str(
+                self._current_request_payload.get("presetId", DEFAULT_DESKTOP_PRESET_ID)
+            )
+            current_target = copy.deepcopy(self._current_request_payload.get("target", {}))
+            current_session = copy.deepcopy(self._current_request_payload.get("session", {}))
+            self._current_request_payload = build_default_request_payload(current_preset_identifier)
+            self._current_request_payload["target"] = (
+                current_target or self._current_request_payload["target"]
+            )
+            self._current_request_payload["session"] = (
+                current_session or self._current_request_payload["session"]
+            )
+            self._live_stream_snapshot.cadence_ms = int(
+                self._current_request_payload["session"]["cadenceMs"]
+            )
+            return copy.deepcopy(self._current_request_payload)
+
     def update_request_payload(self, update: dict[str, Any]) -> dict[str, Any]:
         """Deep-merge a partial UI update into the current control payload."""
 
@@ -174,6 +201,53 @@ class DesktopRenderControlPanelController:
                 1000,
             )
             return copy.deepcopy(self._current_request_payload)
+
+    def replace_request_payload(self, request_payload: dict[str, Any]) -> dict[str, Any]:
+        """Replace the editable payload using a sanitized saved-settings document.
+
+        Saved settings should be able to round-trip through disk without
+        carrying along stale keys from older app versions. The controller starts
+        from the current default payload for the chosen preset, then merges the
+        saved values on top so any newly added fields still receive sensible
+        defaults.
+        """
+
+        saved_preset_identifier = str(request_payload.get("presetId", DEFAULT_DESKTOP_PRESET_ID))
+        with self._lock:
+            self._current_request_payload = build_default_request_payload(saved_preset_identifier)
+            _deep_merge(self._current_request_payload, copy.deepcopy(request_payload))
+            requested_cadence_in_milliseconds = (
+                self._current_request_payload.get("session", {}).get("cadenceMs", 125)
+            )
+            self._live_stream_snapshot.cadence_ms = _clamp_int(
+                requested_cadence_in_milliseconds,
+                125,
+                40,
+                1000,
+            )
+            return copy.deepcopy(self._current_request_payload)
+
+    def settings_document(self) -> dict[str, Any]:
+        """Return a versioned document suitable for saving to disk."""
+
+        return {
+            "formatVersion": 1,
+            "savedAtUtc": _current_utc_timestamp_iso8601(),
+            "requestPayload": self.current_request_payload(),
+        }
+
+    def load_settings_document(self, settings_document: dict[str, Any]) -> dict[str, Any]:
+        """Load a versioned settings document or a raw request payload.
+
+        The file format is intentionally forgiving so future documentation can
+        show both a "full settings document" example and a "raw payload only"
+        example without making the loader brittle.
+        """
+
+        request_payload = settings_document.get("requestPayload", settings_document)
+        if not isinstance(request_payload, dict):
+            raise ValueError("The selected settings file did not contain a request payload object.")
+        return self.replace_request_payload(request_payload)
 
     def update_pointer_signal(self, normalized_x: float, normalized_y: float, speed: float) -> None:
         """Store the latest pointer-pad sample from the desktop UI."""

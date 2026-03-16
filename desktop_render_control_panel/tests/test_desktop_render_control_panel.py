@@ -11,6 +11,8 @@ import unittest
 from dataclasses import dataclass
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any
 from unittest import mock
 
@@ -20,6 +22,7 @@ from desktop_render_control_panel.audio_input_service import (
     DesktopAudioInputService,
     SoundDeviceAudioCaptureBackend,
     UnavailableAudioCaptureBackend,
+    WindowsWaveInListingBackend,
     analyze_audio_frames,
     create_default_audio_capture_backend,
 )
@@ -142,6 +145,7 @@ class AudioServiceTests(unittest.TestCase):
         class FakeBackend:
             backend_name = "fake"
             availability_error = ""
+            capture_available = True
 
             def __init__(self) -> None:
                 self.snapshot_callback: Any | None = None
@@ -202,6 +206,9 @@ class AudioServiceTests(unittest.TestCase):
                 self.started = False
 
         class FakeSoundDeviceModule:
+            def query_hostapis(self) -> Any:
+                return [{"name": "WASAPI"}]
+
             def query_devices(self, device_index: Any = None, kind: str | None = None) -> Any:
                 if device_index is None:
                     return [
@@ -209,6 +216,7 @@ class AudioServiceTests(unittest.TestCase):
                             "name": "Loopback device",
                             "max_input_channels": 2,
                             "default_samplerate": 48_000,
+                            "hostapi": 0,
                         }
                     ]
                 return {
@@ -227,7 +235,7 @@ class AudioServiceTests(unittest.TestCase):
 
         snapshots: list[AudioSignalSnapshot] = []
         devices = backend.list_input_devices()
-        self.assertEqual(devices[0].name, "Loopback device")
+        self.assertEqual(devices[0].name, "Loopback device (WASAPI)")
         stop_callback = backend.open_input_stream("0", snapshots.append)
         self.assertGreater(snapshots[0].level, 0.0)
         stop_callback()
@@ -244,10 +252,36 @@ class AudioServiceTests(unittest.TestCase):
         self.assertFalse(stopped_snapshot.capturing)
         self.assertEqual(stopped_snapshot.last_error, "install sounddevice")
 
-    def test_create_default_backend_falls_back_when_sounddevice_is_missing(self) -> None:
+    def test_create_default_backend_prefers_windows_listing_when_sounddevice_is_missing(
+        self,
+    ) -> None:
         with mock.patch(
             "desktop_render_control_panel.audio_input_service.importlib.import_module",
             side_effect=ImportError("missing"),
+        ), mock.patch(
+            "desktop_render_control_panel.audio_input_service.WindowsWaveInListingBackend.list_input_devices",
+            return_value=[
+                AudioDeviceDescriptor(
+                    device_identifier="winmm:0",
+                    name="Microphone Array",
+                    max_input_channels=2,
+                    default_sample_rate=44_100,
+                )
+            ],
+        ):
+            backend = create_default_audio_capture_backend()
+
+        self.assertIsInstance(backend, WindowsWaveInListingBackend)
+
+    def test_create_default_backend_uses_unavailable_backend_when_no_listing_fallback_exists(
+        self,
+    ) -> None:
+        with mock.patch(
+            "desktop_render_control_panel.audio_input_service.importlib.import_module",
+            side_effect=ImportError("missing"),
+        ), mock.patch(
+            "desktop_render_control_panel.audio_input_service.WindowsWaveInListingBackend.list_input_devices",
+            return_value=[],
         ):
             backend = create_default_audio_capture_backend()
 
@@ -471,6 +505,37 @@ class DesktopControllerTests(unittest.TestCase):
         self.assertEqual(payload["session"]["cadenceMs"], 80)
         self.assertEqual(payload["presetId"], "aurora-orbit")
 
+    def test_reset_current_preset_to_defaults_preserves_target_and_session(self) -> None:
+        self.controller.update_request_payload(
+            {
+                "target": {"host": "10.0.0.5", "port": 9010},
+                "session": {"cadenceMs": 60},
+                "settings": {"density": 200, "gain": 2.0},
+            }
+        )
+
+        payload = self.controller.reset_current_preset_to_defaults()
+
+        self.assertEqual(payload["target"]["host"], "10.0.0.5")
+        self.assertEqual(payload["session"]["cadenceMs"], 60)
+        self.assertEqual(payload["settings"]["density"], 96)
+
+    def test_settings_documents_can_round_trip_through_the_controller(self) -> None:
+        self.controller.update_request_payload(
+            {
+                "presetId": "pulse-grid-2d",
+                "settings": {"gain": 1.75},
+                "signals": {"useAudio": True},
+            }
+        )
+
+        saved_document = self.controller.settings_document()
+        restored_payload = self.controller.load_settings_document(saved_document)
+
+        self.assertEqual(saved_document["formatVersion"], 1)
+        self.assertEqual(restored_payload["presetId"], "pulse-grid-2d")
+        self.assertTrue(restored_payload["signals"]["useAudio"])
+
     def test_validate_current_scene_calls_validation_route(self) -> None:
         validation_result = self.controller.validate_current_scene()
 
@@ -592,7 +657,14 @@ class DesktopWindowTests(unittest.TestCase):
         self.window._on_scene_type_changed()
         self.root.update_idletasks()
 
-        self.assertIn("Aurora Orbit", self.window._preset_combobox["values"])
+        preset_button_labels = [
+            button.cget("text") for button in self.window._preset_button_widgets
+        ]
+        self.assertIn("Aurora Orbit", preset_button_labels)
+        self.assertEqual(
+            self.window._scene_type_button_frame.winfo_children()[0].cget("text"),
+            "2D",
+        )
 
     def test_window_can_refresh_preview_and_apply_actions(self) -> None:
         self.window._refresh_preview()
@@ -633,6 +705,10 @@ class DesktopWindowTests(unittest.TestCase):
             runpy.run_module("desktop_render_control_panel.__main__", run_name="__main__")
 
         self.assertEqual(self.window._primary_color_variable.get(), "#ff0000")
+        swatch_background = self.window._color_swatch_frames[
+            str(self.window._primary_color_variable)
+        ].cget("background")
+        self.assertEqual(swatch_background, "#ff0000")
 
     def test_window_surfaces_offline_and_missing_device_states(self) -> None:
         self.fake_api_client.health_response = RenderApiResponse(
@@ -690,6 +766,40 @@ class DesktopWindowTests(unittest.TestCase):
         showerror_mock.assert_called_once()
         self.assertEqual(collected_payload["target"]["port"], 8080)
         self.assertEqual(DesktopRenderControlPanelWindow._safe_int(object(), 7), 7)
+
+    def test_window_can_save_load_and_revert_settings(self) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            settings_path = Path(temporary_directory) / "desktop-settings.json"
+
+            self.window._density_variable.set(180)
+            self.window._gain_variable.set(1.95)
+            self.window._preset_identifier_variable.set("pulse-grid-2d")
+            self.window._on_preset_changed()
+            self.window._density_variable.set(180)
+            self.window._gain_variable.set(1.95)
+
+            with mock.patch(
+                "desktop_render_control_panel.desktop_control_panel_window.filedialog.asksaveasfilename",
+                return_value=str(settings_path),
+            ):
+                self.window._save_settings_to_file()
+
+            self.window._density_variable.set(32)
+            self.window._gain_variable.set(0.5)
+
+            with mock.patch(
+                "desktop_render_control_panel.desktop_control_panel_window.filedialog.askopenfilename",
+                return_value=str(settings_path),
+            ):
+                self.window._load_settings_from_file()
+
+            self.assertEqual(self.window._density_variable.get(), 180)
+            self.assertAlmostEqual(self.window._gain_variable.get(), 1.95)
+
+            self.window._revert_current_preset_to_default_settings()
+
+            self.assertEqual(self.window._density_variable.get(), 144)
+            self.assertAlmostEqual(self.window._gain_variable.get(), 1.0)
 
 
 if __name__ == "__main__":
