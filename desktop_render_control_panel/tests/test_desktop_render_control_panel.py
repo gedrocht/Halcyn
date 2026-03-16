@@ -259,6 +259,18 @@ class RenderApiClientTests(unittest.TestCase):
 
     def setUp(self) -> None:
         class Handler(BaseHTTPRequestHandler):
+            def _drain_request_body(self) -> None:
+                """Consume any request body bytes before sending a response.
+
+                Some HTTP stacks behave poorly if the handler replies to a POST
+                without reading the advertised payload first. Draining the body
+                keeps this tiny test server deterministic across machines.
+                """
+
+                content_length = int(self.headers.get("Content-Length", "0") or 0)
+                if content_length > 0:
+                    self.rfile.read(content_length)
+
             def do_GET(self) -> None:  # noqa: N802
                 if self.path == "/api/v1/health":
                     payload = json.dumps({"status": "ok"}).encode("utf-8")
@@ -271,6 +283,7 @@ class RenderApiClientTests(unittest.TestCase):
                 self.send_error(HTTPStatus.NOT_FOUND, "missing")
 
             def do_POST(self) -> None:  # noqa: N802
+                self._drain_request_body()
                 if self.path == "/api/v1/scene/validate":
                     payload = json.dumps({"status": "valid"}).encode("utf-8")
                     self.send_response(HTTPStatus.OK)
