@@ -671,9 +671,9 @@ class DesktopWindowTests(unittest.TestCase):
         )
 
     def test_window_can_refresh_preview_and_apply_actions(self) -> None:
-        self.assertFalse(self.window._preview_visible_variable.get())
+        self.assertIsNone(self.window._preview_window)
         self.window._refresh_preview()
-        self.window._toggle_preview_visibility()
+        self.window._open_preview_window()
         self.root.update_idletasks()
         self.window._run_health_check()
         self.window._validate_current_scene()
@@ -683,9 +683,14 @@ class DesktopWindowTests(unittest.TestCase):
         self.window._stop_live_stream()
         self.root.update_idletasks()
 
-        self.assertTrue(self.window._preview_visible_variable.get())
-        preview_text = self.window._preview_text.get("1.0", "end").strip()
+        self.assertIsNotNone(self.window._preview_window)
+        self.assertIsNotNone(self.window._preview_text_widget)
+        preview_text_widget = self.window._preview_text_widget
+        assert preview_text_widget is not None
+        preview_text = preview_text_widget.get("1.0", "end").strip()
         self.assertIn('"sceneType"', preview_text)
+        self.assertIs(self.window._audio_device_combobox.master.master, self.window._output_frame)
+        self.assertIs(self.window._pointer_canvas.master.master, self.window._output_frame)
 
     def test_window_can_drive_audio_and_pointer_inputs(self) -> None:
         self.window._refresh_audio_devices()

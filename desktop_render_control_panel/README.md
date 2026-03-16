@@ -11,7 +11,7 @@ It exists for the cases where the browser tools are helpful, but not quite enoug
 - saving and loading operator setups as JSON
 - reverting the current preset back to its default control values
 - seeing the selected colors and pointer motion reflected immediately in the UI
-- keeping the full scene JSON hidden until you explicitly choose to inspect it
+- opening the full scene JSON in a separate window only when you want to inspect it
 
 ## Launch it
 
@@ -29,6 +29,7 @@ It exists for the cases where the browser tools are helpful, but not quite enoug
 - unix time, deterministic noise, pointer, and audio signal sources
 - a larger native pointer pad for local motion control
 - real local audio device selection through the optional `sounddevice` package
+- a roomier right-hand diagnostics column that holds audio controls and pointer input
 
 ## What changed in the polished version
 
@@ -36,7 +37,7 @@ It exists for the cases where the browser tools are helpful, but not quite enoug
 - the 2D/3D and preset selectors are button groups that stay visibly selected with higher-contrast text
 - integer-valued sliders snap to whole numbers, and float-valued sliders snap to practical increments
 - the current color choices are shown with live swatches instead of only text fields
-- the full JSON preview starts hidden so the panel fits typical desktop screens more comfortably
+- the full JSON preview opens in a separate window so the main panel fits typical desktop screens more comfortably
 - settings can be saved to and loaded from JSON files
 - Windows machines without `sounddevice` can still list input devices through a waveIn fallback, even though real capture still requires `sounddevice`
 

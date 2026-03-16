@@ -88,6 +88,9 @@ class DesktopRenderControlPanelWindow:
         self._pointer_crosshair_item_identifier: int | None = None
         self._pointer_marker_item_identifier: int | None = None
         self._settings_file_path: Path | None = None
+        self._preview_window: tk.Toplevel | None = None
+        self._preview_text_widget: ScrolledText | None = None
+        self._latest_preview_json_text = ""
         self._scene_type_button_widgets: dict[str, tk.Button] = {}
         self._build_variables()
         self._slider_display_variables = self._build_slider_display_variables()
@@ -125,7 +128,6 @@ class DesktopRenderControlPanelWindow:
         self._live_status_variable = tk.StringVar(value="Live stream stopped.")
         self._audio_status_variable = tk.StringVar(value="Audio capture not started.")
         self._result_status_variable = tk.StringVar(value="Ready.")
-        self._preview_visible_variable = tk.BooleanVar(value=False)
 
     def _build_slider_display_variables(self) -> dict[str, tk.StringVar]:
         """Create formatted label variables for the numeric slider values."""
@@ -401,7 +403,7 @@ class DesktopRenderControlPanelWindow:
         )
 
     def _build_scene_section(self) -> None:
-        """Create the visual-control, signal-source, and audio-device widgets."""
+        """Create the scene-shaping widgets that operators adjust most often."""
 
         section_frame = self._scene_frame
         for column_index in range(2):
@@ -581,13 +583,74 @@ class DesktopRenderControlPanelWindow:
                 command=self._schedule_payload_sync,
             ).grid(row=signal_index // 2, column=signal_index % 2, sticky="w", padx=4, pady=4)
 
-        audio_frame = ttk.LabelFrame(
+        self._watch_control_variables()
+        self._rebuild_preset_button_group()
+        self._refresh_scene_type_button_styles()
+
+    def _build_output_section(self) -> None:
+        """Create preview actions plus the heavier diagnostic widgets.
+
+        The right-most column has more vertical breathing room, so it is a
+        better home for the audio controls and pointer pad than the already
+        crowded scene-control column.
+        """
+
+        section_frame = self._output_frame
+        section_frame.rowconfigure(3, weight=1)
+        section_frame.columnconfigure(0, weight=1)
+
+        action_frame = ttk.Frame(section_frame, style="PanelInner.TFrame")
+        action_frame.grid(
+            row=0,
+            column=0,
+            sticky="ew",
+        )
+        action_frame.columnconfigure(0, weight=1)
+        action_frame.columnconfigure(1, weight=1)
+        ttk.Button(
+            action_frame,
+            text="Refresh preview",
+            command=self._refresh_preview,
+            style="Accent.TButton",
+        ).grid(
+            row=0,
+            column=0,
+            sticky="ew",
+            padx=(0, 6),
+        )
+        self._preview_toggle_button = ttk.Button(
+            action_frame,
+            text="Open current scene JSON",
+            command=self._open_preview_window,
+        )
+        self._preview_toggle_button.grid(
+            row=0,
+            column=1,
+            sticky="ew",
+            padx=(6, 0),
+        )
+
+        self._analysis_label = ttk.Label(
             section_frame,
+            text="No preview generated yet.",
+            wraplength=520,
+            justify="left",
+        )
+        self._analysis_label.grid(row=1, column=0, sticky="w", pady=(10, 10))
+
+        self._build_audio_input_section(section_frame, row=2)
+        self._build_pointer_pad_section(section_frame, row=3)
+
+    def _build_audio_input_section(self, parent: ttk.LabelFrame, *, row: int) -> None:
+        """Create the audio-capture controls in the roomier diagnostics column."""
+
+        audio_frame = ttk.LabelFrame(
+            parent,
             text="Audio input",
             padding=10,
             style="Panel.TLabelframe",
         )
-        audio_frame.grid(row=slider_row + 1, column=0, columnspan=2, sticky="ew", pady=(12, 0))
+        audio_frame.grid(row=row, column=0, sticky="ew", pady=(12, 0))
         audio_frame.columnconfigure(1, weight=1)
         ttk.Label(audio_frame, text="Device").grid(row=0, column=0, sticky="w")
         self._audio_device_combobox = ttk.Combobox(
@@ -616,7 +679,7 @@ class DesktopRenderControlPanelWindow:
             sticky="ew",
             pady=(8, 0),
         )
-        ttk.Label(audio_frame, textvariable=self._audio_status_variable, wraplength=320).grid(
+        ttk.Label(audio_frame, textvariable=self._audio_status_variable, wraplength=520).grid(
             row=3,
             column=0,
             columnspan=2,
@@ -624,18 +687,22 @@ class DesktopRenderControlPanelWindow:
             pady=(8, 0),
         )
 
+    def _build_pointer_pad_section(self, parent: ttk.LabelFrame, *, row: int) -> None:
+        """Create the pointer pad in the column that can spare the vertical room."""
+
         pointer_frame = ttk.LabelFrame(
-            section_frame,
+            parent,
             text="Pointer pad",
             padding=10,
             style="Panel.TLabelframe",
         )
-        pointer_frame.grid(row=slider_row + 2, column=0, columnspan=2, sticky="nsew", pady=(12, 0))
+        pointer_frame.grid(row=row, column=0, sticky="nsew", pady=(12, 0))
         pointer_frame.columnconfigure(0, weight=1)
+        pointer_frame.rowconfigure(0, weight=1)
         self._pointer_canvas = tk.Canvas(
             pointer_frame,
-            width=380,
-            height=220,
+            width=420,
+            height=230,
             background=POINTER_PAD_BACKGROUND,
             highlightthickness=1,
             highlightbackground=POINTER_PAD_GRID,
@@ -651,86 +718,7 @@ class DesktopRenderControlPanelWindow:
             sticky="w",
             pady=(8, 0),
         )
-
-        self._watch_control_variables()
-        self._rebuild_preset_button_group()
-        self._refresh_scene_type_button_styles()
         self._draw_pointer_pad_background()
-
-    def _build_output_section(self) -> None:
-        """Create the preview JSON pane and the small analysis summary."""
-
-        section_frame = self._output_frame
-        section_frame.rowconfigure(3, weight=1)
-        section_frame.columnconfigure(0, weight=1)
-
-        action_frame = ttk.Frame(section_frame, style="PanelInner.TFrame")
-        action_frame.grid(
-            row=0,
-            column=0,
-            sticky="ew",
-        )
-        action_frame.columnconfigure(0, weight=1)
-        action_frame.columnconfigure(1, weight=1)
-        ttk.Button(
-            action_frame,
-            text="Refresh preview",
-            command=self._refresh_preview,
-            style="Accent.TButton",
-        ).grid(
-            row=0,
-            column=0,
-            sticky="ew",
-            padx=(0, 6),
-        )
-        self._preview_toggle_button = ttk.Button(
-            action_frame,
-            text="Show current scene JSON",
-            command=self._toggle_preview_visibility,
-        )
-        self._preview_toggle_button.grid(
-            row=0,
-            column=1,
-            sticky="ew",
-            padx=(6, 0),
-        )
-
-        self._analysis_label = ttk.Label(
-            section_frame,
-            text="No preview generated yet.",
-            wraplength=520,
-            justify="left",
-        )
-        self._analysis_label.grid(row=1, column=0, sticky="w", pady=(10, 10))
-
-        self._preview_container = ttk.Frame(section_frame, style="PanelInner.TFrame")
-        self._preview_container.columnconfigure(0, weight=1)
-        self._preview_container.rowconfigure(1, weight=1)
-        ttk.Label(
-            self._preview_container,
-            text="Current scene JSON",
-            style="Subheading.TLabel",
-        ).grid(
-            row=0,
-            column=0,
-            sticky="w",
-            pady=(0, 8),
-        )
-        self._preview_text = ScrolledText(
-            self._preview_container,
-            wrap="none",
-            font=("Cascadia Code", 10),
-            background=ENTRY_BACKGROUND,
-            foreground=TEXT_PRIMARY,
-            insertbackground=TEXT_PRIMARY,
-            selectbackground=ACCENT_COLOR,
-            selectforeground=ACCENT_FOREGROUND,
-            relief="flat",
-            borderwidth=0,
-        )
-        self._preview_text.grid(row=1, column=0, sticky="nsew")
-        self._preview_text.configure(state="disabled")
-        self._update_preview_visibility()
 
     def _add_slider(
         self,
@@ -1352,7 +1340,7 @@ class DesktopRenderControlPanelWindow:
         self._show_preview_bundle(preview_bundle)
 
     def _show_preview_bundle(self, preview_bundle: dict[str, Any]) -> None:
-        """Render both the summary label and the full pretty-printed JSON scene."""
+        """Render both the summary label and the latest pretty-printed JSON scene."""
 
         analysis = preview_bundle["analysis"]
         readable_scene_type = str(preview_bundle["scene"]["sceneType"]).upper()
@@ -1366,29 +1354,81 @@ class DesktopRenderControlPanelWindow:
                 f"Energy: {analysis['energy']}"
             )
         )
-        formatted_json = json.dumps(preview_bundle["scene"], indent=2)
-        self._preview_text.configure(state="normal")
-        self._preview_text.delete("1.0", tk.END)
-        self._preview_text.insert("1.0", formatted_json)
-        self._preview_text.configure(state="disabled")
+        self._latest_preview_json_text = json.dumps(preview_bundle["scene"], indent=2)
+        self._render_preview_json_in_window()
 
-    def _toggle_preview_visibility(self) -> None:
-        """Show or hide the full JSON preview to save vertical space by default."""
+    def _open_preview_window(self) -> None:
+        """Open a separate JSON window so the main panel can stay compact."""
 
-        self._preview_visible_variable.set(not self._preview_visible_variable.get())
-        self._update_preview_visibility()
+        if self._preview_window is not None and self._preview_window.winfo_exists():
+            self._preview_window.deiconify()
+            self._preview_window.lift()
+            self._preview_window.focus_force()
+            self._render_preview_json_in_window()
+            return
 
-    def _update_preview_visibility(self) -> None:
-        """Apply the current preview-visibility choice to the output layout."""
+        preview_window = tk.Toplevel(self._root)
+        preview_window.title("Current scene JSON")
+        preview_window.geometry("760x720")
+        preview_window.minsize(560, 420)
+        preview_window.configure(background=WINDOW_BACKGROUND)
+        preview_window.columnconfigure(0, weight=1)
+        preview_window.rowconfigure(0, weight=1)
 
-        if self._preview_visible_variable.get():
-            self._preview_container.grid(row=3, column=0, sticky="nsew", pady=(4, 0))
-            self._preview_toggle_button.configure(text="Hide current scene JSON")
-            self._output_frame.rowconfigure(3, weight=1)
-        else:
-            self._preview_container.grid_remove()
-            self._preview_toggle_button.configure(text="Show current scene JSON")
-            self._output_frame.rowconfigure(3, weight=0)
+        preview_shell = ttk.Frame(preview_window, padding=16, style="Surface.TFrame")
+        preview_shell.grid(sticky="nsew")
+        preview_shell.columnconfigure(0, weight=1)
+        preview_shell.rowconfigure(1, weight=1)
+
+        ttk.Label(
+            preview_shell,
+            text="Current scene JSON",
+            style="Heading.TLabel",
+        ).grid(row=0, column=0, sticky="w", pady=(0, 12))
+
+        preview_text_widget = ScrolledText(
+            preview_shell,
+            wrap="none",
+            font=("Cascadia Code", 10),
+            background=ENTRY_BACKGROUND,
+            foreground=TEXT_PRIMARY,
+            insertbackground=TEXT_PRIMARY,
+            selectbackground=ACCENT_COLOR,
+            selectforeground=ACCENT_FOREGROUND,
+            relief="flat",
+            borderwidth=0,
+        )
+        preview_text_widget.grid(row=1, column=0, sticky="nsew")
+        preview_text_widget.configure(state="disabled")
+
+        preview_window.protocol("WM_DELETE_WINDOW", self._close_preview_window)
+        self._preview_window = preview_window
+        self._preview_text_widget = preview_text_widget
+
+        if not self._latest_preview_json_text:
+            self._refresh_preview()
+            return
+
+        self._render_preview_json_in_window()
+
+    def _render_preview_json_in_window(self) -> None:
+        """Refresh the detached JSON window when it is open."""
+
+        if self._preview_text_widget is None or not self._preview_text_widget.winfo_exists():
+            return
+
+        self._preview_text_widget.configure(state="normal")
+        self._preview_text_widget.delete("1.0", tk.END)
+        self._preview_text_widget.insert("1.0", self._latest_preview_json_text)
+        self._preview_text_widget.configure(state="disabled")
+
+    def _close_preview_window(self) -> None:
+        """Forget the detached preview window after the operator closes it."""
+
+        if self._preview_window is not None and self._preview_window.winfo_exists():
+            self._preview_window.destroy()
+        self._preview_window = None
+        self._preview_text_widget = None
 
     def _schedule_status_refresh(self) -> None:
         """Keep audio/live-stream status labels gently refreshed over time."""
@@ -1607,6 +1647,7 @@ class DesktopRenderControlPanelWindow:
     def _on_close_requested(self) -> None:
         """Shut down background resources before destroying the window."""
 
+        self._close_preview_window()
         self._controller.close()
         self._root.destroy()
 
