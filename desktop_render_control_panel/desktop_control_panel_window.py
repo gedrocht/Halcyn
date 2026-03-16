@@ -37,6 +37,10 @@ POINTER_PAD_BACKGROUND = "#09121c"
 POINTER_PAD_GRID = "#284058"
 POINTER_PAD_MARKER = "#ffd166"
 COLOR_SWATCH_BORDER = "#6b7f94"
+LEVEL_METER_COLOR = ACCENT_COLOR
+BASS_METER_COLOR = "#ffd166"
+MID_METER_COLOR = "#7ee787"
+TREBLE_METER_COLOR = "#ff7eb6"
 SELECTION_BUTTON_BACKGROUND = "#172537"
 SELECTION_BUTTON_FOREGROUND = TEXT_PRIMARY
 SELECTION_BUTTON_BORDER = "#2d435c"
@@ -90,8 +94,11 @@ class DesktopRenderControlPanelWindow:
         self._settings_file_path: Path | None = None
         self._preview_window: tk.Toplevel | None = None
         self._preview_text_widget: ScrolledText | None = None
+        self._live_cadence_value_label: ttk.Label | None = None
         self._latest_preview_json_text = ""
         self._audio_device_flow_button_widgets: dict[str, tk.Button] = {}
+        self._audio_meter_progress_variables = self._build_audio_meter_progress_variables()
+        self._audio_meter_text_variables = self._build_audio_meter_text_variables()
         self._scene_type_button_widgets: dict[str, tk.Button] = {}
         self._build_variables()
         self._slider_display_variables = self._build_slider_display_variables()
@@ -130,6 +137,26 @@ class DesktopRenderControlPanelWindow:
         self._live_status_variable = tk.StringVar(value="Live stream stopped.")
         self._audio_status_variable = tk.StringVar(value="Audio capture not started.")
         self._result_status_variable = tk.StringVar(value="Ready.")
+
+    def _build_audio_meter_progress_variables(self) -> dict[str, tk.DoubleVar]:
+        """Create one 0..100 Tk variable for each visible audio meter."""
+
+        return {
+            "level": tk.DoubleVar(value=0.0),
+            "bass": tk.DoubleVar(value=0.0),
+            "mid": tk.DoubleVar(value=0.0),
+            "treble": tk.DoubleVar(value=0.0),
+        }
+
+    def _build_audio_meter_text_variables(self) -> dict[str, tk.StringVar]:
+        """Create the small human-readable percentage labels beside each audio meter."""
+
+        return {
+            "level": tk.StringVar(value="0%"),
+            "bass": tk.StringVar(value="0%"),
+            "mid": tk.StringVar(value="0%"),
+            "treble": tk.StringVar(value="0%"),
+        }
 
     def _build_slider_display_variables(self) -> dict[str, tk.StringVar]:
         """Create formatted label variables for the numeric slider values."""
@@ -302,6 +329,27 @@ class DesktopRenderControlPanelWindow:
         )
         style.configure("TLabelframe.Label", background=SURFACE_BACKGROUND, foreground=TEXT_PRIMARY)
         style.configure("TCheckbutton", background=SURFACE_BACKGROUND, foreground=TEXT_PRIMARY)
+        self._configure_audio_meter_styles(style)
+
+    def _configure_audio_meter_styles(self, style: ttk.Style) -> None:
+        """Give each audio meter its own readable color without breaking the dark theme."""
+
+        meter_style_names_by_key = {
+            "level": ("AudioLevel.Horizontal.TProgressbar", LEVEL_METER_COLOR),
+            "bass": ("AudioBass.Horizontal.TProgressbar", BASS_METER_COLOR),
+            "mid": ("AudioMid.Horizontal.TProgressbar", MID_METER_COLOR),
+            "treble": ("AudioTreble.Horizontal.TProgressbar", TREBLE_METER_COLOR),
+        }
+        for meter_style_name, meter_color in meter_style_names_by_key.values():
+            style.configure(
+                meter_style_name,
+                troughcolor=ENTRY_BACKGROUND,
+                background=meter_color,
+                lightcolor=meter_color,
+                darkcolor=meter_color,
+                bordercolor=SURFACE_BORDER,
+                thickness=10,
+            )
 
     def _build_connection_section(self) -> None:
         """Create the renderer-target and transport-action controls."""
@@ -338,6 +386,11 @@ class DesktopRenderControlPanelWindow:
             digits_after_decimal=0,
             suffix=" ms",
         )
+        self._live_cadence_value_label = ttk.Label(
+            section_frame,
+            textvariable=self._slider_display_variables["cadence"],
+        )
+        self._live_cadence_value_label.grid(row=3, column=1, sticky="e", pady=(0, 4))
 
         ttk.Button(
             section_frame,
@@ -716,6 +769,19 @@ class DesktopRenderControlPanelWindow:
             sticky="w",
             pady=(8, 0),
         )
+        ttk.Label(audio_frame, text="Audio monitor", style="Subheading.TLabel").grid(
+            row=6,
+            column=0,
+            columnspan=3,
+            sticky="w",
+            pady=(10, 0),
+        )
+        audio_frame.columnconfigure(1, weight=1)
+        audio_frame.columnconfigure(2, weight=0)
+        self._build_audio_meter_row(audio_frame, row=7, meter_key="level", label_text="Level")
+        self._build_audio_meter_row(audio_frame, row=8, meter_key="bass", label_text="Bass")
+        self._build_audio_meter_row(audio_frame, row=9, meter_key="mid", label_text="Mid")
+        self._build_audio_meter_row(audio_frame, row=10, meter_key="treble", label_text="Treble")
 
     def _build_pointer_pad_section(self, parent: ttk.LabelFrame, *, row: int) -> None:
         """Create the pointer pad in the column that can spare the vertical room."""
@@ -749,6 +815,36 @@ class DesktopRenderControlPanelWindow:
             pady=(8, 0),
         )
         self._draw_pointer_pad_background()
+
+    def _build_audio_meter_row(
+        self,
+        parent: ttk.LabelFrame,
+        *,
+        row: int,
+        meter_key: str,
+        label_text: str,
+    ) -> None:
+        """Create one labeled progress meter for a single analyzed audio band."""
+
+        meter_style_name_by_key = {
+            "level": "AudioLevel.Horizontal.TProgressbar",
+            "bass": "AudioBass.Horizontal.TProgressbar",
+            "mid": "AudioMid.Horizontal.TProgressbar",
+            "treble": "AudioTreble.Horizontal.TProgressbar",
+        }
+        ttk.Label(parent, text=label_text).grid(row=row, column=0, sticky="w", pady=(6, 0))
+        ttk.Progressbar(
+            parent,
+            variable=self._audio_meter_progress_variables[meter_key],
+            maximum=100.0,
+            style=meter_style_name_by_key[meter_key],
+        ).grid(row=row, column=1, sticky="ew", padx=(8, 8), pady=(6, 0))
+        ttk.Label(parent, textvariable=self._audio_meter_text_variables[meter_key]).grid(
+            row=row,
+            column=2,
+            sticky="e",
+            pady=(6, 0),
+        )
 
     def _add_slider(
         self,
@@ -1101,6 +1197,12 @@ class DesktopRenderControlPanelWindow:
             self._use_pointer_variable.set(bool(signals.get("usePointer", True)))
             self._use_audio_variable.set(bool(signals.get("useAudio", False)))
             if isinstance(audio, dict):
+                self._update_audio_meter_displays(
+                    level=float(audio.get("level", 0.0)),
+                    bass=float(audio.get("bass", 0.0)),
+                    mid=float(audio.get("mid", 0.0)),
+                    treble=float(audio.get("treble", 0.0)),
+                )
                 self._audio_status_variable.set(
                     "Audio capture not started."
                     if not audio
@@ -1437,6 +1539,7 @@ class DesktopRenderControlPanelWindow:
         preview_shell = ttk.Frame(preview_window, padding=16, style="Surface.TFrame")
         preview_shell.grid(sticky="nsew")
         preview_shell.columnconfigure(0, weight=1)
+        preview_shell.columnconfigure(1, weight=0)
         preview_shell.rowconfigure(1, weight=1)
 
         ttk.Label(
@@ -1463,6 +1566,11 @@ class DesktopRenderControlPanelWindow:
         preview_window.protocol("WM_DELETE_WINDOW", self._close_preview_window)
         self._preview_window = preview_window
         self._preview_text_widget = preview_text_widget
+        ttk.Button(
+            preview_shell,
+            text="Copy JSON",
+            command=self._copy_preview_json_to_clipboard,
+        ).grid(row=0, column=1, sticky="e", padx=(12, 0), pady=(0, 12))
 
         if not self._latest_preview_json_text:
             self._refresh_preview()
@@ -1489,6 +1597,15 @@ class DesktopRenderControlPanelWindow:
         self._preview_window = None
         self._preview_text_widget = None
 
+    def _copy_preview_json_to_clipboard(self) -> None:
+        """Copy the current preview JSON so operators can paste it elsewhere quickly."""
+
+        if not self._latest_preview_json_text:
+            self._refresh_preview()
+        self._root.clipboard_clear()
+        self._root.clipboard_append(self._latest_preview_json_text)
+        self._result_status_variable.set("Copied the current scene JSON to the clipboard.")
+
     def _schedule_status_refresh(self) -> None:
         """Keep audio/live-stream status labels gently refreshed over time."""
 
@@ -1499,6 +1616,12 @@ class DesktopRenderControlPanelWindow:
         """Refresh status labels from the controller's latest snapshots."""
 
         audio_snapshot = self._controller.audio_snapshot()
+        self._update_audio_meter_displays(
+            level=audio_snapshot.level,
+            bass=audio_snapshot.bass,
+            mid=audio_snapshot.mid,
+            treble=audio_snapshot.treble,
+        )
         if audio_snapshot.capturing:
             self._audio_status_variable.set(
                 f"{audio_snapshot.device_name}: level {audio_snapshot.level:.2f}, "
@@ -1615,6 +1738,27 @@ class DesktopRenderControlPanelWindow:
             self._secondary_color_variable,
         ]:
             self._refresh_color_swatch(color_variable)
+
+    def _update_audio_meter_displays(
+        self,
+        *,
+        level: float,
+        bass: float,
+        mid: float,
+        treble: float,
+    ) -> None:
+        """Keep the audio monitor bars and percentages synchronized with the latest snapshot."""
+
+        normalized_audio_levels = {
+            "level": level,
+            "bass": bass,
+            "mid": mid,
+            "treble": treble,
+        }
+        for meter_key, normalized_value in normalized_audio_levels.items():
+            clamped_percentage = max(0.0, min(100.0, float(normalized_value) * 100.0))
+            self._audio_meter_progress_variables[meter_key].set(clamped_percentage)
+            self._audio_meter_text_variables[meter_key].set(f"{int(round(clamped_percentage))}%")
 
     def _refresh_all_slider_display_labels(self) -> None:
         """Recompute the formatted slider labels after loading or reverting settings."""

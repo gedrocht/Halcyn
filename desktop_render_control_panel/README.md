@@ -23,6 +23,7 @@ It exists for the cases where the browser tools are helpful, but not quite enoug
 
 - renderer host and port
 - live-stream cadence
+- a visible live-cadence value label, so you can see the exact millisecond number beside the slider
 - 2D and 3D preset selection through persistent toggle buttons
 - density, point size, line width, speed, gain, and manual drive with friendlier slider rounding
 - background, primary, and secondary colors with live swatches
@@ -30,6 +31,7 @@ It exists for the cases where the browser tools are helpful, but not quite enoug
 - a larger native pointer pad for local motion control
 - real local audio device selection through the optional `sounddevice` package
 - a source-type toggle that defaults to output sources and can switch to microphones
+- a live audio monitor with overall level plus bass, mid, and treble meters
 - a roomier right-hand diagnostics column that holds audio controls and pointer input
 
 ## What changed in the polished version
@@ -39,6 +41,7 @@ It exists for the cases where the browser tools are helpful, but not quite enoug
 - integer-valued sliders snap to whole numbers, and float-valued sliders snap to practical increments
 - the current color choices are shown with live swatches instead of only text fields
 - the full JSON preview opens in a separate window so the main panel fits typical desktop screens more comfortably
+- the detached JSON preview window includes a `Copy JSON` button for quick pasting into notes, tests, or API experiments
 - settings can be saved to and loaded from JSON files
 - Windows machines without `sounddevice` can still list input devices through a waveIn fallback, even though real capture still requires `sounddevice`
 - the prerequisite report now calls out the optional `sounddevice` package directly so audio setup is easier to diagnose

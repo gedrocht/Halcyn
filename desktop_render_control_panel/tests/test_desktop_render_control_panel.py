@@ -772,6 +772,13 @@ class DesktopWindowTests(unittest.TestCase):
         assert preview_text_widget is not None
         preview_text = preview_text_widget.get("1.0", "end").strip()
         self.assertIn('"sceneType"', preview_text)
+        with mock.patch.object(self.root, "clipboard_clear"), mock.patch.object(
+            self.root,
+            "clipboard_append",
+        ) as clipboard_append_mock:
+            self.window._copy_preview_json_to_clipboard()
+        clipboard_append_mock.assert_called_once_with(self.window._latest_preview_json_text)
+        self.assertIn("Copied", self.window._result_status_variable.get())
         self.assertIs(self.window._audio_device_combobox.master.master, self.window._output_frame)
         self.assertIs(self.window._pointer_canvas.master.master, self.window._output_frame)
 
@@ -783,10 +790,31 @@ class DesktopWindowTests(unittest.TestCase):
         self.window._on_pointer_motion(pointer_event)
         self.window._on_pointer_leave(pointer_event)
         self.window._stop_audio_capture()
+        self.window._refresh_status_labels()
         self.root.update_idletasks()
 
         self.assertIn("Pointer pad", self.window._pointer_status_variable.get())
         self.assertEqual(self.window._audio_device_flow_variable.get(), "output")
+        self.assertGreater(self.window._audio_meter_progress_variables["level"].get(), 0.0)
+        self.assertEqual(self.window._audio_meter_text_variables["level"].get(), "65%")
+        self.assertEqual(self.window._audio_meter_text_variables["bass"].get(), "55%")
+        self.assertEqual(self.window._audio_meter_text_variables["mid"].get(), "30%")
+        self.assertEqual(self.window._audio_meter_text_variables["treble"].get(), "15%")
+
+    def test_window_shows_the_visible_live_cadence_value(self) -> None:
+        self.assertIsNotNone(self.window._live_cadence_value_label)
+        self.assertEqual(self.window._slider_display_variables["cadence"].get(), "125 ms")
+
+        self.window._cadence_variable.set(240)
+        self.window._on_slider_value_changed(
+            self.window._cadence_variable,
+            self.window._slider_display_variables["cadence"],
+            resolution=1.0,
+            digits_after_decimal=0,
+            suffix=" ms",
+        )
+
+        self.assertEqual(self.window._slider_display_variables["cadence"].get(), "240 ms")
 
     def test_window_color_choice_and_module_entry_point_are_exercised(self) -> None:
         with mock.patch(
