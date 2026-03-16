@@ -9,14 +9,13 @@ import time
 import tkinter as tk
 import unittest
 from dataclasses import dataclass
+from fractions import Fraction
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
 from unittest import mock
-
-import numpy as np
 
 from desktop_render_control_panel.audio_input_service import (
     AudioDeviceDescriptor,
@@ -140,9 +139,12 @@ class AudioAnalysisTests(unittest.TestCase):
         self.assertGreaterEqual(snapshot.level, 0.0)
         self.assertEqual(snapshot.device_name, "Test microphone")
 
-    def test_numpy_scalar_audio_samples_are_treated_as_real_audio(self) -> None:
+    def test_fraction_audio_samples_are_treated_as_real_audio(self) -> None:
         snapshot = analyze_audio_frames(
-            [[np.float32(0.8), np.float32(-0.4)], [np.float32(0.6), np.float32(-0.2)]],
+            [
+                [Fraction(4, 5), Fraction(-2, 5)],
+                [Fraction(3, 5), Fraction(-1, 5)],
+            ],
             sample_rate=48_000,
             device_identifier="loopback-1",
             device_name="Loopback output",
