@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
@@ -37,6 +37,7 @@
             <li><a href="control-center.html">Control Center</a></li>
             <li><a href="scene-studio.html">Scene Studio</a></li>
             <li><a href="desktop-control-panel.html">Desktop Control Panel</a></li>
+            <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Spectrograph Suite</a></li>
           </ul>
         </nav>
 
@@ -59,6 +60,7 @@
                   <tr><td><code>GET</code></td><td><code>/api/v1/runtime/logs?limit=200</code></td><td>The newest in-memory runtime log entries for diagnostics.</td></tr>
                   <tr><td><code>GET</code></td><td><code>/api/v1/examples/2d</code></td><td>A built-in 2D example scene.</td></tr>
                   <tr><td><code>GET</code></td><td><code>/api/v1/examples/3d</code></td><td>A built-in 3D example scene.</td></tr>
+                  <tr><td><code>GET</code></td><td><code>/api/v1/examples/spectrograph</code></td><td>A built-in 3D bar-grid spectrograph example scene.</td></tr>
                   <tr><td><code>POST</code></td><td><code>/api/v1/scene/validate</code></td><td>Validate a scene without activating it.</td></tr>
                   <tr><td><code>POST</code></td><td><code>/api/v1/scene</code></td><td>Validate and activate a new scene.</td></tr>
                 </tbody>
@@ -82,7 +84,7 @@
 
           <section class="panel">
             <h3>3D scene payload</h3>
-            <p>Set <code>sceneType</code> to <code>"3d"</code>. Every 3D vertex must include <code>x</code>, <code>y</code>, <code>z</code>, <code>r</code>, <code>g</code>, and <code>b</code>. <code>a</code> is optional.</p>
+            <p>Set <code>sceneType</code> to <code>"3d"</code>. Every 3D vertex must include <code>x</code>, <code>y</code>, <code>z</code>, <code>r</code>, <code>g</code>, and <code>b</code>. <code>a</code> is optional. A 3D scene may also include <code>renderStyle</code> when the caller wants to choose shader presentation and multisample anti-aliasing.</p>
             <pre><code>{
   "sceneType": "3d",
   "primitive": "triangles",
@@ -94,6 +96,10 @@
     "nearPlane": 0.1,
     "farPlane": 100.0
   },
+  "renderStyle": {
+    "shader": "heatmap",
+    "antiAliasing": true
+  },
   "vertices": [
     { "x": -0.8, "y": -0.8, "z": 0.0, "r": 1.0, "g": 0.2, "b": 0.2 },
     { "x": 0.8, "y": -0.8, "z": 0.0, "r": 0.2, "g": 1.0, "b": 0.2 },
@@ -101,6 +107,17 @@
   ],
   "indices": [0, 1, 2]
 }</code></pre>
+          </section>
+
+          <section class="panel">
+            <h3>Spectrograph example and presentation fields</h3>
+            <p>
+              The dedicated spectrograph renderer and its desktop operator panel still use the same
+              scene API. The difference is that the operator-side tooling now generates a 3D
+              bar-grid scene and often sets <code>renderStyle.shader</code> to
+              <code>heatmap</code> or <code>neon</code>.
+            </p>
+            <pre><code>GET /api/v1/examples/spectrograph</code></pre>
           </section>
 
           <section class="panel">
@@ -136,6 +153,7 @@
               experience layered on top of the same HTTP routes.
             </p>
             <pre><code>.\scripts\launch-desktop-render-control-panel.ps1</code></pre>
+            <pre><code>.\scripts\launch-desktop-spectrograph-control-panel.ps1</code></pre>
           </section>
 
           <section class="panel">

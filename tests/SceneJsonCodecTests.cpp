@@ -1,3 +1,4 @@
+#include "scene_description/SceneFactory.hpp"
 #include "scene_description/SceneJsonCodec.hpp"
 #include "scene_description/SceneValidation.hpp"
 
@@ -41,6 +42,10 @@ TEST_CASE("SceneJsonCodec parses a valid indexed 3D scene", "[json][3d]") {
   const std::string jsonText = R"({
     "sceneType": "3d",
     "primitive": "triangles",
+    "renderStyle": {
+      "shader": "heatmap",
+      "antiAliasing": false
+    },
     "camera": {
       "position": { "x": 2.0, "y": 2.0, "z": 2.0 },
       "target": { "x": 0.0, "y": 0.0, "z": 0.0 },
@@ -68,10 +73,14 @@ TEST_CASE("SceneJsonCodec parses a valid indexed 3D scene", "[json][3d]") {
   CHECK(parsedScene.indices.size() == 3);
   CHECK(parsedScene.vertices[0].a == Catch::Approx(1.0F));
   CHECK(parsedScene.camera.fovYDegrees == Catch::Approx(55.0F));
+  CHECK(parsedScene.presentationOptions.shaderStyle == scene_description::ShaderStyle::Heatmap);
+  CHECK_FALSE(parsedScene.presentationOptions.antiAliasingEnabled);
 
   const auto renderScene = scene_description::BuildRenderScene(*sceneParseResult.scene);
   CHECK(renderScene.vertices[2].z == Catch::Approx(1.0F));
   CHECK(renderScene.indices[1] == 1);
+  CHECK(renderScene.presentationOptions.shaderStyle == scene_description::ShaderStyle::Heatmap);
+  CHECK_FALSE(renderScene.presentationOptions.antiAliasingEnabled);
 }
 
 TEST_CASE("SceneJsonCodec rejects malformed scenes with readable errors", "[json][validation]") {
@@ -111,5 +120,19 @@ TEST_CASE("SceneJsonCodec rejects malformed scenes with readable errors", "[json
 
   CHECK(foundFovError);
   CHECK(foundNearPlaneError);
+}
+
+TEST_CASE("SceneJsonCodec serializes spectrograph presentation fields", "[json][serialize]") {
+  const auto spectrographDocument = scene_description::CreateSampleSpectrographSceneDocument();
+  scene_description::SceneSnapshot spectrographSnapshot;
+  spectrographSnapshot.version = 7;
+  spectrographSnapshot.document = spectrographDocument;
+  spectrographSnapshot.sourceLabel = "unit-test";
+
+  const scene_description::SceneJsonCodec sceneJsonCodec;
+  const std::string serializedJson = sceneJsonCodec.Serialize(spectrographSnapshot);
+
+  CHECK(serializedJson.find("\"shader\": \"heatmap\"") != std::string::npos);
+  CHECK(serializedJson.find("\"antiAliasing\": true") != std::string::npos);
 }
 } // namespace halcyn::tests

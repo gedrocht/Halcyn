@@ -4,7 +4,7 @@
 [![Pages](https://github.com/gedrocht/Halcyn/actions/workflows/pages.yml/badge.svg)](https://github.com/gedrocht/Halcyn/actions/workflows/pages.yml)
 [![CodeQL](https://github.com/gedrocht/Halcyn/actions/workflows/codeql.yml/badge.svg)](https://github.com/gedrocht/Halcyn/actions/workflows/codeql.yml)
 
-Halcyn is a C++20 application that accepts JSON scene descriptions over HTTP and renders them in a GPU-backed OpenGL window at a 60 FPS target. It supports both 2D and 3D payloads, includes unit tests, ships with example scenes and helper scripts, and now includes three operator surfaces around the renderer: a browser-based Control Center, a separate browser-facing Scene Studio, and a native desktop render control panel for hardware-aware live control.
+Halcyn is a C++20 application that accepts JSON scene descriptions over HTTP and renders them in a GPU-backed OpenGL window at a 60 FPS target. It supports both 2D and 3D payloads, includes unit tests, ships with example scenes and helper scripts, and now includes a growing family of operator tools around the renderer: a browser-based Control Center, a separate browser-facing Scene Studio, a native desktop render control panel for hardware-aware live control, a dedicated spectrograph-oriented renderer executable, and a native desktop spectrograph control panel that turns generic JSON into a rolling 3D bar wall.
 
 ## What you get
 
@@ -15,6 +15,8 @@ Halcyn is a C++20 application that accepts JSON scene descriptions over HTTP and
 - PowerShell scripts for build, run, test, formatting, docs serving, code-doc generation, and sample posting.
 - A browser-based Control Center under `browser_control_center/` that can kick off builds, tests, smoke checks, docs, and API requests.
 - A native desktop operator app under `desktop_render_control_panel/` that can preview, validate, apply, and live-stream scenes while selecting real local audio devices.
+- A dedicated spectrograph renderer executable that starts with a 3D bar-grid scene and exposes its own default API port.
+- A native desktop spectrograph operator app under `desktop_spectrograph_control_panel/` that accepts very generic JSON, normalizes it through a rolling statistical range, and turns it into a controllable 3D spectrograph scene.
 - A static dark-mode docs site under `docs/site`.
 - Doxygen-ready source comments and a `Doxyfile` for generated code reference output.
 
@@ -29,6 +31,7 @@ Halcyn is a C++20 application that accepts JSON scene descriptions over HTTP and
 |-- examples/
 |-- browser_control_center/
 |-- desktop_render_control_panel/
+|-- desktop_spectrograph_control_panel/
 |-- scripts/
 |-- src/
 |   |-- http_api/
@@ -47,10 +50,12 @@ Halcyn is a C++20 application that accepts JSON scene descriptions over HTTP and
 2. Launch the browser Control Center with `.\scripts\launch-browser-control-center.ps1`.
 3. Open the separate client-facing scene GUI with `.\scripts\launch-browser-scene-studio.ps1` or by visiting `/scene-studio/` from the Control Center.
 4. Launch the native desktop render control panel with `.\scripts\launch-desktop-render-control-panel.ps1` if you want local audio-device selection and instant 2D/3D switching in a desktop window.
-5. Use the Control Center dashboard to run the prerequisite report, build, tests, and app startup from the browser.
-6. In the Scene Studio, Desktop Render Control Panel, or API Lab, generate and submit sample scenes to the live renderer.
-7. Open the docs site directly from the Control Center or with `.\scripts\serve-docs-site.ps1`.
-8. For a full Windows setup and troubleshooting guide, see `INSTALL.md`.
+5. Launch the dedicated spectrograph renderer with `.\scripts\launch-halcyn-spectrograph-app.ps1`.
+6. Launch the native desktop spectrograph operator console with `.\scripts\launch-desktop-spectrograph-control-panel.ps1` if you want to turn arbitrary JSON into a rolling 3D spectrograph scene.
+7. Use the Control Center dashboard to run the prerequisite report, build, tests, and app startup from the browser.
+8. In the Scene Studio, either desktop control panel, or API Lab, generate and submit sample scenes to the live renderer.
+9. Open the docs site directly from the Control Center or with `.\scripts\serve-docs-site.ps1`.
+10. For a full Windows setup and troubleshooting guide, see `INSTALL.md`.
 
 ## PowerShell first-run note
 
@@ -125,6 +130,7 @@ Each 3D vertex must include:
 - `b`
 
 `a` is optional and defaults to `1.0`. A 3D scene also needs a `camera` object and may include `indices`.
+It may also include a `renderStyle` object when the caller wants to control shader presentation and multisample anti-aliasing.
 
 Example:
 
@@ -139,6 +145,10 @@ Example:
     "fovYDegrees": 60.0,
     "nearPlane": 0.1,
     "farPlane": 100.0
+  },
+  "renderStyle": {
+    "shader": "heatmap",
+    "antiAliasing": true
   },
   "vertices": [
     { "x": -0.8, "y": -0.8, "z": 0.0, "r": 1.0, "g": 0.2, "b": 0.2 },
@@ -157,6 +167,7 @@ Example:
 - `GET /api/v1/runtime/logs?limit=200`
 - `GET /api/v1/examples/2d`
 - `GET /api/v1/examples/3d`
+- `GET /api/v1/examples/spectrograph`
 - `POST /api/v1/scene/validate`
 - `POST /api/v1/scene`
 
@@ -165,6 +176,7 @@ Example:
 - `.\scripts\report-prerequisites.ps1`
 - `.\scripts\build-halcyn-app.ps1`
 - `.\scripts\launch-halcyn-app.ps1`
+- `.\scripts\launch-halcyn-spectrograph-app.ps1`
 - `.\scripts\run-native-tests.ps1`
 - `.\scripts\run-all-quality-checks.ps1`
 - `.\scripts\lint-browser-control-center.ps1`
@@ -175,11 +187,16 @@ Example:
 - `.\scripts\launch-browser-control-center.ps1`
 - `.\scripts\launch-browser-scene-studio.ps1`
 - `.\scripts\launch-desktop-render-control-panel.ps1`
+- `.\scripts\launch-desktop-spectrograph-control-panel.ps1`
 - `.\scripts\test-browser-control-center.ps1`
 - `.\scripts\test-desktop-render-control-panel.ps1`
+- `.\scripts\test-desktop-spectrograph-control-panel.ps1`
 - `.\scripts\lint-desktop-render-control-panel.ps1`
+- `.\scripts\lint-desktop-spectrograph-control-panel.ps1`
 - `.\scripts\typecheck-desktop-render-control-panel.ps1`
+- `.\scripts\typecheck-desktop-spectrograph-control-panel.ps1`
 - `.\scripts\measure-desktop-render-control-panel-coverage.ps1`
+- `.\scripts\measure-desktop-spectrograph-control-panel-coverage.ps1`
 - `.\scripts\post-example-2d-scene.ps1`
 - `.\scripts\post-example-3d-scene.ps1`
 - `.\scripts\serve-docs-site.ps1`
@@ -193,6 +210,7 @@ Example:
 - Control center guide: `docs/site/control-center.html`
 - Scene Studio guide: `docs/site/scene-studio.html`
 - Desktop control panel guide: `docs/site/desktop-control-panel.html`
+- Spectrograph suite guide: `docs/site/spectrograph-suite.html`
 - Architecture guide: `docs/site/architecture.html`
 - API guide: `docs/site/api.html`
 - Testing guide: `docs/site/testing.html`
@@ -234,6 +252,34 @@ Run `.\scripts\launch-desktop-render-control-panel.ps1` to open the native Tk-ba
 - expose signal controls for unix time, deterministic noise, pointer input, audio energy bands, and manual drive
 - serve as a desktop-side companion to the browser Control Center and Scene Studio instead of replacing them
 
+## Spectrograph Renderer
+
+Run `.\scripts\launch-halcyn-spectrograph-app.ps1` to start the dedicated spectrograph-oriented renderer executable. This renderer uses the same shared engine as the regular Halcyn app, but it starts with a 3D bar-grid sample, uses a spectrograph-friendly title, and defaults to API port `8090` so it can coexist more easily with the regular renderer.
+
+The spectrograph sample also exercises the new 3D `renderStyle` controls:
+
+- `renderStyle.shader`
+  - `standard`
+  - `neon`
+  - `heatmap`
+- `renderStyle.antiAliasing`
+  - `true` or `false`
+
+## Desktop Spectrograph Control Panel
+
+Run `.\scripts\launch-desktop-spectrograph-control-panel.ps1` to open the native spectrograph operator console. The spectrograph panel can:
+
+- accept very generic JSON instead of only pre-shaped scene documents
+- flatten nested arrays, objects, booleans, numbers, and strings into one numeric source stream
+- convert strings into UTF-8 byte values so even non-numeric payloads still produce bars
+- maintain a rolling statistical history and normalize new values against an adaptive range
+- switch between automatic range calculation and manual minimum/maximum control
+- choose the 3D bar-grid size `N` so the renderer shows an `N x N` wall of bars
+- toggle anti-aliasing and shader presentation style for the 3D bar scene
+- preview, validate, apply, and live-stream the generated spectrograph scene
+- save and load operator settings as JSON
+- open the fully generated Halcyn scene JSON in a separate study window
+
 ## Code documentation generation
 
 Run `.\scripts\generate-code-reference-docs.ps1` after installing Doxygen. Generated HTML will be written to `docs/generated/code-reference`.
@@ -247,7 +293,8 @@ Run `.\scripts\create-release-package.ps1` to produce a versioned ZIP file under
 - C++ warnings are treated as build failures by default.
 - The Control Center is linted, type-checked, and required to maintain at least 90% Python coverage.
 - The desktop render control panel is also linted, type-checked, and required to maintain at least 90% Python coverage.
-- GitHub Actions lint and cover both Python operator surfaces, build the native project in Debug and Release, and run the native tests.
+- The desktop spectrograph control panel is also linted, type-checked, and required to maintain at least 90% Python coverage.
+- GitHub Actions lint and cover all three Python operator surfaces, build the native project in Debug and Release, and run the native tests.
 - CodeQL analyzes the native code on pushes, pull requests, and a weekly schedule.
 - The Pages workflow now publishes the static docs site together with generated Doxygen output.
 - Repository formatting is explicitly governed by `.clang-format` and `.editorconfig`.

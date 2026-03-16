@@ -75,6 +75,10 @@ void ShaderProgram::SetFloat(const char* uniformName, float value) const {
   glUniform1f(GetUniformLocation(uniformName), value);
 }
 
+void ShaderProgram::SetInt(const char* uniformName, int value) const {
+  glUniform1i(GetUniformLocation(uniformName), value);
+}
+
 GLuint ShaderProgram::CompileShader(GLenum shaderType, const std::string& source) const {
   const GLuint shaderHandle = glCreateShader(shaderType);
   const char* shaderSourceText = source.c_str();

@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
@@ -53,6 +53,10 @@
               <dt>4.</dt>
               <dd>Run <code>.\scripts\post-example-2d-scene.ps1</code> or <code>.\scripts\post-example-3d-scene.ps1</code>.</dd>
               <dt>5.</dt>
+              <dd>Run <code>.\scripts\launch-halcyn-spectrograph-app.ps1</code> to start the dedicated 3D bar-wall renderer.</dd>
+              <dt>6.</dt>
+              <dd>Run <code>.\scripts\launch-desktop-spectrograph-control-panel.ps1</code> to turn generic JSON into a rolling spectrograph scene.</dd>
+              <dt>7.</dt>
               <dd>Read the tutorial page to learn how each layer works.</dd>
             </dl>
           </aside>
@@ -73,6 +77,7 @@
             <li><a href="control-center.html">Control Center</a></li>
             <li><a href="scene-studio.html">Scene Studio</a></li>
             <li><a href="desktop-control-panel.html">Desktop Control Panel</a></li>
+            <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Spectrograph Suite</a></li>
           </ul>
         </nav>
 
@@ -156,6 +161,14 @@
                     <td><code>desktop_render_control_panel</code></td>
                     <td>A native Tk-based operator console for local audio-device control, 2D/3D switching, preview, validate, and live streaming.</td>
                   </tr>
+                  <tr>
+                    <td><code>desktop_spectrograph_control_panel</code></td>
+                    <td>A native operator console that turns generic JSON into a statistically normalized 3D bar-grid spectrograph scene.</td>
+                  </tr>
+                  <tr>
+                    <td><code>src/spectrograph_main.cpp</code></td>
+                    <td>A dedicated executable entry point that gives the shared engine a spectrograph-oriented default personality.</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
@@ -175,6 +188,10 @@
               <div class="card">
                 <h4>Desktop Render Control Panel</h4>
                 <p>Launch <code>.\scripts\launch-desktop-render-control-panel.ps1</code> to get a native operator console with local audio-device selection and instant 2D/3D switching.</p>
+              </div>
+              <div class="card">
+                <h4>Spectrograph Suite</h4>
+                <p>Launch <code>.\scripts\launch-halcyn-spectrograph-app.ps1</code> and <code>.\scripts\launch-desktop-spectrograph-control-panel.ps1</code> to drive a 3D bar wall from generic JSON with adaptive range normalization.</p>
               </div>
               <div class="card">
                 <h4>Safer runtime behavior</h4>

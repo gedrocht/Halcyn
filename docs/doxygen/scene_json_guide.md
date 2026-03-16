@@ -23,6 +23,16 @@ Optional top-level fields vary by scene type, but both 2D and 3D scenes may incl
 - `lineWidth`
 - `clearColor`
 
+Three-dimensional scenes may also include:
+
+- `renderStyle.shader`
+  - `"standard"`
+  - `"neon"`
+  - `"heatmap"`
+- `renderStyle.antiAliasing`
+  - `true`
+  - `false`
+
 ## Minimal 2D Example
 
 @code{.json}
@@ -117,6 +127,47 @@ Why indices matter:
 - they let the scene reuse vertices instead of duplicating them
 - they match how many real 3D pipelines organize meshes
 - they let Halcyn exercise both `glDrawArrays` and `glDrawElements`
+
+## Spectrograph-Oriented 3D Example
+
+The dedicated spectrograph renderer and desktop spectrograph control panel still
+submit ordinary 3D scenes. The difference is that they tend to generate a dense
+bar grid and make use of the `renderStyle` object.
+
+@code{.json}
+{
+  "sceneType": "3d",
+  "primitive": "triangles",
+  "camera": {
+    "position": { "x": 7.6, "y": 6.4, "z": 7.6 },
+    "target":   { "x": 0.0, "y": 1.4, "z": 0.0 },
+    "up":       { "x": 0.0, "y": 1.0, "z": 0.0 },
+    "fovYDegrees": 52.0,
+    "nearPlane": 0.1,
+    "farPlane": 100.0
+  },
+  "renderStyle": {
+    "shader": "heatmap",
+    "antiAliasing": true
+  },
+  "vertices": [
+    { "x": -0.32, "y": 0.0, "z": -0.32, "r": 0.08, "g": 0.25, "b": 0.86, "a": 1.0 },
+    { "x":  0.32, "y": 0.0, "z": -0.32, "r": 0.08, "g": 0.25, "b": 0.86, "a": 1.0 }
+  ],
+  "indices": [0, 1]
+}
+@endcode
+
+What the new fields mean:
+
+- `renderStyle.shader`
+  - chooses the fragment-shader presentation style rather than changing the
+    mesh geometry
+- `renderStyle.antiAliasing`
+  - tells the renderer whether multisample anti-aliasing should stay enabled
+
+The dedicated route `GET /api/v1/examples/spectrograph` returns a built-in
+scene of this general shape.
 
 ## Validation Rules Beginners Should Know
 

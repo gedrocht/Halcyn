@@ -77,6 +77,14 @@ public:
    */
   void SetFloat(const char* uniformName, float value) const;
 
+  /**
+   * @brief Sends an integer uniform to the GPU.
+   *
+   * @param uniformName Name of the GLSL uniform.
+   * @param value Integer value to upload.
+   */
+  void SetInt(const char* uniformName, int value) const;
+
 private:
   /**
    * @brief Compiles one shader stage and returns the OpenGL shader object handle.

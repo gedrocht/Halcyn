@@ -86,6 +86,10 @@ scene_description::SceneDocument Application::LoadInitialScene() const {
     return scene_description::CreateSample2DSceneDocument();
   }
 
+  if (applicationConfig_.initialSample == "spectrograph") {
+    return scene_description::CreateSampleSpectrographSceneDocument();
+  }
+
   return scene_description::CreateDefaultSceneDocument();
 }
 
@@ -183,8 +187,9 @@ ApplicationConfig ParseCommandLineArguments(const std::vector<std::string>& argu
 
     if (argument == "--sample") {
       const std::string& sampleValue = requireOptionValue("--sample");
-      if (sampleValue != "default" && sampleValue != "2d" && sampleValue != "3d") {
-        throw std::runtime_error("--sample must be one of: default, 2d, 3d");
+      if (sampleValue != "default" && sampleValue != "2d" && sampleValue != "3d" &&
+          sampleValue != "spectrograph") {
+        throw std::runtime_error("--sample must be one of: default, 2d, 3d, spectrograph");
       }
 
       applicationConfiguration.initialSample = sampleValue;
@@ -223,7 +228,8 @@ void PrintHelpText() {
   std::cout << "  --height <pixels>    Set the render window height. Default: 720\n";
   std::cout << "  --fps <number>       Set the target frame rate. Default: 60\n";
   std::cout << "  --title <text>       Set the render window title. Default: Halcyn\n";
-  std::cout << "  --sample <name>      Choose the startup sample. Values: default, 2d, 3d\n";
+  std::cout << "  --sample <name>      Choose the startup sample. Values: default, 2d, 3d, "
+               "spectrograph\n";
   std::cout << "  --scene-file <path>  Load a scene JSON file before starting the API.\n";
 }
 } // namespace halcyn::desktop_app

@@ -497,6 +497,26 @@ function Get-HalcynExecutablePath {
   return Join-Path $buildDirectory 'halcyn_app.exe'
 }
 
+function Get-HalcynSpectrographExecutablePath {
+  <#
+    .SYNOPSIS
+    Returns the expected path to the built spectrograph-oriented Halcyn executable.
+  #>
+  param(
+    [Parameter(Mandatory = $true)]
+    [ValidateSet('Debug', 'Release')]
+    [string]$Configuration
+  )
+
+  $buildDirectory = Get-BuildDirectory -Configuration $Configuration
+  $generator = Get-PreferredGenerator
+  if ($generator -eq 'Visual Studio 17 2022') {
+    return Join-Path $buildDirectory "$Configuration/halcyn_spectrograph_app.exe"
+  }
+
+  return Join-Path $buildDirectory 'halcyn_spectrograph_app.exe'
+}
+
 function Invoke-HalcynCtest {
   <#
     .SYNOPSIS

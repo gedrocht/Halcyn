@@ -37,6 +37,7 @@
             <li><a href="control-center.html" data-nav-link="control-center">Control Center</a></li>
             <li><a href="scene-studio.html" data-nav-link="scene-studio">Scene Studio</a></li>
             <li><a href="desktop-control-panel.html" data-nav-link="desktop-control-panel">Desktop Control Panel</a></li>
+            <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Spectrograph Suite</a></li>
           </ul>
         </nav>
 
@@ -99,6 +100,14 @@
                     </p>
                   </div>
                   <div class="architecture-node">
+                    <strong>Spectrograph Suite</strong>
+                    <p>
+                      A dedicated renderer executable plus a native desktop operator panel transform
+                      generic JSON into an adaptive 3D bar wall before submitting ordinary scene
+                      JSON into the shared renderer pipeline.
+                    </p>
+                  </div>
+                  <div class="architecture-node">
                     <strong>Direct HTTP callers</strong>
                     <p>
                       PowerShell scripts, tests, curl, and other tools can submit or validate scene
@@ -143,7 +152,8 @@
                     <strong><code>BuildRenderScene</code></strong>
                     <p>
                       Both 2D and 3D scenes are normalized into one render-friendly shape so the GPU
-                      upload path can stay simple.
+                      upload path can stay simple, even when 3D scenes also carry presentation
+                      options such as shader style and anti-aliasing.
                     </p>
                   </div>
                 </div>
@@ -223,12 +233,13 @@
             <h3>Request-to-pixels sequence</h3>
             <ol class="architecture-sequence">
               <li>
-                A person, script, Control Center action, or Scene Studio control emits a request or
-                startup instruction.
+                A person, script, Control Center action, Scene Studio control, or spectrograph
+                control-panel action emits a request or startup instruction.
               </li>
               <li>
                 The desktop app or embedded HTTP API receives that input and turns it into a scene
-                loading or scene submission attempt.
+                loading or scene submission attempt. In the spectrograph workflow, the desktop panel
+                first converts generic JSON into a full 3D bar scene.
               </li>
               <li>
                 The JSON codec converts raw text into typed scene objects and preserves readable

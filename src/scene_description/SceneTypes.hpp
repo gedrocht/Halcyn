@@ -70,6 +70,22 @@ enum class SceneKind { TwoDimensional, ThreeDimensional };
 enum class PrimitiveType { Points, Lines, Triangles };
 
 /**
+ * @brief Describes which fragment-shader presentation style should be used for a 3D scene.
+ *
+ * @details
+ * Halcyn keeps shader choices deliberately small and named after the visual result rather than
+ * the implementation trick:
+ *
+ * - `Standard` keeps the submitted vertex colors mostly unchanged.
+ * - `Neon` brightens the colors so bar-heavy scenes feel more emissive.
+ * - `Heatmap` remaps brightness into a more classic cool-to-hot spectrograph palette.
+ *
+ * The enum lives in the scene-description layer because the chosen style is part of the
+ * user-facing rendering intent, not just an internal renderer toggle.
+ */
+enum class ShaderStyle { Standard, Neon, Heatmap };
+
+/**
  * @brief Stores one vertex for a 2D scene.
  *
  * @details
@@ -213,6 +229,35 @@ struct Camera3D {
 };
 
 /**
+ * @brief Stores renderer-only presentation options for a 3D scene.
+ *
+ * @details
+ * These options do not change the actual geometry in the scene. They change how that geometry
+ * should be presented:
+ *
+ * - whether OpenGL multisample anti-aliasing should stay enabled
+ * - which fragment shader style should color the final bars or meshes
+ *
+ * Keeping them grouped in one small struct prevents the 3D scene type from growing a long list
+ * of unrelated renderer toggles.
+ */
+struct RenderPresentationOptions {
+  /**
+   * @brief Requests whether the renderer should keep OpenGL multisample anti-aliasing enabled.
+   *
+   * @details
+   * The spectrograph-style renderer uses this to let operators compare sharper or smoother edges
+   * without changing the scene geometry itself.
+   */
+  bool antiAliasingEnabled = true;
+
+  /**
+   * @brief Chooses the fragment-shader presentation style.
+   */
+  ShaderStyle shaderStyle = ShaderStyle::Standard;
+};
+
+/**
  * @brief Represents the complete payload for a 2D scene.
  *
  * @details
@@ -284,6 +329,9 @@ struct Scene3D {
 
   /** Camera settings used to build the 3D view and projection matrices. */
   Camera3D camera{};
+
+  /** Presentation options that affect how the renderer shades the scene. */
+  RenderPresentationOptions presentationOptions{};
 
   /** Vertex list for the 3D scene payload. */
   std::vector<Vertex3D> vertices;
@@ -460,6 +508,9 @@ struct RenderScene {
   /** Camera settings used only for 3D scenes. */
   Camera3D camera{};
 
+  /** Presentation options used by the renderer when drawing the scene. */
+  RenderPresentationOptions presentationOptions{};
+
   /** Flattened vertex buffer uploaded directly to the GPU. */
   std::vector<RenderVertex> vertices;
 
@@ -485,6 +536,11 @@ std::string ToString(SceneKind kind);
 std::string ToString(PrimitiveType primitiveType);
 
 /**
+ * @brief Converts a shader-style enum to the string value used by the JSON API and docs.
+ */
+std::string ToString(ShaderStyle shaderStyle);
+
+/**
  * @brief Parses a primitive type string into the enum used internally by the program.
  *
  * @details
@@ -499,4 +555,9 @@ std::string ToString(PrimitiveType primitiveType);
  * @endcode
  */
 std::optional<PrimitiveType> PrimitiveTypeFromString(const std::string& value);
+
+/**
+ * @brief Parses a shader-style string into the enum used internally by the renderer.
+ */
+std::optional<ShaderStyle> ShaderStyleFromString(const std::string& value);
 } // namespace halcyn::scene_description

@@ -148,6 +148,33 @@ That means the rendering pipeline sees:
 
 This is an important design choice because it keeps the GPU upload path simple.
 
+## Starting The Dedicated Spectrograph Renderer
+
+The spectrograph executable reuses the same shared engine but swaps in a
+different default personality.
+
+@code{.cpp}
+#include "desktop_app/Application.hpp"
+
+int main() {
+  halcyn::desktop_app::ApplicationConfig applicationConfiguration;
+  applicationConfiguration.httpApi.host = "127.0.0.1";
+  applicationConfiguration.httpApi.port = 8090;
+  applicationConfiguration.renderer.windowTitle = "Halcyn Spectrograph";
+  applicationConfiguration.initialSample = "spectrograph";
+
+  halcyn::desktop_app::Application application(applicationConfiguration);
+  return application.Run();
+}
+@endcode
+
+Why this is useful:
+
+- it proves the spectrograph renderer is not a separate engine fork
+- it keeps the new executable easy to explain
+- it shows how much behavior can be changed just by choosing different startup
+  defaults
+
 ## Suggested Reading Order
 
 If you want to move from beginner to confident contributor, this order works well:

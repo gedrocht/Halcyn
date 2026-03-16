@@ -59,9 +59,22 @@ in vec4 vColor;
 
 out vec4 fragColor;
 
+uniform int uShaderStyle;
+
 void main()
 {
-  fragColor = vColor;
+  vec3 shadedColor = vColor.rgb;
+
+  if (uShaderStyle == 1) {
+    shadedColor = min(vec3(1.0), pow(max(shadedColor, vec3(0.0)), vec3(0.65)) * 1.25 + vec3(0.04));
+  } else if (uShaderStyle == 2) {
+    float colorEnergy = clamp(dot(shadedColor, vec3(0.299, 0.587, 0.114)), 0.0, 1.0);
+    vec3 coolColor = vec3(0.08, 0.28, 0.88);
+    vec3 warmColor = vec3(1.0, 0.24, 0.08);
+    shadedColor = mix(coolColor, warmColor, colorEnergy);
+  }
+
+  fragColor = vec4(shadedColor, vColor.a);
 }
 )";
 } // namespace
@@ -134,6 +147,7 @@ void Renderer::InitializeWindow() {
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
   glfwWindowHint(GLFW_DEPTH_BITS, 24);
+  glfwWindowHint(GLFW_SAMPLES, 4);
 
   renderWindow_ =
       glfwCreateWindow(rendererConfiguration_.windowWidth, rendererConfiguration_.windowHeight,
@@ -246,9 +260,17 @@ void Renderer::DrawScene(const scene_description::RenderScene& renderScene) cons
     glDisable(GL_DEPTH_TEST);
   }
 
+  if (renderScene.presentationOptions.antiAliasingEnabled) {
+    glEnable(GL_MULTISAMPLE);
+  } else {
+    glDisable(GL_MULTISAMPLE);
+  }
+
   sceneShaderProgram_->Use();
   sceneShaderProgram_->SetMatrix4("uSceneMatrix", BuildSceneMatrix(renderScene));
   sceneShaderProgram_->SetFloat("uPointSize", renderScene.pointSize);
+  sceneShaderProgram_->SetInt("uShaderStyle",
+                              static_cast<int>(renderScene.presentationOptions.shaderStyle));
 
   glLineWidth(renderScene.lineWidth);
   glBindVertexArray(vertexArrayObjectHandle_);

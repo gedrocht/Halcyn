@@ -1,16 +1,16 @@
-﻿param(
+param(
   [ValidateSet('Debug', 'Release')]
   [string]$Configuration = 'Debug',
   [string]$ApiHost = '127.0.0.1',
-  [int]$Port = 8080,
+  [int]$Port = 8090,
   [ValidateSet('default', '2d', '3d', 'spectrograph')]
-  [string]$Sample = 'default',
+  [string]$Sample = 'spectrograph',
   [string]$SceneFile = '',
-  [int]$Width = 1280,
-  [int]$Height = 720,
+  [int]$Width = 1440,
+  [int]$Height = 900,
   [Alias('Fps')]
   [int]$TargetFramesPerSecond = 60,
-  [string]$Title = 'Halcyn'
+  [string]$Title = 'Halcyn Spectrograph'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -19,9 +19,9 @@ $ErrorActionPreference = 'Stop'
 
 & (Join-Path $PSScriptRoot 'build-halcyn-app.ps1') -Configuration $Configuration
 
-$halcynExecutablePath = Get-HalcynExecutablePath -Configuration $Configuration
-if (-not (Test-Path $halcynExecutablePath)) {
-  throw "The Halcyn executable was not found at $halcynExecutablePath"
+$spectrographExecutablePath = Get-HalcynSpectrographExecutablePath -Configuration $Configuration
+if (-not (Test-Path $spectrographExecutablePath)) {
+  throw "The Halcyn spectrograph executable was not found at $spectrographExecutablePath"
 }
 
 $applicationArguments = @(
@@ -40,5 +40,6 @@ else {
   $applicationArguments += @('--scene-file', $SceneFile)
 }
 
-Write-Host "Starting $halcynExecutablePath"
-& $halcynExecutablePath @applicationArguments
+Write-Host "Starting $spectrographExecutablePath"
+& $spectrographExecutablePath @applicationArguments
+

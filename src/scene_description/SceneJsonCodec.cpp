@@ -65,6 +65,24 @@ std::optional<std::string> ReadString(const json& node, const char* key,
   return node.at(key).get<std::string>();
 }
 
+std::optional<bool> ReadBoolean(const json& node, const char* key, const std::string& basePath,
+                                std::vector<ValidationError>& errors, bool required = true) {
+  if (!node.contains(key)) {
+    if (required) {
+      errors.push_back({basePath + "." + key, "This boolean field is required."});
+    }
+
+    return std::nullopt;
+  }
+
+  if (!node.at(key).is_boolean()) {
+    errors.push_back({basePath + "." + key, "Expected a boolean."});
+    return std::nullopt;
+  }
+
+  return node.at(key).get<bool>();
+}
+
 ColorRgba ReadColor(const json& node, const std::string& basePath,
                     std::vector<ValidationError>& errors) {
   ColorRgba color;
@@ -182,6 +200,29 @@ std::optional<Scene3D> Parse3DScene(const json& root, std::vector<ValidationErro
     scene.clearColor = ReadColor(root.at("clearColor"), "$.clearColor", errors);
   }
 
+  if (root.contains("renderStyle")) {
+    if (!root.at("renderStyle").is_object()) {
+      errors.push_back(
+          {"$.renderStyle", "renderStyle must be an object when present on a 3D scene."});
+    } else {
+      const json& renderStyleNode = root.at("renderStyle");
+      const auto shaderStyleValue = ReadString(renderStyleNode, "shader", "$.renderStyle", errors);
+      if (shaderStyleValue.has_value()) {
+        const auto shaderStyle = ShaderStyleFromString(*shaderStyleValue);
+        if (!shaderStyle.has_value()) {
+          errors.push_back(
+              {"$.renderStyle.shader", "shader must be one of: standard, neon, heatmap."});
+        } else {
+          scene.presentationOptions.shaderStyle = *shaderStyle;
+        }
+      }
+
+      scene.presentationOptions.antiAliasingEnabled =
+          ReadBoolean(renderStyleNode, "antiAliasing", "$.renderStyle", errors, false)
+              .value_or(scene.presentationOptions.antiAliasingEnabled);
+    }
+  }
+
   if (!root.contains("camera")) {
     errors.push_back({"$.camera", "A 3D scene requires a camera object."});
   } else if (!root.at("camera").is_object()) {
@@ -269,6 +310,11 @@ json SerializeColor(const ColorRgba& color) {
 
 json SerializeVector3(const Vector3Value& vector) {
   return json{{"x", vector.x}, {"y", vector.y}, {"z", vector.z}};
+}
+
+json SerializeRenderPresentationOptions(const RenderPresentationOptions& presentationOptions) {
+  return json{{"shader", ToString(presentationOptions.shaderStyle)},
+              {"antiAliasing", presentationOptions.antiAliasingEnabled}};
 }
 } // namespace
 
@@ -381,6 +427,7 @@ std::string SceneJsonCodec::Serialize(const SceneSnapshot& snapshot) const {
                               {"fovYDegrees", scene.camera.fovYDegrees},
                               {"nearPlane", scene.camera.nearPlane},
                               {"farPlane", scene.camera.farPlane}};
+    rootJson["renderStyle"] = SerializeRenderPresentationOptions(scene.presentationOptions);
     rootJson["vertices"] = json::array();
     for (const Vertex3D& vertex : scene.vertices) {
       rootJson["vertices"].push_back(json{{"x", vertex.x},
