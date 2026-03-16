@@ -235,8 +235,8 @@ Why Halcyn uses it:
 
 ## sounddevice
 
-Halcyn uses **sounddevice** as an optional bridge to real local audio input devices for the desktop
-render control panel.
+Halcyn uses **sounddevice** as an optional bridge to real local microphone and line-input devices
+for the desktop render control panel.
 
 Where it appears:
 
@@ -253,3 +253,27 @@ Why Halcyn uses it:
 - it exposes local audio devices through PortAudio without requiring a browser permission flow
 - it keeps the desktop tool useful even when a user wants the operator surface beside the renderer
 - it is optional, so the rest of the desktop control panel still works if audio capture is unavailable
+
+## soundcard
+
+Halcyn uses **soundcard** as an optional Windows-friendly way to capture desktop output loopback
+audio for the desktop render control panel.
+
+Where it appears:
+
+- `desktop_render_control_panel.audio_input_service.SoundCardLoopbackOutputCaptureBackend`
+
+Official documentation:
+
+- [soundcard documentation home](https://soundcard.readthedocs.io/)
+- [all_speakers](https://soundcard.readthedocs.io/en/latest/#soundcard.all_speakers)
+- [all_microphones, including loopback capture](https://soundcard.readthedocs.io/en/latest/#soundcard.all_microphones)
+- [get_microphone](https://soundcard.readthedocs.io/en/latest/#soundcard.get_microphone)
+- [Recorder interface](https://soundcard.readthedocs.io/en/latest/#soundcard._Recorder.record)
+
+Why Halcyn uses it:
+
+- the `sounddevice` / PortAudio build on this machine does not expose reliable WASAPI loopback
+  capture for output devices
+- `soundcard` gives the desktop panel a straightforward, speaker-oriented loopback path
+- it lets the operator choose "what the computer is currently playing" as a render-driving signal

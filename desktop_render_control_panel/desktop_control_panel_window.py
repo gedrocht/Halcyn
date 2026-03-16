@@ -37,6 +37,12 @@ POINTER_PAD_BACKGROUND = "#09121c"
 POINTER_PAD_GRID = "#284058"
 POINTER_PAD_MARKER = "#ffd166"
 COLOR_SWATCH_BORDER = "#6b7f94"
+VOLUME_METER_COLOR = ACCENT_COLOR
+SELECTION_BUTTON_BACKGROUND = "#172537"
+SELECTION_BUTTON_FOREGROUND = TEXT_PRIMARY
+SELECTION_BUTTON_BORDER = "#2d435c"
+SELECTION_BUTTON_SELECTED_BACKGROUND = ACCENT_COLOR
+SELECTION_BUTTON_SELECTED_FOREGROUND = ACCENT_FOREGROUND
 DEFAULT_SETTINGS_FILE_NAME = "halcyn-desktop-control-panel-settings.json"
 
 
@@ -83,10 +89,18 @@ class DesktopRenderControlPanelWindow:
         self._pointer_crosshair_item_identifier: int | None = None
         self._pointer_marker_item_identifier: int | None = None
         self._settings_file_path: Path | None = None
+        self._preview_window: tk.Toplevel | None = None
+        self._preview_text_widget: ScrolledText | None = None
+        self._live_cadence_value_label: ttk.Label | None = None
+        self._latest_preview_json_text = ""
+        self._audio_device_flow_button_widgets: dict[str, tk.Button] = {}
+        self._volume_meter_progress_variable = tk.DoubleVar(value=0.0)
+        self._volume_meter_text_variable = tk.StringVar(value="0%")
+        self._scene_type_button_widgets: dict[str, tk.Button] = {}
         self._build_variables()
         self._slider_display_variables = self._build_slider_display_variables()
         self._color_swatch_frames: dict[str, tk.Frame] = {}
-        self._preset_button_widgets: list[tk.Radiobutton] = []
+        self._preset_button_widgets: dict[str, tk.Button] = {}
         self._build_user_interface()
         self._load_initial_state()
         self._root.protocol("WM_DELETE_WINDOW", self._on_close_requested)
@@ -113,6 +127,7 @@ class DesktopRenderControlPanelWindow:
         self._use_noise_variable = tk.BooleanVar(value=True)
         self._use_pointer_variable = tk.BooleanVar(value=True)
         self._use_audio_variable = tk.BooleanVar(value=False)
+        self._audio_device_flow_variable = tk.StringVar(value="output")
         self._audio_device_variable = tk.StringVar(value="")
         self._pointer_status_variable = tk.StringVar(value="Pointer pad idle")
         self._health_status_variable = tk.StringVar(value="Health check not run yet.")
@@ -137,19 +152,19 @@ class DesktopRenderControlPanelWindow:
         """Create the three major page columns and their child sections."""
 
         self._root.title("Halcyn Desktop Render Control Panel")
-        self._root.geometry("1460x920")
-        self._root.minsize(1200, 760)
+        self._root.geometry("1440x840")
+        self._root.minsize(1180, 700)
         self._configure_dark_theme()
 
-        page_shell = ttk.Frame(self._root, padding=18, style="Surface.TFrame")
+        page_shell = ttk.Frame(self._root, padding=16, style="Surface.TFrame")
         page_shell.grid(sticky="nsew")
         self._root.columnconfigure(0, weight=1)
         self._root.rowconfigure(0, weight=1)
 
-        page_shell.columnconfigure(0, weight=0)
-        page_shell.columnconfigure(1, weight=0)
-        page_shell.columnconfigure(2, weight=1)
-        page_shell.rowconfigure(1, weight=1)
+        page_shell.columnconfigure(0, weight=1)
+        page_shell.columnconfigure(1, weight=2)
+        page_shell.columnconfigure(2, weight=2)
+        page_shell.rowconfigure(2, weight=1)
 
         heading = ttk.Label(
             page_shell,
@@ -191,7 +206,7 @@ class DesktopRenderControlPanelWindow:
         )
         self._output_frame.grid(row=2, column=2, sticky="nsew")
         self._output_frame.columnconfigure(0, weight=1)
-        self._output_frame.rowconfigure(4, weight=1)
+        self._output_frame.rowconfigure(3, weight=1)
 
         self._build_connection_section()
         self._build_scene_section()
@@ -291,6 +306,20 @@ class DesktopRenderControlPanelWindow:
         )
         style.configure("TLabelframe.Label", background=SURFACE_BACKGROUND, foreground=TEXT_PRIMARY)
         style.configure("TCheckbutton", background=SURFACE_BACKGROUND, foreground=TEXT_PRIMARY)
+        self._configure_audio_meter_styles(style)
+
+    def _configure_audio_meter_styles(self, style: ttk.Style) -> None:
+        """Style the single visible volume meter so it stays readable on the dark theme."""
+
+        style.configure(
+            "AudioVolume.Horizontal.TProgressbar",
+            troughcolor=ENTRY_BACKGROUND,
+            background=VOLUME_METER_COLOR,
+            lightcolor=VOLUME_METER_COLOR,
+            darkcolor=VOLUME_METER_COLOR,
+            bordercolor=SURFACE_BORDER,
+            thickness=10,
+        )
 
     def _build_connection_section(self) -> None:
         """Create the renderer-target and transport-action controls."""
@@ -327,6 +356,11 @@ class DesktopRenderControlPanelWindow:
             digits_after_decimal=0,
             suffix=" ms",
         )
+        self._live_cadence_value_label = ttk.Label(
+            section_frame,
+            textvariable=self._slider_display_variables["cadence"],
+        )
+        self._live_cadence_value_label.grid(row=3, column=1, sticky="e", pady=(0, 4))
 
         ttk.Button(
             section_frame,
@@ -394,7 +428,7 @@ class DesktopRenderControlPanelWindow:
         )
 
     def _build_scene_section(self) -> None:
-        """Create the visual-control, signal-source, and audio-device widgets."""
+        """Create the scene-shaping widgets that operators adjust most often."""
 
         section_frame = self._scene_frame
         for column_index in range(2):
@@ -412,21 +446,19 @@ class DesktopRenderControlPanelWindow:
         )
         self._scene_type_button_frame.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(6, 10))
         self._scene_type_button_frame.columnconfigure((0, 1), weight=1)
-        self._build_segmented_button(
+        self._scene_type_button_widgets["2d"] = self._build_segmented_button(
             parent=self._scene_type_button_frame,
             text="2D",
-            variable=self._scene_type_variable,
             value="2d",
             column=0,
-            command=self._on_scene_type_changed,
+            command=self._on_scene_type_button_pressed,
         )
-        self._build_segmented_button(
+        self._scene_type_button_widgets["3d"] = self._build_segmented_button(
             parent=self._scene_type_button_frame,
             text="3D",
-            variable=self._scene_type_variable,
             value="3d",
             column=1,
-            command=self._on_scene_type_changed,
+            command=self._on_scene_type_button_pressed,
         )
 
         ttk.Label(
@@ -576,61 +608,164 @@ class DesktopRenderControlPanelWindow:
                 command=self._schedule_payload_sync,
             ).grid(row=signal_index // 2, column=signal_index % 2, sticky="w", padx=4, pady=4)
 
-        audio_frame = ttk.LabelFrame(
+        self._watch_control_variables()
+        self._rebuild_preset_button_group()
+        self._refresh_scene_type_button_styles()
+
+    def _build_output_section(self) -> None:
+        """Create preview actions plus the heavier diagnostic widgets.
+
+        The right-most column has more vertical breathing room, so it is a
+        better home for the audio controls and pointer pad than the already
+        crowded scene-control column.
+        """
+
+        section_frame = self._output_frame
+        section_frame.rowconfigure(3, weight=1)
+        section_frame.columnconfigure(0, weight=1)
+
+        action_frame = ttk.Frame(section_frame, style="PanelInner.TFrame")
+        action_frame.grid(
+            row=0,
+            column=0,
+            sticky="ew",
+        )
+        action_frame.columnconfigure(0, weight=1)
+        action_frame.columnconfigure(1, weight=1)
+        ttk.Button(
+            action_frame,
+            text="Refresh preview",
+            command=self._refresh_preview,
+            style="Accent.TButton",
+        ).grid(
+            row=0,
+            column=0,
+            sticky="ew",
+            padx=(0, 6),
+        )
+        self._preview_toggle_button = ttk.Button(
+            action_frame,
+            text="Open current scene JSON",
+            command=self._open_preview_window,
+        )
+        self._preview_toggle_button.grid(
+            row=0,
+            column=1,
+            sticky="ew",
+            padx=(6, 0),
+        )
+
+        self._analysis_label = ttk.Label(
             section_frame,
-            text="Audio input",
+            text="No preview generated yet.",
+            wraplength=520,
+            justify="left",
+        )
+        self._analysis_label.grid(row=1, column=0, sticky="w", pady=(10, 10))
+
+        self._build_audio_input_section(section_frame, row=2)
+        self._build_pointer_pad_section(section_frame, row=3)
+
+    def _build_audio_input_section(self, parent: ttk.LabelFrame, *, row: int) -> None:
+        """Create the audio-capture controls in the roomier diagnostics column."""
+
+        audio_frame = ttk.LabelFrame(
+            parent,
+            text="Audio sources",
             padding=10,
             style="Panel.TLabelframe",
         )
-        audio_frame.grid(row=slider_row + 1, column=0, columnspan=2, sticky="ew", pady=(12, 0))
+        audio_frame.grid(row=row, column=0, sticky="ew", pady=(12, 0))
         audio_frame.columnconfigure(1, weight=1)
-        ttk.Label(audio_frame, text="Device").grid(row=0, column=0, sticky="w")
+        ttk.Label(audio_frame, text="Source type", style="Subheading.TLabel").grid(
+            row=0,
+            column=0,
+            columnspan=2,
+            sticky="w",
+        )
+        audio_source_type_frame = tk.Frame(
+            audio_frame,
+            background=SURFACE_BACKGROUND,
+            highlightthickness=0,
+        )
+        audio_source_type_frame.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(6, 10))
+        audio_source_type_frame.columnconfigure((0, 1), weight=1)
+        self._audio_device_flow_button_widgets["output"] = self._build_segmented_button(
+            parent=audio_source_type_frame,
+            text="Output sources",
+            value="output",
+            column=0,
+            command=self._on_audio_device_flow_button_pressed,
+        )
+        self._audio_device_flow_button_widgets["input"] = self._build_segmented_button(
+            parent=audio_source_type_frame,
+            text="Input sources",
+            value="input",
+            column=1,
+            command=self._on_audio_device_flow_button_pressed,
+        )
+
+        ttk.Label(audio_frame, text="Device").grid(row=2, column=0, sticky="w")
         self._audio_device_combobox = ttk.Combobox(
             audio_frame,
             textvariable=self._audio_device_variable,
             state="readonly",
         )
-        self._audio_device_combobox.grid(row=0, column=1, sticky="ew", padx=(6, 0))
+        self._audio_device_combobox.grid(row=2, column=1, sticky="ew", padx=(6, 0))
         ttk.Button(audio_frame, text="Refresh", command=self._refresh_audio_devices).grid(
-            row=1,
+            row=3,
             column=0,
             sticky="ew",
             pady=(8, 0),
         )
         ttk.Button(audio_frame, text="Start capture", command=self._start_audio_capture).grid(
-            row=1,
+            row=3,
             column=1,
             sticky="ew",
             padx=(6, 0),
             pady=(8, 0),
         )
         ttk.Button(audio_frame, text="Stop capture", command=self._stop_audio_capture).grid(
-            row=2,
+            row=4,
             column=0,
             columnspan=2,
             sticky="ew",
             pady=(8, 0),
         )
-        ttk.Label(audio_frame, textvariable=self._audio_status_variable, wraplength=320).grid(
-            row=3,
+        ttk.Label(audio_frame, textvariable=self._audio_status_variable, wraplength=520).grid(
+            row=5,
             column=0,
             columnspan=2,
             sticky="w",
             pady=(8, 0),
         )
+        ttk.Label(audio_frame, text="Audio monitor", style="Subheading.TLabel").grid(
+            row=6,
+            column=0,
+            columnspan=3,
+            sticky="w",
+            pady=(10, 0),
+        )
+        audio_frame.columnconfigure(1, weight=1)
+        audio_frame.columnconfigure(2, weight=0)
+        self._build_volume_meter_row(audio_frame, row=7)
+
+    def _build_pointer_pad_section(self, parent: ttk.LabelFrame, *, row: int) -> None:
+        """Create the pointer pad in the column that can spare the vertical room."""
 
         pointer_frame = ttk.LabelFrame(
-            section_frame,
+            parent,
             text="Pointer pad",
             padding=10,
             style="Panel.TLabelframe",
         )
-        pointer_frame.grid(row=slider_row + 2, column=0, columnspan=2, sticky="nsew", pady=(12, 0))
+        pointer_frame.grid(row=row, column=0, sticky="nsew", pady=(12, 0))
         pointer_frame.columnconfigure(0, weight=1)
+        pointer_frame.rowconfigure(0, weight=1)
         self._pointer_canvas = tk.Canvas(
             pointer_frame,
             width=420,
-            height=260,
+            height=230,
             background=POINTER_PAD_BACKGROUND,
             highlightthickness=1,
             highlightbackground=POINTER_PAD_GRID,
@@ -646,56 +781,29 @@ class DesktopRenderControlPanelWindow:
             sticky="w",
             pady=(8, 0),
         )
-
-        self._watch_control_variables()
-        self._rebuild_preset_button_group()
         self._draw_pointer_pad_background()
 
-    def _build_output_section(self) -> None:
-        """Create the preview JSON pane and the small analysis summary."""
+    def _build_volume_meter_row(
+        self,
+        parent: ttk.LabelFrame,
+        *,
+        row: int,
+    ) -> None:
+        """Create the single visible volume meter used for capture confidence."""
 
-        section_frame = self._output_frame
-        section_frame.rowconfigure(4, weight=1)
-        section_frame.columnconfigure(0, weight=1)
-
-        ttk.Button(
-            section_frame,
-            text="Refresh preview JSON",
-            command=self._refresh_preview,
-            style="Accent.TButton",
-        ).grid(
-            row=0,
-            column=0,
-            sticky="ew",
+        ttk.Label(parent, text="Volume").grid(row=row, column=0, sticky="w", pady=(6, 0))
+        ttk.Progressbar(
+            parent,
+            variable=self._volume_meter_progress_variable,
+            maximum=100.0,
+            style="AudioVolume.Horizontal.TProgressbar",
+        ).grid(row=row, column=1, sticky="ew", padx=(8, 8), pady=(6, 0))
+        ttk.Label(parent, textvariable=self._volume_meter_text_variable).grid(
+            row=row,
+            column=2,
+            sticky="e",
+            pady=(6, 0),
         )
-
-        self._analysis_label = ttk.Label(
-            section_frame,
-            text="No preview generated yet.",
-            wraplength=640,
-            justify="left",
-        )
-        self._analysis_label.grid(row=1, column=0, sticky="w", pady=(10, 10))
-
-        ttk.Label(section_frame, text="Current scene JSON", style="Subheading.TLabel").grid(
-            row=2,
-            column=0,
-            sticky="w",
-        )
-        self._preview_text = ScrolledText(
-            section_frame,
-            wrap="none",
-            font=("Cascadia Code", 10),
-            background=ENTRY_BACKGROUND,
-            foreground=TEXT_PRIMARY,
-            insertbackground=TEXT_PRIMARY,
-            selectbackground=ACCENT_COLOR,
-            selectforeground=ACCENT_FOREGROUND,
-            relief="flat",
-            borderwidth=0,
-        )
-        self._preview_text.grid(row=4, column=0, sticky="nsew")
-        self._preview_text.configure(state="disabled")
 
     def _add_slider(
         self,
@@ -807,32 +915,33 @@ class DesktopRenderControlPanelWindow:
         *,
         parent: tk.Misc,
         text: str,
-        variable: tk.StringVar,
         value: str,
         column: int,
         command: Any,
-    ) -> tk.Radiobutton:
+    ) -> tk.Button:
         """Create one button-like radio control for scene type or preset selection."""
 
-        button = tk.Radiobutton(
+        def choose_bound_value() -> None:
+            command(value)
+
+        button = tk.Button(
             parent,
             text=text,
-            value=value,
-            variable=variable,
-            indicatoron=False,
-            command=command,
-            selectcolor=ACCENT_COLOR,
-            background=ENTRY_BACKGROUND,
-            foreground=TEXT_PRIMARY,
+            command=choose_bound_value,
+            background=SELECTION_BUTTON_BACKGROUND,
+            foreground=SELECTION_BUTTON_FOREGROUND,
             activebackground=ACCENT_COLOR_ACTIVE,
             activeforeground=ACCENT_FOREGROUND,
             disabledforeground=TEXT_SECONDARY,
-            highlightthickness=0,
+            highlightthickness=1,
+            highlightbackground=SELECTION_BUTTON_BORDER,
+            highlightcolor=SELECTION_BUTTON_BORDER,
             bd=0,
             relief="flat",
             padx=12,
-            pady=10,
+            pady=9,
             font=("Segoe UI Semibold", 10),
+            cursor="hand2",
         )
         button.grid(row=0, column=column, sticky="ew", padx=(0 if column == 0 else 6, 0))
         return button
@@ -840,9 +949,9 @@ class DesktopRenderControlPanelWindow:
     def _rebuild_preset_button_group(self) -> None:
         """Recreate the preset toggle buttons for the current 2D or 3D mode."""
 
-        for button in self._preset_button_widgets:
+        for button in self._preset_button_widgets.values():
             button.destroy()
-        self._preset_button_widgets.clear()
+        self._preset_button_widgets = {}
 
         preset_identifiers = self._preset_identifiers_by_scene_type.get(
             self._scene_type_variable.get().strip().lower(),
@@ -852,28 +961,33 @@ class DesktopRenderControlPanelWindow:
             row_index = preset_button_index // 2
             column_index = preset_button_index % 2
             self._preset_button_frame.rowconfigure(row_index, weight=0)
-            button = tk.Radiobutton(
+
+            def choose_bound_preset(
+                selected_preset_identifier: str = preset_identifier,
+            ) -> None:
+                self._on_preset_button_pressed(selected_preset_identifier)
+
+            button = tk.Button(
                 self._preset_button_frame,
                 text=self._preset_names_by_identifier[preset_identifier],
-                value=preset_identifier,
-                variable=self._preset_identifier_variable,
-                indicatoron=False,
-                command=self._on_preset_changed,
-                selectcolor=ACCENT_COLOR,
-                background=ENTRY_BACKGROUND,
-                foreground=TEXT_PRIMARY,
+                command=choose_bound_preset,
+                background=SELECTION_BUTTON_BACKGROUND,
+                foreground=SELECTION_BUTTON_FOREGROUND,
                 activebackground=ACCENT_COLOR_ACTIVE,
                 activeforeground=ACCENT_FOREGROUND,
                 disabledforeground=TEXT_SECONDARY,
-                highlightthickness=0,
+                highlightthickness=1,
+                highlightbackground=SELECTION_BUTTON_BORDER,
+                highlightcolor=SELECTION_BUTTON_BORDER,
                 bd=0,
                 relief="flat",
                 anchor="w",
                 justify="left",
                 wraplength=170,
                 padx=12,
-                pady=10,
+                pady=9,
                 font=("Segoe UI", 10),
+                cursor="hand2",
             )
             button.grid(
                 row=row_index,
@@ -882,7 +996,8 @@ class DesktopRenderControlPanelWindow:
                 padx=(0, 6) if column_index == 0 else (6, 0),
                 pady=(0, 6),
             )
-            self._preset_button_widgets.append(button)
+            self._preset_button_widgets[preset_identifier] = button
+        self._refresh_preset_button_styles()
 
     def _draw_pointer_pad_background(self) -> None:
         """Render a simple guidance grid so the larger pointer pad feels intentional."""
@@ -994,6 +1109,9 @@ class DesktopRenderControlPanelWindow:
         self._scene_type_variable.set(default_scene_type)
         self._rebuild_preset_button_group()
         self._preset_identifier_variable.set(default_preset_identifier)
+        self._refresh_audio_device_flow_button_styles()
+        self._refresh_scene_type_button_styles()
+        self._refresh_preset_button_styles()
         self._set_user_interface_from_request_payload(default_payload)
         self._refresh_audio_devices()
         self._refresh_preview()
@@ -1038,13 +1156,16 @@ class DesktopRenderControlPanelWindow:
             self._use_pointer_variable.set(bool(signals.get("usePointer", True)))
             self._use_audio_variable.set(bool(signals.get("useAudio", False)))
             if isinstance(audio, dict):
+                self._update_volume_meter_display(level=float(audio.get("level", 0.0)))
                 self._audio_status_variable.set(
                     "Audio capture not started."
                     if not audio
-                    else f"Audio bands ready: level {float(audio.get('level', 0.0)):.2f}"
+                    else f"Audio source ready: volume {float(audio.get('level', 0.0)):.2f}"
                 )
         finally:
             self._suppress_variable_sync = False
+        self._refresh_scene_type_button_styles()
+        self._refresh_preset_button_styles()
         self._refresh_all_slider_display_labels()
         self._refresh_all_color_swatches()
 
@@ -1123,15 +1244,40 @@ class DesktopRenderControlPanelWindow:
         if not preset_identifiers:
             return
         self._preset_identifier_variable.set(preset_identifiers[0])
+        self._refresh_scene_type_button_styles()
+        self._refresh_preset_button_styles()
         self._on_preset_changed()
 
     def _on_preset_changed(self, event: object | None = None) -> None:
         selected_preset_identifier = self._preset_identifier_variable.get().strip()
         if not selected_preset_identifier:
             return
+        self._refresh_preset_button_styles()
         updated_payload = self._controller.load_preset(selected_preset_identifier)
         self._set_user_interface_from_request_payload(updated_payload)
         self._refresh_preview()
+
+    def _on_scene_type_button_pressed(self, selected_scene_type: str) -> None:
+        """Handle a direct press on one of the 2D/3D mode buttons."""
+
+        self._scene_type_variable.set(selected_scene_type)
+        self._on_scene_type_changed()
+
+    def _on_preset_button_pressed(self, selected_preset_identifier: str) -> None:
+        """Handle a direct press on one of the preset buttons."""
+
+        self._preset_identifier_variable.set(selected_preset_identifier)
+        self._on_preset_changed()
+
+    def _on_audio_device_flow_button_pressed(self, selected_device_flow: str) -> None:
+        """Switch between output-source and input-source device lists."""
+
+        self._audio_device_flow_variable.set(selected_device_flow)
+        self._refresh_audio_device_flow_button_styles()
+        if self._controller.audio_snapshot().capturing:
+            self._controller.stop_audio_capture()
+        self._audio_device_variable.set("")
+        self._refresh_audio_devices()
 
     def _choose_color(self, variable: tk.StringVar) -> None:
         chosen_color = colorchooser.askcolor(color=variable.get(), parent=self._root)[1]
@@ -1142,47 +1288,81 @@ class DesktopRenderControlPanelWindow:
     def _refresh_audio_devices(self) -> None:
         """Refresh the device dropdown from the audio service."""
 
-        devices = self._controller.refresh_audio_devices()
+        selected_device_flow = self._selected_audio_device_flow()
+        devices = self._controller.refresh_audio_devices(selected_device_flow)
         device_names = [device.name for device in devices]
         self._audio_device_combobox["values"] = device_names
         if device_names and self._audio_device_variable.get().strip() not in device_names:
             self._audio_device_variable.set(device_names[0])
+        elif not device_names:
+            self._audio_device_variable.set("")
         audio_snapshot = self._controller.audio_snapshot()
+        readable_source_label = (
+            "output source" if selected_device_flow == "output" else "input source"
+        )
         if device_names and audio_snapshot.last_error:
             self._audio_status_variable.set(
-                f"Found {len(device_names)} input device(s). {audio_snapshot.last_error}"
+                f"Found {len(device_names)} {readable_source_label}(s). {audio_snapshot.last_error}"
             )
         elif device_names:
             self._audio_status_variable.set(
-                f"Found {len(device_names)} input device(s). Choose one and start capture."
+                f"Found {len(device_names)} {readable_source_label}(s). "
+                "Choose one and start capture."
             )
         else:
-            self._audio_status_variable.set(
-                "No audio devices detected. Install the optional sounddevice "
-                "package to enable capture."
+            no_devices_message = (
+                "No output audio sources detected. Install the optional soundcard package "
+                "to capture desktop output audio, or switch to input sources to use microphones."
+                if selected_device_flow == "output"
+                else "No input audio sources detected. Connect or enable a microphone, or switch "
+                "back to output sources."
             )
+            if audio_snapshot.last_error:
+                self._audio_status_variable.set(f"{no_devices_message} {audio_snapshot.last_error}")
+            else:
+                self._audio_status_variable.set(no_devices_message)
 
     def _start_audio_capture(self) -> None:
         """Start capture on the chosen device and surface readable UI errors."""
 
         device_name = self._audio_device_variable.get().strip()
+        selected_device_flow = self._selected_audio_device_flow()
+        readable_source_label = (
+            "output source" if selected_device_flow == "output" else "input source"
+        )
         if not device_name:
-            messagebox.showinfo("Audio capture", "Choose an input device first.")
+            messagebox.showinfo("Audio capture", f"Choose an {readable_source_label} first.")
             return
         device_identifier = next(
             (
                 device.device_identifier
-                for device in self._controller.audio_devices()
+                for device in self._controller.audio_devices(selected_device_flow)
                 if device.name == device_name
             ),
             "",
         )
+        if not device_identifier:
+            messagebox.showerror(
+                "Audio capture",
+                (
+                    "The selected audio source is no longer available. "
+                    "Refresh the device list and try again."
+                ),
+            )
+            return
         try:
-            self._controller.start_audio_capture(device_identifier)
-        except RuntimeError as error:
+            self._controller.start_audio_capture(device_identifier, selected_device_flow)
+        except Exception as error:
             messagebox.showerror("Audio capture", str(error))
             return
+        # Starting capture is the strongest signal that the operator wants the
+        # live scene to react to audio immediately, so the UI enables the audio
+        # source flag for them and refreshes the preview right away.
+        self._use_audio_variable.set(True)
+        self._sync_payload_to_controller()
         self._audio_status_variable.set(f"Capturing from {device_name}.")
+        self._refresh_status_labels()
+        self._refresh_preview()
 
     def _stop_audio_capture(self) -> None:
         """Stop audio capture while leaving the last known analysis visible."""
@@ -1192,6 +1372,8 @@ class DesktopRenderControlPanelWindow:
             self._audio_status_variable.set(snapshot.last_error)
         else:
             self._audio_status_variable.set("Audio capture stopped.")
+        self._refresh_status_labels()
+        self._refresh_preview()
 
     def _on_pointer_motion(self, event: tk.Event[tk.Misc]) -> None:
         """Translate pointer movement into normalized control values."""
@@ -1291,7 +1473,7 @@ class DesktopRenderControlPanelWindow:
         self._show_preview_bundle(preview_bundle)
 
     def _show_preview_bundle(self, preview_bundle: dict[str, Any]) -> None:
-        """Render both the summary label and the full pretty-printed JSON scene."""
+        """Render both the summary label and the latest pretty-printed JSON scene."""
 
         analysis = preview_bundle["analysis"]
         readable_scene_type = str(preview_bundle["scene"]["sceneType"]).upper()
@@ -1305,11 +1487,96 @@ class DesktopRenderControlPanelWindow:
                 f"Energy: {analysis['energy']}"
             )
         )
-        formatted_json = json.dumps(preview_bundle["scene"], indent=2)
-        self._preview_text.configure(state="normal")
-        self._preview_text.delete("1.0", tk.END)
-        self._preview_text.insert("1.0", formatted_json)
-        self._preview_text.configure(state="disabled")
+        self._latest_preview_json_text = json.dumps(preview_bundle["scene"], indent=2)
+        self._render_preview_json_in_window()
+
+    def _open_preview_window(self) -> None:
+        """Open a separate JSON window so the main panel can stay compact."""
+
+        if self._preview_window is not None and self._preview_window.winfo_exists():
+            self._preview_window.deiconify()
+            self._preview_window.lift()
+            self._preview_window.focus_force()
+            self._render_preview_json_in_window()
+            return
+
+        preview_window = tk.Toplevel(self._root)
+        preview_window.title("Current scene JSON")
+        preview_window.geometry("760x720")
+        preview_window.minsize(560, 420)
+        preview_window.configure(background=WINDOW_BACKGROUND)
+        preview_window.columnconfigure(0, weight=1)
+        preview_window.rowconfigure(0, weight=1)
+
+        preview_shell = ttk.Frame(preview_window, padding=16, style="Surface.TFrame")
+        preview_shell.grid(sticky="nsew")
+        preview_shell.columnconfigure(0, weight=1)
+        preview_shell.columnconfigure(1, weight=0)
+        preview_shell.rowconfigure(1, weight=1)
+
+        ttk.Label(
+            preview_shell,
+            text="Current scene JSON",
+            style="Heading.TLabel",
+        ).grid(row=0, column=0, sticky="w", pady=(0, 12))
+
+        preview_text_widget = ScrolledText(
+            preview_shell,
+            wrap="none",
+            font=("Cascadia Code", 10),
+            background=ENTRY_BACKGROUND,
+            foreground=TEXT_PRIMARY,
+            insertbackground=TEXT_PRIMARY,
+            selectbackground=ACCENT_COLOR,
+            selectforeground=ACCENT_FOREGROUND,
+            relief="flat",
+            borderwidth=0,
+        )
+        preview_text_widget.grid(row=1, column=0, sticky="nsew")
+        preview_text_widget.configure(state="disabled")
+
+        preview_window.protocol("WM_DELETE_WINDOW", self._close_preview_window)
+        self._preview_window = preview_window
+        self._preview_text_widget = preview_text_widget
+        ttk.Button(
+            preview_shell,
+            text="Copy JSON",
+            command=self._copy_preview_json_to_clipboard,
+        ).grid(row=0, column=1, sticky="e", padx=(12, 0), pady=(0, 12))
+
+        if not self._latest_preview_json_text:
+            self._refresh_preview()
+            return
+
+        self._render_preview_json_in_window()
+
+    def _render_preview_json_in_window(self) -> None:
+        """Refresh the detached JSON window when it is open."""
+
+        if self._preview_text_widget is None or not self._preview_text_widget.winfo_exists():
+            return
+
+        self._preview_text_widget.configure(state="normal")
+        self._preview_text_widget.delete("1.0", tk.END)
+        self._preview_text_widget.insert("1.0", self._latest_preview_json_text)
+        self._preview_text_widget.configure(state="disabled")
+
+    def _close_preview_window(self) -> None:
+        """Forget the detached preview window after the operator closes it."""
+
+        if self._preview_window is not None and self._preview_window.winfo_exists():
+            self._preview_window.destroy()
+        self._preview_window = None
+        self._preview_text_widget = None
+
+    def _copy_preview_json_to_clipboard(self) -> None:
+        """Copy the current preview JSON so operators can paste it elsewhere quickly."""
+
+        if not self._latest_preview_json_text:
+            self._refresh_preview()
+        self._root.clipboard_clear()
+        self._root.clipboard_append(self._latest_preview_json_text)
+        self._result_status_variable.set("Copied the current scene JSON to the clipboard.")
 
     def _schedule_status_refresh(self) -> None:
         """Keep audio/live-stream status labels gently refreshed over time."""
@@ -1321,11 +1588,12 @@ class DesktopRenderControlPanelWindow:
         """Refresh status labels from the controller's latest snapshots."""
 
         audio_snapshot = self._controller.audio_snapshot()
+        self._update_volume_meter_display(
+            level=audio_snapshot.level if audio_snapshot.capturing else 0.0,
+        )
         if audio_snapshot.capturing:
             self._audio_status_variable.set(
-                f"{audio_snapshot.device_name}: level {audio_snapshot.level:.2f}, "
-                f"bass {audio_snapshot.bass:.2f}, mid {audio_snapshot.mid:.2f}, "
-                f"treble {audio_snapshot.treble:.2f}"
+                f"{audio_snapshot.device_name}: volume {audio_snapshot.level:.2f}"
             )
         elif audio_snapshot.last_error:
             self._audio_status_variable.set(audio_snapshot.last_error)
@@ -1365,6 +1633,61 @@ class DesktopRenderControlPanelWindow:
             canvas_height,
         )
 
+    def _refresh_scene_type_button_styles(self) -> None:
+        """Keep the 2D/3D buttons visibly selected with strong contrast."""
+
+        selected_scene_type = self._scene_type_variable.get().strip().lower()
+        for scene_type_value, button in self._scene_type_button_widgets.items():
+            self._apply_selection_button_style(
+                button,
+                selected=(scene_type_value == selected_scene_type),
+            )
+
+    def _refresh_audio_device_flow_button_styles(self) -> None:
+        """Keep the audio source-type buttons aligned with the selected source flow."""
+
+        selected_device_flow = self._selected_audio_device_flow()
+        for device_flow, button in self._audio_device_flow_button_widgets.items():
+            self._apply_selection_button_style(
+                button,
+                selected=(device_flow == selected_device_flow),
+            )
+
+    def _refresh_preset_button_styles(self) -> None:
+        """Keep the preset buttons visually aligned with the active preset."""
+
+        selected_preset_identifier = self._preset_identifier_variable.get().strip()
+        for preset_identifier, button in self._preset_button_widgets.items():
+            self._apply_selection_button_style(
+                button,
+                selected=(preset_identifier == selected_preset_identifier),
+            )
+
+    def _apply_selection_button_style(self, button: tk.Button, *, selected: bool) -> None:
+        """Apply the selected or unselected palette to one custom selection button."""
+
+        if selected:
+            button.configure(
+                background=SELECTION_BUTTON_SELECTED_BACKGROUND,
+                foreground=SELECTION_BUTTON_SELECTED_FOREGROUND,
+                activebackground=ACCENT_COLOR_ACTIVE,
+                activeforeground=ACCENT_FOREGROUND,
+                highlightbackground=SELECTION_BUTTON_SELECTED_BACKGROUND,
+                highlightcolor=SELECTION_BUTTON_SELECTED_BACKGROUND,
+                relief="sunken",
+            )
+            return
+
+        button.configure(
+            background=SELECTION_BUTTON_BACKGROUND,
+            foreground=SELECTION_BUTTON_FOREGROUND,
+            activebackground=SURFACE_BORDER,
+            activeforeground=TEXT_PRIMARY,
+            highlightbackground=SELECTION_BUTTON_BORDER,
+            highlightcolor=SELECTION_BUTTON_BORDER,
+            relief="flat",
+        )
+
     def _refresh_color_swatch(self, variable: tk.StringVar) -> None:
         """Keep the visual color swatches in sync with the typed hex values."""
 
@@ -1382,6 +1705,13 @@ class DesktopRenderControlPanelWindow:
             self._secondary_color_variable,
         ]:
             self._refresh_color_swatch(color_variable)
+
+    def _update_volume_meter_display(self, *, level: float) -> None:
+        """Keep the single visible volume meter synchronized with the latest snapshot."""
+
+        clamped_percentage = max(0.0, min(100.0, float(level) * 100.0))
+        self._volume_meter_progress_variable.set(clamped_percentage)
+        self._volume_meter_text_variable.set(f"{int(round(clamped_percentage))}%")
 
     def _refresh_all_slider_display_labels(self) -> None:
         """Recompute the formatted slider labels after loading or reverting settings."""
@@ -1483,6 +1813,7 @@ class DesktopRenderControlPanelWindow:
     def _on_close_requested(self) -> None:
         """Shut down background resources before destroying the window."""
 
+        self._close_preview_window()
         self._controller.close()
         self._root.destroy()
 
@@ -1506,6 +1837,15 @@ class DesktopRenderControlPanelWindow:
             return int(value)
         except (TypeError, ValueError):
             return default
+
+    def _selected_audio_device_flow(self) -> str:
+        """Normalize the UI selection down to the supported input/output source types."""
+
+        return (
+            "output"
+            if self._audio_device_flow_variable.get().strip().lower() == "output"
+            else "input"
+        )
 
 
 def main() -> None:

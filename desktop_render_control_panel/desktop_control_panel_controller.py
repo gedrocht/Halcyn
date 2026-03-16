@@ -79,16 +79,20 @@ class RenderApiClientProtocol(Protocol):
 class AudioInputServiceProtocol(Protocol):
     """Minimal audio-service interface the controller needs."""
 
-    def devices(self) -> list[AudioDeviceDescriptor]:
+    def devices(self, device_flow: str = "input") -> list[AudioDeviceDescriptor]:
         ...
 
-    def refresh_devices(self) -> list[AudioDeviceDescriptor]:
+    def refresh_devices(self, device_flow: str = "input") -> list[AudioDeviceDescriptor]:
         ...
 
     def snapshot(self) -> AudioSignalSnapshot:
         ...
 
-    def start_capture(self, device_identifier: str) -> AudioSignalSnapshot:
+    def start_capture(
+        self,
+        device_identifier: str,
+        device_flow: str = "input",
+    ) -> AudioSignalSnapshot:
         ...
 
     def stop_capture(self) -> AudioSignalSnapshot:
@@ -259,25 +263,29 @@ class DesktopRenderControlPanelController:
             pointer_payload["y"] = _clamp_float(normalized_y, 0.5, 0.0, 1.0)
             pointer_payload["speed"] = _clamp_float(speed, 0.0, 0.0, 1.0)
 
-    def audio_devices(self) -> list[AudioDeviceDescriptor]:
-        """Return the currently known audio input devices."""
+    def audio_devices(self, device_flow: str = "input") -> list[AudioDeviceDescriptor]:
+        """Return the currently known audio devices for one source type."""
 
-        return self._audio_input_service.devices()
+        return self._audio_input_service.devices(device_flow)
 
-    def refresh_audio_devices(self) -> list[AudioDeviceDescriptor]:
-        """Re-enumerate audio input devices."""
+    def refresh_audio_devices(self, device_flow: str = "input") -> list[AudioDeviceDescriptor]:
+        """Re-enumerate audio devices for the requested source type."""
 
-        return self._audio_input_service.refresh_devices()
+        return self._audio_input_service.refresh_devices(device_flow)
 
     def audio_snapshot(self) -> AudioSignalSnapshot:
         """Return the latest audio-analysis snapshot."""
 
         return self._audio_input_service.snapshot()
 
-    def start_audio_capture(self, device_identifier: str) -> AudioSignalSnapshot:
-        """Start capturing from one chosen audio input device."""
+    def start_audio_capture(
+        self,
+        device_identifier: str,
+        device_flow: str = "input",
+    ) -> AudioSignalSnapshot:
+        """Start capturing from one chosen audio source."""
 
-        return self._audio_input_service.start_capture(device_identifier)
+        return self._audio_input_service.start_capture(device_identifier, device_flow)
 
     def stop_audio_capture(self) -> AudioSignalSnapshot:
         """Stop capturing audio."""
@@ -470,11 +478,15 @@ class DesktopRenderControlPanelController:
         signals = effective_request_payload.setdefault("signals", {})
         signals["epochSeconds"] = time.time()
         audio_snapshot = self._audio_input_service.snapshot()
+        effective_audio_level = audio_snapshot.level if audio_snapshot.capturing else 0.0
+        effective_audio_bass = audio_snapshot.bass if audio_snapshot.capturing else 0.0
+        effective_audio_mid = audio_snapshot.mid if audio_snapshot.capturing else 0.0
+        effective_audio_treble = audio_snapshot.treble if audio_snapshot.capturing else 0.0
         signals["audio"] = {
-            "level": audio_snapshot.level,
-            "bass": audio_snapshot.bass,
-            "mid": audio_snapshot.mid,
-            "treble": audio_snapshot.treble,
+            "level": effective_audio_level,
+            "bass": effective_audio_bass,
+            "mid": effective_audio_mid,
+            "treble": effective_audio_treble,
         }
         return effective_request_payload
 

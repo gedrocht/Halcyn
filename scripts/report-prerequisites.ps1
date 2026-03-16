@@ -50,6 +50,8 @@ $ninjaPath = Get-ResolvedToolPath -ToolName 'ninja'
 $doxygenPath = Get-ResolvedToolPath -ToolName 'doxygen'
 $clangFormatPath = Get-ResolvedToolPath -ToolName 'clang-format'
 $pythonJinja2Available = Test-PythonModuleAvailable -ModuleName 'jinja2'
+$pythonSoundDeviceAvailable = Test-PythonModuleAvailable -ModuleName 'sounddevice'
+$pythonSoundCardAvailable = Test-PythonModuleAvailable -ModuleName 'soundcard'
 $visualStudioInstallation = Test-VisualStudio2022Available
 $availableCompiler = Get-AvailableCompiler
 $clCompilerCommand = Get-Command cl -ErrorAction SilentlyContinue
@@ -62,6 +64,8 @@ Write-Host '==========================='
 Write-ToolStatus -Name 'cmake' -IsAvailable ($null -ne $cmakeCommand) -Details ($cmakeCommand.Source)
 Write-ToolStatus -Name 'python' -IsAvailable ($null -ne $pythonCommand) -Details ($pythonCommand.Source)
 Write-ToolStatus -Name 'python-jinja2' -IsAvailable $pythonJinja2Available
+Write-ToolStatus -Name 'python-sounddevice' -IsAvailable $pythonSoundDeviceAvailable
+Write-ToolStatus -Name 'python-soundcard' -IsAvailable $pythonSoundCardAvailable
 Write-ToolStatus -Name 'git' -IsAvailable ($null -ne $gitCommand) -Details ($gitCommand.Source)
 Write-ToolStatus -Name 'ninja' -IsAvailable (-not [string]::IsNullOrWhiteSpace($ninjaPath)) -Details $ninjaPath
 Write-ToolStatus -Name 'Visual Studio 2022' -IsAvailable ($null -ne $visualStudioInstallation) -Details $visualStudioInstallation
@@ -90,6 +94,8 @@ Write-InstallHint -Name 'g++' -IsAvailable ($null -ne $gccCompilerCommand) -Hint
 Write-InstallHint -Name 'doxygen' -IsAvailable (-not [string]::IsNullOrWhiteSpace($doxygenPath)) -Hint 'Needed only for generated code docs. Install from https://www.doxygen.nl/download.html or with winget: winget install DimitriVanHeesch.Doxygen'
 Write-InstallHint -Name 'clang-format' -IsAvailable (-not [string]::IsNullOrWhiteSpace($clangFormatPath)) -Hint 'Needed only for the format script. Install LLVM from https://llvm.org/ or with winget: winget install LLVM.LLVM'
 Write-InstallHint -Name 'python-jinja2' -IsAvailable $pythonJinja2Available -Hint 'Install with: python -m pip install jinja2'
+Write-InstallHint -Name 'python-sounddevice' -IsAvailable $pythonSoundDeviceAvailable -Hint 'Needed for microphone and line-input capture. Install with: python -m pip install sounddevice'
+Write-InstallHint -Name 'python-soundcard' -IsAvailable $pythonSoundCardAvailable -Hint 'Needed for desktop output-loopback capture. Install with: python -m pip install soundcard'
 
 if ($null -ne $visualStudioInstallation -and $null -eq $clCompilerCommand -and $null -ne $visualStudioCompilerPath) {
   Write-Host ''

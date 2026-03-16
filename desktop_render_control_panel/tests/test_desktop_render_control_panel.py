@@ -8,7 +8,9 @@ import threading
 import time
 import tkinter as tk
 import unittest
+from contextlib import contextmanager
 from dataclasses import dataclass
+from fractions import Fraction
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -19,10 +21,12 @@ from unittest import mock
 from desktop_render_control_panel.audio_input_service import (
     AudioDeviceDescriptor,
     AudioSignalSnapshot,
+    CompositeAudioCaptureBackend,
     DesktopAudioInputService,
-    SoundDeviceAudioCaptureBackend,
+    SoundCardLoopbackOutputCaptureBackend,
+    SoundDeviceInputCaptureBackend,
     UnavailableAudioCaptureBackend,
-    WindowsWaveInListingBackend,
+    _initialize_windows_com_for_current_thread,
     analyze_audio_frames,
     create_default_audio_capture_backend,
 )
@@ -122,7 +126,7 @@ class AudioAnalysisTests(unittest.TestCase):
         backend = UnavailableAudioCaptureBackend("missing dependency")
         self.assertEqual(backend.backend_name, "unavailable")
         self.assertEqual(backend.availability_error, "missing dependency")
-        self.assertEqual(backend.list_input_devices(), [])
+        self.assertEqual(backend.list_devices("input"), [])
 
     def test_short_or_mixed_frames_are_handled_without_crashing(self) -> None:
         snapshot = analyze_audio_frames(
@@ -137,9 +141,41 @@ class AudioAnalysisTests(unittest.TestCase):
         self.assertGreaterEqual(snapshot.level, 0.0)
         self.assertEqual(snapshot.device_name, "Test microphone")
 
+    def test_fraction_audio_samples_are_treated_as_real_audio(self) -> None:
+        snapshot = analyze_audio_frames(
+            [
+                [Fraction(4, 5), Fraction(-2, 5)],
+                [Fraction(3, 5), Fraction(-1, 5)],
+            ],
+            sample_rate=48_000,
+            device_identifier="loopback-1",
+            device_name="Loopback output",
+            backend_name="fake",
+            capturing=True,
+        )
+
+        self.assertGreater(snapshot.level, 0.0)
+
 
 class AudioServiceTests(unittest.TestCase):
     """Exercise the optional audio backend integration and high-level service."""
+
+    def test_windows_com_scope_initializes_and_uninitializes_when_needed(self) -> None:
+        fake_ole32_library = mock.Mock()
+        fake_ole32_library.CoInitialize.return_value = 0
+
+        with mock.patch(
+            "desktop_render_control_panel.audio_input_service.os.name",
+            "nt",
+        ), mock.patch(
+            "desktop_render_control_panel.audio_input_service.ctypes.OleDLL",
+            return_value=fake_ole32_library,
+        ):
+            with _initialize_windows_com_for_current_thread():
+                pass
+
+        fake_ole32_library.CoInitialize.assert_called_once()
+        fake_ole32_library.CoUninitialize.assert_called_once()
 
     def test_audio_service_wraps_a_fake_backend(self) -> None:
         class FakeBackend:
@@ -150,32 +186,48 @@ class AudioServiceTests(unittest.TestCase):
             def __init__(self) -> None:
                 self.snapshot_callback: Any | None = None
 
-            def list_input_devices(self) -> list[AudioDeviceDescriptor]:
+            def list_devices(self, device_flow: str) -> list[AudioDeviceDescriptor]:
+                if device_flow == "output":
+                    return [
+                        AudioDeviceDescriptor(
+                            device_identifier="speaker-1",
+                            name="Desktop speakers",
+                            max_input_channels=0,
+                            default_sample_rate=48_000,
+                            device_flow="output",
+                            max_output_channels=2,
+                        )
+                    ]
                 return [
                     AudioDeviceDescriptor(
                         device_identifier="device-1",
-                        name="Loopback device",
+                        name="USB microphone",
                         max_input_channels=2,
                         default_sample_rate=48_000,
                     )
                 ]
 
-            def open_input_stream(self, device_identifier: str, on_snapshot: Any) -> Any:
+            def open_stream(
+                self,
+                device_identifier: str,
+                device_flow: str,
+                on_snapshot: Any,
+            ) -> Any:
                 self.snapshot_callback = on_snapshot
                 return lambda: None
 
         backend = FakeBackend()
         service = DesktopAudioInputService(backend=backend)
-        self.assertEqual(len(service.refresh_devices()), 1)
-        started_snapshot = service.start_capture("device-1")
+        self.assertEqual(len(service.refresh_devices("output")), 1)
+        started_snapshot = service.start_capture("speaker-1", "output")
         self.assertIsNotNone(backend.snapshot_callback)
         snapshot_callback = backend.snapshot_callback
         assert snapshot_callback is not None
         snapshot_callback(
             AudioSignalSnapshot(
                 backend_name="fake",
-                device_identifier="device-1",
-                device_name="Loopback device",
+                device_identifier="speaker-1",
+                device_name="Desktop speakers",
                 available=True,
                 capturing=True,
                 level=0.7,
@@ -189,7 +241,7 @@ class AudioServiceTests(unittest.TestCase):
         stopped_snapshot = service.stop_capture()
         self.assertFalse(stopped_snapshot.capturing)
 
-    def test_sounddevice_backend_uses_the_mocked_module(self) -> None:
+    def test_sounddevice_input_backend_uses_the_mocked_module(self) -> None:
         class FakeInputStream:
             def __init__(self, **kwargs: Any) -> None:
                 self.callback = kwargs["callback"]
@@ -213,17 +265,51 @@ class AudioServiceTests(unittest.TestCase):
                 if device_index is None:
                     return [
                         {
+                            "name": "Desktop speakers",
+                            "max_input_channels": 0,
+                            "max_output_channels": 2,
+                            "default_samplerate": 48_000,
+                            "hostapi": 0,
+                        },
+                        {
                             "name": "Loopback device",
                             "max_input_channels": 2,
+                            "max_output_channels": 0,
                             "default_samplerate": 48_000,
                             "hostapi": 0,
                         }
                     ]
+                if device_index == 0 and kind is None:
+                    return {
+                        "name": "Desktop speakers",
+                        "max_input_channels": 0,
+                        "max_output_channels": 2,
+                        "default_samplerate": 48_000,
+                        "hostapi": 0,
+                    }
+                if device_index == 1 and kind is None:
+                    return {
+                        "name": "Loopback device",
+                        "max_input_channels": 2,
+                        "max_output_channels": 0,
+                        "default_samplerate": 48_000,
+                        "hostapi": 0,
+                    }
+                if kind == "output":
+                    return {
+                        "name": "Desktop speakers",
+                        "max_output_channels": 2,
+                        "default_samplerate": 48_000,
+                    }
                 return {
                     "name": "Loopback device",
                     "max_input_channels": 2,
                     "default_samplerate": 48_000,
                 }
+
+            class WasapiSettings:
+                def __init__(self, *, loopback: bool) -> None:
+                    self.loopback = loopback
 
             InputStream = FakeInputStream
 
@@ -231,14 +317,89 @@ class AudioServiceTests(unittest.TestCase):
             "desktop_render_control_panel.audio_input_service.importlib.import_module",
             return_value=FakeSoundDeviceModule(),
         ):
-            backend = SoundDeviceAudioCaptureBackend()
+            backend = SoundDeviceInputCaptureBackend()
 
         snapshots: list[AudioSignalSnapshot] = []
-        devices = backend.list_input_devices()
-        self.assertEqual(devices[0].name, "Loopback device (WASAPI)")
-        stop_callback = backend.open_input_stream("0", snapshots.append)
+        input_devices = backend.list_devices("input")
+        self.assertEqual(backend.list_devices("output"), [])
+        self.assertEqual(input_devices[0].name, "Loopback device (WASAPI)")
+        stop_callback = backend.open_stream("1", "input", snapshots.append)
         self.assertGreater(snapshots[0].level, 0.0)
         stop_callback()
+
+    def test_soundcard_output_backend_uses_the_mocked_module(self) -> None:
+        class FakeRecorder:
+            def __enter__(self) -> FakeRecorder:
+                return self
+
+            def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
+                return None
+
+            def record(self, numframes: int) -> Any:
+                return [[0.4, 0.2], [-0.4, -0.2]] * max(1, numframes // 2)
+
+        class FakeLoopbackMicrophone:
+            def __init__(self, name: str, device_identifier: str) -> None:
+                self.name = name
+                self.id = device_identifier
+                self.channels = 2
+                self.isloopback = True
+
+            def recorder(
+                self,
+                samplerate: int,
+                channels: int | None = None,
+                blocksize: int | None = None,
+                exclusive_mode: bool = False,
+            ) -> FakeRecorder:
+                return FakeRecorder()
+
+        class FakeSpeaker:
+            def __init__(self, name: str, device_identifier: str) -> None:
+                self.name = name
+                self.id = device_identifier
+                self.channels = 2
+
+        class FakeSoundCardModule:
+            def __init__(self) -> None:
+                self.speakers = [FakeSpeaker("Desktop speakers", "speaker-1")]
+
+            def all_speakers(self) -> list[FakeSpeaker]:
+                return self.speakers
+
+            def default_speaker(self) -> FakeSpeaker:
+                return self.speakers[0]
+
+            def get_microphone(
+                self,
+                device_identifier: str,
+                include_loopback: bool = False,
+            ) -> FakeLoopbackMicrophone:
+                return FakeLoopbackMicrophone("Desktop speakers", device_identifier)
+
+        with mock.patch(
+            "desktop_render_control_panel.audio_input_service.importlib.import_module",
+            return_value=FakeSoundCardModule(),
+        ), mock.patch(
+            "desktop_render_control_panel.audio_input_service._initialize_windows_com_for_current_thread"
+        ) as com_scope_factory:
+            @contextmanager
+            def fake_com_scope() -> Any:
+                yield
+
+            com_scope_factory.side_effect = fake_com_scope
+            backend = SoundCardLoopbackOutputCaptureBackend()
+            output_devices = backend.list_devices("output")
+            self.assertEqual(output_devices[0].name, "Desktop speakers")
+
+            snapshots: list[AudioSignalSnapshot] = []
+            stop_callback = backend.open_stream("speaker-1", "output", snapshots.append)
+            deadline = time.time() + 1.0
+            while time.time() < deadline and not snapshots:
+                time.sleep(0.01)
+            self.assertGreater(snapshots[0].level, 0.0)
+            stop_callback()
+            self.assertGreaterEqual(com_scope_factory.call_count, 2)
 
     def test_audio_service_reports_backend_unavailability_and_safe_stop(self) -> None:
         service = DesktopAudioInputService(
@@ -259,7 +420,7 @@ class AudioServiceTests(unittest.TestCase):
             "desktop_render_control_panel.audio_input_service.importlib.import_module",
             side_effect=ImportError("missing"),
         ), mock.patch(
-            "desktop_render_control_panel.audio_input_service.WindowsWaveInListingBackend.list_input_devices",
+            "desktop_render_control_panel.audio_input_service.WindowsWaveInListingBackend.list_devices",
             return_value=[
                 AudioDeviceDescriptor(
                     device_identifier="winmm:0",
@@ -270,8 +431,9 @@ class AudioServiceTests(unittest.TestCase):
             ],
         ):
             backend = create_default_audio_capture_backend()
-
-        self.assertIsInstance(backend, WindowsWaveInListingBackend)
+            self.assertIsInstance(backend, CompositeAudioCaptureBackend)
+            self.assertEqual(backend.list_devices("input")[0].device_identifier, "winmm:0")
+            self.assertEqual(backend.list_devices("output"), [])
 
     def test_create_default_backend_uses_unavailable_backend_when_no_listing_fallback_exists(
         self,
@@ -280,12 +442,56 @@ class AudioServiceTests(unittest.TestCase):
             "desktop_render_control_panel.audio_input_service.importlib.import_module",
             side_effect=ImportError("missing"),
         ), mock.patch(
-            "desktop_render_control_panel.audio_input_service.WindowsWaveInListingBackend.list_input_devices",
+            "desktop_render_control_panel.audio_input_service.WindowsWaveInListingBackend.list_devices",
+            return_value=[],
+        ):
+            backend = create_default_audio_capture_backend()
+            self.assertIsInstance(backend, CompositeAudioCaptureBackend)
+            self.assertEqual(backend.list_devices("input"), [])
+            self.assertEqual(backend.list_devices("output"), [])
+
+    def test_create_default_backend_can_expose_output_sources_through_soundcard(self) -> None:
+        class FakeSpeaker:
+            def __init__(self, name: str, device_identifier: str) -> None:
+                self.name = name
+                self.id = device_identifier
+                self.channels = 2
+
+        class FakeSoundCardModule:
+            def __init__(self) -> None:
+                self.speakers = [FakeSpeaker("Desktop speakers", "speaker-1")]
+
+            def all_speakers(self) -> list[FakeSpeaker]:
+                return self.speakers
+
+            def default_speaker(self) -> FakeSpeaker:
+                return self.speakers[0]
+
+            def get_microphone(
+                self,
+                device_identifier: str,
+                include_loopback: bool = False,
+            ) -> None:
+                return None
+
+        def import_module_side_effect(module_name: str) -> Any:
+            if module_name == "sounddevice":
+                raise ImportError("missing")
+            if module_name == "soundcard":
+                return FakeSoundCardModule()
+            raise ImportError(module_name)
+
+        with mock.patch(
+            "desktop_render_control_panel.audio_input_service.importlib.import_module",
+            side_effect=import_module_side_effect,
+        ), mock.patch(
+            "desktop_render_control_panel.audio_input_service.WindowsWaveInListingBackend.list_devices",
             return_value=[],
         ):
             backend = create_default_audio_capture_backend()
 
-        self.assertIsInstance(backend, UnavailableAudioCaptureBackend)
+        self.assertIsInstance(backend, CompositeAudioCaptureBackend)
+        self.assertEqual(backend.list_devices("output")[0].name, "Desktop speakers")
 
 
 class RenderApiClientTests(unittest.TestCase):
@@ -394,29 +600,53 @@ class FakeAudioService:
     )
 
     def __post_init__(self) -> None:
-        self._devices = [
-            AudioDeviceDescriptor(
-                device_identifier="device-1",
-                name="Loopback device",
-                max_input_channels=2,
-                default_sample_rate=48_000,
-            )
-        ]
+        self._devices_by_flow = {
+            "input": [
+                AudioDeviceDescriptor(
+                    device_identifier="device-1",
+                    name="USB microphone",
+                    max_input_channels=2,
+                    default_sample_rate=48_000,
+                )
+            ],
+            "output": [
+                AudioDeviceDescriptor(
+                    device_identifier="device-2",
+                    name="Desktop speakers",
+                    max_input_channels=0,
+                    default_sample_rate=48_000,
+                    device_flow="output",
+                    max_output_channels=2,
+                )
+            ],
+        }
 
-    def devices(self) -> list[AudioDeviceDescriptor]:
-        return list(self._devices)
+    def devices(self, device_flow: str = "input") -> list[AudioDeviceDescriptor]:
+        return list(self._devices_by_flow[device_flow])
 
-    def refresh_devices(self) -> list[AudioDeviceDescriptor]:
-        return list(self._devices)
+    def refresh_devices(self, device_flow: str = "input") -> list[AudioDeviceDescriptor]:
+        return list(self._devices_by_flow[device_flow])
 
     def snapshot(self) -> AudioSignalSnapshot:
         return AudioSignalSnapshot(**self.current_snapshot.to_dict())
 
-    def start_capture(self, device_identifier: str) -> AudioSignalSnapshot:
+    def start_capture(
+        self,
+        device_identifier: str,
+        device_flow: str = "input",
+    ) -> AudioSignalSnapshot:
+        selected_device_name = next(
+            (
+                device.name
+                for device in self._devices_by_flow[device_flow]
+                if device.device_identifier == device_identifier
+            ),
+            "",
+        )
         self.current_snapshot = AudioSignalSnapshot(
             backend_name="fake",
             device_identifier=device_identifier,
-            device_name="Loopback device",
+            device_name=selected_device_name,
             available=True,
             capturing=True,
             level=0.65,
@@ -558,6 +788,18 @@ class DesktopControllerTests(unittest.TestCase):
         self.assertAlmostEqual(preview_bundle["signals"]["pointerX"], 0.9)
         self.assertAlmostEqual(preview_bundle["signals"]["pointerY"], 0.1)
 
+    def test_stopped_audio_capture_no_longer_influences_preview_bundle(self) -> None:
+        self.controller.start_audio_capture("device-1")
+        self.controller.update_request_payload({"signals": {"useAudio": True}})
+        self.controller.stop_audio_capture()
+
+        preview_bundle = self.controller.preview_scene_bundle()
+
+        self.assertEqual(preview_bundle["signals"]["audioLevel"], 0.0)
+        self.assertEqual(preview_bundle["signals"]["audioBass"], 0.0)
+        self.assertEqual(preview_bundle["signals"]["audioMid"], 0.0)
+        self.assertEqual(preview_bundle["signals"]["audioTreble"], 0.0)
+
     def test_live_stream_applies_multiple_frames_until_stopped(self) -> None:
         self.controller.update_request_payload({"session": {"cadenceMs": 40}})
         self.controller.start_live_stream()
@@ -604,6 +846,13 @@ class DesktopControllerTests(unittest.TestCase):
 
         self.assertEqual(validation_result["status"], "validation-failed")
         self.assertEqual(apply_result["status"], "offline")
+
+    def test_controller_can_refresh_output_audio_sources(self) -> None:
+        output_devices = self.controller.refresh_audio_devices("output")
+        capture_snapshot = self.controller.start_audio_capture("device-2", "output")
+
+        self.assertEqual(output_devices[0].device_flow, "output")
+        self.assertIn("Desktop speakers", capture_snapshot.device_name)
 
     def test_live_stream_can_report_internal_errors(self) -> None:
         self.fake_api_client.raise_on_apply = RuntimeError("boom")
@@ -658,16 +907,23 @@ class DesktopWindowTests(unittest.TestCase):
         self.root.update_idletasks()
 
         preset_button_labels = [
-            button.cget("text") for button in self.window._preset_button_widgets
+            button.cget("text") for button in self.window._preset_button_widgets.values()
         ]
         self.assertIn("Aurora Orbit", preset_button_labels)
         self.assertEqual(
-            self.window._scene_type_button_frame.winfo_children()[0].cget("text"),
-            "2D",
+            self.window._scene_type_button_widgets["3d"].cget("foreground"),
+            "#04131d",
+        )
+        self.assertEqual(
+            self.window._scene_type_button_widgets["3d"].cget("background"),
+            "#5fd1ff",
         )
 
     def test_window_can_refresh_preview_and_apply_actions(self) -> None:
+        self.assertIsNone(self.window._preview_window)
         self.window._refresh_preview()
+        self.window._open_preview_window()
+        self.root.update_idletasks()
         self.window._run_health_check()
         self.window._validate_current_scene()
         self.window._apply_current_scene()
@@ -676,20 +932,56 @@ class DesktopWindowTests(unittest.TestCase):
         self.window._stop_live_stream()
         self.root.update_idletasks()
 
-        preview_text = self.window._preview_text.get("1.0", "end").strip()
+        self.assertIsNotNone(self.window._preview_window)
+        self.assertIsNotNone(self.window._preview_text_widget)
+        preview_text_widget = self.window._preview_text_widget
+        assert preview_text_widget is not None
+        preview_text = preview_text_widget.get("1.0", "end").strip()
         self.assertIn('"sceneType"', preview_text)
+        with mock.patch.object(self.root, "clipboard_clear"), mock.patch.object(
+            self.root,
+            "clipboard_append",
+        ) as clipboard_append_mock:
+            self.window._copy_preview_json_to_clipboard()
+        clipboard_append_mock.assert_called_once_with(self.window._latest_preview_json_text)
+        self.assertIn("Copied", self.window._result_status_variable.get())
+        self.assertIs(self.window._audio_device_combobox.master.master, self.window._output_frame)
+        self.assertIs(self.window._pointer_canvas.master.master, self.window._output_frame)
 
     def test_window_can_drive_audio_and_pointer_inputs(self) -> None:
         self.window._refresh_audio_devices()
-        self.window._audio_device_variable.set("Loopback device")
+        self.window._audio_device_variable.set("Desktop speakers")
         self.window._start_audio_capture()
+        self.window._refresh_status_labels()
         pointer_event = type("PointerEvent", (), {"x": 120, "y": 80})()
         self.window._on_pointer_motion(pointer_event)
         self.window._on_pointer_leave(pointer_event)
-        self.window._stop_audio_capture()
-        self.root.update_idletasks()
 
         self.assertIn("Pointer pad", self.window._pointer_status_variable.get())
+        self.assertEqual(self.window._audio_device_flow_variable.get(), "output")
+        self.assertTrue(self.window._use_audio_variable.get())
+        self.assertGreater(self.window._volume_meter_progress_variable.get(), 0.0)
+        self.assertEqual(self.window._volume_meter_text_variable.get(), "65%")
+
+        self.window._stop_audio_capture()
+        self.window._refresh_status_labels()
+        self.root.update_idletasks()
+        self.assertEqual(self.window._volume_meter_progress_variable.get(), 0.0)
+
+    def test_window_shows_the_visible_live_cadence_value(self) -> None:
+        self.assertIsNotNone(self.window._live_cadence_value_label)
+        self.assertEqual(self.window._slider_display_variables["cadence"].get(), "125 ms")
+
+        self.window._cadence_variable.set(240)
+        self.window._on_slider_value_changed(
+            self.window._cadence_variable,
+            self.window._slider_display_variables["cadence"],
+            resolution=1.0,
+            digits_after_decimal=0,
+            suffix=" ms",
+        )
+
+        self.assertEqual(self.window._slider_display_variables["cadence"].get(), "240 ms")
 
     def test_window_color_choice_and_module_entry_point_are_exercised(self) -> None:
         with mock.patch(
@@ -750,7 +1042,7 @@ class DesktopWindowTests(unittest.TestCase):
         self.assertIn("500", self.window._result_status_variable.get())
 
     def test_window_handles_audio_capture_errors_and_safe_int_parsing(self) -> None:
-        self.window._audio_device_variable.set("Loopback device")
+        self.window._audio_device_variable.set("Desktop speakers")
         with mock.patch.object(
             self.controller,
             "start_audio_capture",
@@ -766,6 +1058,13 @@ class DesktopWindowTests(unittest.TestCase):
         showerror_mock.assert_called_once()
         self.assertEqual(collected_payload["target"]["port"], 8080)
         self.assertEqual(DesktopRenderControlPanelWindow._safe_int(object(), 7), 7)
+
+    def test_window_can_switch_to_input_sources(self) -> None:
+        self.window._on_audio_device_flow_button_pressed("input")
+        self.root.update_idletasks()
+
+        self.assertEqual(self.window._audio_device_flow_variable.get(), "input")
+        self.assertIn("USB microphone", self.window._audio_device_combobox["values"])
 
     def test_window_can_save_load_and_revert_settings(self) -> None:
         with TemporaryDirectory() as temporary_directory:
