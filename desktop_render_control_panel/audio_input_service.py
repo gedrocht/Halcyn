@@ -32,12 +32,14 @@ from typing import Any, Protocol
 
 @dataclass(frozen=True)
 class AudioDeviceDescriptor:
-    """Describe one selectable desktop audio input device."""
+    """Describe one selectable desktop audio source."""
 
     device_identifier: str
     name: str
     max_input_channels: int
     default_sample_rate: int
+    device_flow: str = "input"
+    max_output_channels: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -87,12 +89,13 @@ class AudioCaptureBackend(Protocol):
     def capture_available(self) -> bool:
         ...
 
-    def list_input_devices(self) -> list[AudioDeviceDescriptor]:
+    def list_devices(self, device_flow: str) -> list[AudioDeviceDescriptor]:
         ...
 
-    def open_input_stream(
+    def open_stream(
         self,
         device_identifier: str,
+        device_flow: str,
         on_snapshot: Callable[[AudioSignalSnapshot], None],
     ) -> Callable[[], None]:
         ...
@@ -121,12 +124,13 @@ class UnavailableAudioCaptureBackend:
     def capture_available(self) -> bool:
         return False
 
-    def list_input_devices(self) -> list[AudioDeviceDescriptor]:
+    def list_devices(self, device_flow: str) -> list[AudioDeviceDescriptor]:
         return []
 
-    def open_input_stream(
+    def open_stream(
         self,
         device_identifier: str,
+        device_flow: str,
         on_snapshot: Callable[[AudioSignalSnapshot], None],
     ) -> Callable[[], None]:
         raise RuntimeError(self._reason)
@@ -162,12 +166,13 @@ class SoundDeviceAudioCaptureBackend:
     def capture_available(self) -> bool:
         return self._sounddevice is not None
 
-    def list_input_devices(self) -> list[AudioDeviceDescriptor]:
-        """Enumerate selectable input devices from PortAudio."""
+    def list_devices(self, device_flow: str) -> list[AudioDeviceDescriptor]:
+        """Enumerate selectable sources for the requested input or output flow."""
 
         if self._sounddevice is None:
             return []
 
+        normalized_device_flow = _normalize_device_flow(device_flow)
         try:
             queried_host_apis = self._sounddevice.query_hostapis()
             queried_device_descriptors = self._sounddevice.query_devices()
@@ -179,33 +184,50 @@ class SoundDeviceAudioCaptureBackend:
             host_api_index: str(host_api_info.get("name", f"Host API {host_api_index}"))
             for host_api_index, host_api_info in enumerate(queried_host_apis)
         }
-        available_input_devices = []
+        available_audio_sources = []
         for device_index, device_info in enumerate(queried_device_descriptors):
             max_input_channels = int(device_info.get("max_input_channels", 0) or 0)
-            if max_input_channels < 1:
-                continue
+            max_output_channels = int(device_info.get("max_output_channels", 0) or 0)
             raw_host_api_index = device_info.get("hostapi", -1)
             host_api_index = -1 if raw_host_api_index is None else int(raw_host_api_index)
             host_api_name = host_api_names_by_index.get(host_api_index, "")
-            device_name = str(device_info.get("name", f"Input device {device_index}"))
-            if host_api_name:
-                device_name = f"{device_name} ({host_api_name})"
-            available_input_devices.append(
+            base_device_name = str(
+                device_info.get(
+                    "name",
+                    f"{normalized_device_flow.title()} device {device_index}",
+                )
+            )
+
+            if normalized_device_flow == "input":
+                if max_input_channels < 1:
+                    continue
+                device_name = (
+                    f"{base_device_name} ({host_api_name})" if host_api_name else base_device_name
+                )
+            else:
+                if max_output_channels < 1 or "WASAPI" not in host_api_name.upper():
+                    continue
+                device_name = f"{base_device_name} ({host_api_name} loopback)"
+
+            available_audio_sources.append(
                 AudioDeviceDescriptor(
                     device_identifier=str(device_index),
                     name=device_name,
+                    device_flow=normalized_device_flow,
                     max_input_channels=max_input_channels,
+                    max_output_channels=max_output_channels,
                     default_sample_rate=int(device_info.get("default_samplerate", 44100) or 44100),
                 )
             )
-        return available_input_devices
+        return available_audio_sources
 
-    def open_input_stream(
+    def open_stream(
         self,
         device_identifier: str,
+        device_flow: str,
         on_snapshot: Callable[[AudioSignalSnapshot], None],
     ) -> Callable[[], None]:
-        """Open an input stream and call back with analyzed snapshots.
+        """Open an input or loopback stream and call back with analyzed snapshots.
 
         `sounddevice` invokes our callback whenever a new chunk of audio
         arrives.  We immediately translate that raw sample block into the small
@@ -216,13 +238,45 @@ class SoundDeviceAudioCaptureBackend:
             raise RuntimeError(self._availability_error)
 
         device_index = int(device_identifier)
-        device_info = self._sounddevice.query_devices(device_index, "input")
+        normalized_device_flow = _normalize_device_flow(device_flow)
+        stream_extra_settings: Any | None = None
+
+        if normalized_device_flow == "output":
+            full_device_info = self._sounddevice.query_devices(device_index)
+            queried_host_apis = self._sounddevice.query_hostapis()
+            raw_host_api_index = full_device_info.get("hostapi", -1)
+            host_api_index = -1 if raw_host_api_index is None else int(raw_host_api_index)
+            host_api_name = str(
+                queried_host_apis[host_api_index].get("name", "")
+                if 0 <= host_api_index < len(queried_host_apis)
+                else ""
+            )
+            if "WASAPI" not in host_api_name.upper():
+                raise RuntimeError(
+                    "Output capture requires a WASAPI output device when using the "
+                    "optional sounddevice package."
+                )
+            if not hasattr(self._sounddevice, "WasapiSettings"):
+                raise RuntimeError(
+                    "This sounddevice build does not expose WASAPI loopback settings."
+                )
+            device_info = self._sounddevice.query_devices(device_index, "output")
+            channel_count = max(
+                1,
+                min(int(device_info.get("max_output_channels", 1) or 1), 2),
+            )
+            base_device_name = str(device_info.get("name", f"Output device {device_identifier}"))
+            device_name = f"{base_device_name} ({host_api_name} loopback)"
+            stream_extra_settings = self._sounddevice.WasapiSettings(loopback=True)
+        else:
+            device_info = self._sounddevice.query_devices(device_index, "input")
+            channel_count = max(
+                1,
+                min(int(device_info.get("max_input_channels", 1) or 1), 2),
+            )
+            device_name = str(device_info.get("name", f"Input device {device_identifier}"))
+
         sample_rate_hz = int(device_info.get("default_samplerate", 44100) or 44100)
-        input_channel_count = max(
-            1,
-            min(int(device_info.get("max_input_channels", 1) or 1), 2),
-        )
-        device_name = str(device_info.get("name", f"Input device {device_identifier}"))
 
         def handle_audio_callback(
             input_data: Any,
@@ -243,13 +297,16 @@ class SoundDeviceAudioCaptureBackend:
             )
             on_snapshot(snapshot)
 
-        stream = self._sounddevice.InputStream(
+        stream_arguments: dict[str, Any] = dict(
             device=device_index,
-            channels=input_channel_count,
+            channels=channel_count,
             samplerate=sample_rate_hz,
             callback=handle_audio_callback,
             blocksize=1024,
         )
+        if stream_extra_settings is not None:
+            stream_arguments["extra_settings"] = stream_extra_settings
+        stream = self._sounddevice.InputStream(**stream_arguments)
         stream.start()
 
         def stop_stream() -> None:
@@ -305,7 +362,9 @@ class WindowsWaveInListingBackend:
     def capture_available(self) -> bool:
         return False
 
-    def list_input_devices(self) -> list[AudioDeviceDescriptor]:
+    def list_devices(self, device_flow: str) -> list[AudioDeviceDescriptor]:
+        if _normalize_device_flow(device_flow) != "input":
+            return []
         if self._winmm_library is None:
             return []
 
@@ -332,15 +391,17 @@ class WindowsWaveInListingBackend:
                         str(device_capabilities.product_name).strip()
                         or f"Input device {device_index}"
                     ),
+                    device_flow="input",
                     max_input_channels=max(1, int(device_capabilities.channels or 1)),
                     default_sample_rate=44100,
                 )
             )
         return discovered_devices
 
-    def open_input_stream(
+    def open_stream(
         self,
         device_identifier: str,
+        device_flow: str,
         on_snapshot: Callable[[AudioSignalSnapshot], None],
     ) -> Callable[[], None]:
         raise RuntimeError(self._capture_unavailable_reason)
@@ -352,30 +413,36 @@ class DesktopAudioInputService:
     def __init__(self, backend: AudioCaptureBackend | None = None) -> None:
         self._backend = backend or create_default_audio_capture_backend()
         self._lock = threading.Lock()
-        self._devices = self._backend.list_input_devices()
+        self._devices_by_flow = {
+            "input": self._backend.list_devices("input"),
+            "output": self._backend.list_devices("output"),
+        }
         self._stop_capture_callback: Callable[[], None] | None = None
         # The snapshot starts in a meaningful "nothing is capturing yet" state
         # so the GUI can always display one coherent sentence to the user.
         self._snapshot = AudioSignalSnapshot(
             backend_name=self._backend.backend_name,
-            available=bool(self._devices) or self._capture_available(),
+            available=self._devices_available(),
             last_error=self._backend.availability_error,
         )
 
-    def devices(self) -> list[AudioDeviceDescriptor]:
-        """Return the most recently discovered input devices."""
+    def devices(self, device_flow: str = "input") -> list[AudioDeviceDescriptor]:
+        """Return the most recently discovered devices for one source type."""
 
         with self._lock:
-            return list(self._devices)
+            return list(self._devices_by_flow[_normalize_device_flow(device_flow)])
 
-    def refresh_devices(self) -> list[AudioDeviceDescriptor]:
-        """Re-enumerate input devices from the active backend."""
+    def refresh_devices(self, device_flow: str = "input") -> list[AudioDeviceDescriptor]:
+        """Re-enumerate devices from the active backend for one source type."""
 
         with self._lock:
-            self._devices = self._backend.list_input_devices()
-            self._snapshot.available = bool(self._devices) or self._capture_available()
+            normalized_device_flow = _normalize_device_flow(device_flow)
+            self._devices_by_flow[normalized_device_flow] = self._backend.list_devices(
+                normalized_device_flow
+            )
+            self._snapshot.available = self._devices_available()
             self._snapshot.last_error = self._backend.availability_error
-            return list(self._devices)
+            return list(self._devices_by_flow[normalized_device_flow])
 
     def snapshot(self) -> AudioSignalSnapshot:
         """Return the latest audio-analysis snapshot."""
@@ -383,26 +450,32 @@ class DesktopAudioInputService:
         with self._lock:
             return AudioSignalSnapshot(**self._snapshot.to_dict())
 
-    def start_capture(self, device_identifier: str) -> AudioSignalSnapshot:
-        """Start capturing audio from one selected device."""
+    def start_capture(
+        self,
+        device_identifier: str,
+        device_flow: str = "input",
+    ) -> AudioSignalSnapshot:
+        """Start capturing audio from one selected input or output source."""
 
         with self._lock:
             # Starting a new capture always replaces an older one. That keeps the
             # service model simple: at most one active device at a time.
             self._stop_capture_locked()
+            normalized_device_flow = _normalize_device_flow(device_flow)
 
             def on_snapshot_available(snapshot: AudioSignalSnapshot) -> None:
                 with self._lock:
                     self._snapshot = snapshot
 
-            stop_capture_callback = self._backend.open_input_stream(
+            stop_capture_callback = self._backend.open_stream(
                 device_identifier,
+                normalized_device_flow,
                 on_snapshot_available,
             )
             selected_device = next(
                 (
                     device
-                    for device in self._devices
+                    for device in self._devices_by_flow[normalized_device_flow]
                     if device.device_identifier == device_identifier
                 ),
                 None,
@@ -415,6 +488,7 @@ class DesktopAudioInputService:
                 available=True,
                 capturing=True,
                 updated_at_epoch_seconds=time.time(),
+                last_error="",
             )
             return AudioSignalSnapshot(**self._snapshot.to_dict())
 
@@ -451,6 +525,13 @@ class DesktopAudioInputService:
             )
         )
 
+    def _devices_available(self) -> bool:
+        """Check whether any input or output device list currently has entries."""
+
+        return any(self._devices_by_flow[device_flow] for device_flow in ("input", "output")) or (
+            self._capture_available()
+        )
+
 
 def create_default_audio_capture_backend() -> AudioCaptureBackend:
     """Return the best available audio backend for the current machine.
@@ -466,10 +547,16 @@ def create_default_audio_capture_backend() -> AudioCaptureBackend:
         listing_only_backend = WindowsWaveInListingBackend(
             "Install the optional 'sounddevice' package to capture from the listed devices."
         )
-        if listing_only_backend.list_input_devices():
+        if listing_only_backend.list_devices("input"):
             return listing_only_backend
         return UnavailableAudioCaptureBackend(backend.availability_error)
     return backend
+
+
+def _normalize_device_flow(device_flow: str) -> str:
+    """Clamp the requested source type to the supported input/output options."""
+
+    return "output" if str(device_flow).strip().lower() == "output" else "input"
 
 
 def analyze_audio_frames(

@@ -91,6 +91,7 @@ class DesktopRenderControlPanelWindow:
         self._preview_window: tk.Toplevel | None = None
         self._preview_text_widget: ScrolledText | None = None
         self._latest_preview_json_text = ""
+        self._audio_device_flow_button_widgets: dict[str, tk.Button] = {}
         self._scene_type_button_widgets: dict[str, tk.Button] = {}
         self._build_variables()
         self._slider_display_variables = self._build_slider_display_variables()
@@ -122,6 +123,7 @@ class DesktopRenderControlPanelWindow:
         self._use_noise_variable = tk.BooleanVar(value=True)
         self._use_pointer_variable = tk.BooleanVar(value=True)
         self._use_audio_variable = tk.BooleanVar(value=False)
+        self._audio_device_flow_variable = tk.StringVar(value="output")
         self._audio_device_variable = tk.StringVar(value="")
         self._pointer_status_variable = tk.StringVar(value="Pointer pad idle")
         self._health_status_variable = tk.StringVar(value="Health check not run yet.")
@@ -646,41 +648,69 @@ class DesktopRenderControlPanelWindow:
 
         audio_frame = ttk.LabelFrame(
             parent,
-            text="Audio input",
+            text="Audio sources",
             padding=10,
             style="Panel.TLabelframe",
         )
         audio_frame.grid(row=row, column=0, sticky="ew", pady=(12, 0))
         audio_frame.columnconfigure(1, weight=1)
-        ttk.Label(audio_frame, text="Device").grid(row=0, column=0, sticky="w")
+        ttk.Label(audio_frame, text="Source type", style="Subheading.TLabel").grid(
+            row=0,
+            column=0,
+            columnspan=2,
+            sticky="w",
+        )
+        audio_source_type_frame = tk.Frame(
+            audio_frame,
+            background=SURFACE_BACKGROUND,
+            highlightthickness=0,
+        )
+        audio_source_type_frame.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(6, 10))
+        audio_source_type_frame.columnconfigure((0, 1), weight=1)
+        self._audio_device_flow_button_widgets["output"] = self._build_segmented_button(
+            parent=audio_source_type_frame,
+            text="Output sources",
+            value="output",
+            column=0,
+            command=self._on_audio_device_flow_button_pressed,
+        )
+        self._audio_device_flow_button_widgets["input"] = self._build_segmented_button(
+            parent=audio_source_type_frame,
+            text="Input sources",
+            value="input",
+            column=1,
+            command=self._on_audio_device_flow_button_pressed,
+        )
+
+        ttk.Label(audio_frame, text="Device").grid(row=2, column=0, sticky="w")
         self._audio_device_combobox = ttk.Combobox(
             audio_frame,
             textvariable=self._audio_device_variable,
             state="readonly",
         )
-        self._audio_device_combobox.grid(row=0, column=1, sticky="ew", padx=(6, 0))
+        self._audio_device_combobox.grid(row=2, column=1, sticky="ew", padx=(6, 0))
         ttk.Button(audio_frame, text="Refresh", command=self._refresh_audio_devices).grid(
-            row=1,
+            row=3,
             column=0,
             sticky="ew",
             pady=(8, 0),
         )
         ttk.Button(audio_frame, text="Start capture", command=self._start_audio_capture).grid(
-            row=1,
+            row=3,
             column=1,
             sticky="ew",
             padx=(6, 0),
             pady=(8, 0),
         )
         ttk.Button(audio_frame, text="Stop capture", command=self._stop_audio_capture).grid(
-            row=2,
+            row=4,
             column=0,
             columnspan=2,
             sticky="ew",
             pady=(8, 0),
         )
         ttk.Label(audio_frame, textvariable=self._audio_status_variable, wraplength=520).grid(
-            row=3,
+            row=5,
             column=0,
             columnspan=2,
             sticky="w",
@@ -1024,6 +1054,7 @@ class DesktopRenderControlPanelWindow:
         self._scene_type_variable.set(default_scene_type)
         self._rebuild_preset_button_group()
         self._preset_identifier_variable.set(default_preset_identifier)
+        self._refresh_audio_device_flow_button_styles()
         self._refresh_scene_type_button_styles()
         self._refresh_preset_button_styles()
         self._set_user_interface_from_request_payload(default_payload)
@@ -1182,6 +1213,16 @@ class DesktopRenderControlPanelWindow:
         self._preset_identifier_variable.set(selected_preset_identifier)
         self._on_preset_changed()
 
+    def _on_audio_device_flow_button_pressed(self, selected_device_flow: str) -> None:
+        """Switch between output-source and input-source device lists."""
+
+        self._audio_device_flow_variable.set(selected_device_flow)
+        self._refresh_audio_device_flow_button_styles()
+        if self._controller.audio_snapshot().capturing:
+            self._controller.stop_audio_capture()
+        self._audio_device_variable.set("")
+        self._refresh_audio_devices()
+
     def _choose_color(self, variable: tk.StringVar) -> None:
         chosen_color = colorchooser.askcolor(color=variable.get(), parent=self._root)[1]
         if chosen_color:
@@ -1191,43 +1232,61 @@ class DesktopRenderControlPanelWindow:
     def _refresh_audio_devices(self) -> None:
         """Refresh the device dropdown from the audio service."""
 
-        devices = self._controller.refresh_audio_devices()
+        selected_device_flow = self._selected_audio_device_flow()
+        devices = self._controller.refresh_audio_devices(selected_device_flow)
         device_names = [device.name for device in devices]
         self._audio_device_combobox["values"] = device_names
         if device_names and self._audio_device_variable.get().strip() not in device_names:
             self._audio_device_variable.set(device_names[0])
+        elif not device_names:
+            self._audio_device_variable.set("")
         audio_snapshot = self._controller.audio_snapshot()
+        readable_source_label = (
+            "output source" if selected_device_flow == "output" else "input source"
+        )
         if device_names and audio_snapshot.last_error:
             self._audio_status_variable.set(
-                f"Found {len(device_names)} input device(s). {audio_snapshot.last_error}"
+                f"Found {len(device_names)} {readable_source_label}(s). {audio_snapshot.last_error}"
             )
         elif device_names:
             self._audio_status_variable.set(
-                f"Found {len(device_names)} input device(s). Choose one and start capture."
+                f"Found {len(device_names)} {readable_source_label}(s). "
+                "Choose one and start capture."
             )
         else:
-            self._audio_status_variable.set(
-                "No audio devices detected. Install the optional sounddevice "
-                "package to enable capture."
+            no_devices_message = (
+                "No output audio sources detected. Install the optional sounddevice package "
+                "to capture desktop output audio, or switch to input sources to use microphones."
+                if selected_device_flow == "output"
+                else "No input audio sources detected. Connect or enable a microphone, or switch "
+                "back to output sources."
             )
+            if audio_snapshot.last_error:
+                self._audio_status_variable.set(f"{no_devices_message} {audio_snapshot.last_error}")
+            else:
+                self._audio_status_variable.set(no_devices_message)
 
     def _start_audio_capture(self) -> None:
         """Start capture on the chosen device and surface readable UI errors."""
 
         device_name = self._audio_device_variable.get().strip()
+        selected_device_flow = self._selected_audio_device_flow()
+        readable_source_label = (
+            "output source" if selected_device_flow == "output" else "input source"
+        )
         if not device_name:
-            messagebox.showinfo("Audio capture", "Choose an input device first.")
+            messagebox.showinfo("Audio capture", f"Choose an {readable_source_label} first.")
             return
         device_identifier = next(
             (
                 device.device_identifier
-                for device in self._controller.audio_devices()
+                for device in self._controller.audio_devices(selected_device_flow)
                 if device.name == device_name
             ),
             "",
         )
         try:
-            self._controller.start_audio_capture(device_identifier)
+            self._controller.start_audio_capture(device_identifier, selected_device_flow)
         except RuntimeError as error:
             messagebox.showerror("Audio capture", str(error))
             return
@@ -1494,6 +1553,16 @@ class DesktopRenderControlPanelWindow:
                 selected=(scene_type_value == selected_scene_type),
             )
 
+    def _refresh_audio_device_flow_button_styles(self) -> None:
+        """Keep the audio source-type buttons aligned with the selected source flow."""
+
+        selected_device_flow = self._selected_audio_device_flow()
+        for device_flow, button in self._audio_device_flow_button_widgets.items():
+            self._apply_selection_button_style(
+                button,
+                selected=(device_flow == selected_device_flow),
+            )
+
     def _refresh_preset_button_styles(self) -> None:
         """Keep the preset buttons visually aligned with the active preset."""
 
@@ -1671,6 +1740,15 @@ class DesktopRenderControlPanelWindow:
             return int(value)
         except (TypeError, ValueError):
             return default
+
+    def _selected_audio_device_flow(self) -> str:
+        """Normalize the UI selection down to the supported input/output source types."""
+
+        return (
+            "output"
+            if self._audio_device_flow_variable.get().strip().lower() == "output"
+            else "input"
+        )
 
 
 def main() -> None:

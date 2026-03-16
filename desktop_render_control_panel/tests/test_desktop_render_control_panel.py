@@ -122,7 +122,7 @@ class AudioAnalysisTests(unittest.TestCase):
         backend = UnavailableAudioCaptureBackend("missing dependency")
         self.assertEqual(backend.backend_name, "unavailable")
         self.assertEqual(backend.availability_error, "missing dependency")
-        self.assertEqual(backend.list_input_devices(), [])
+        self.assertEqual(backend.list_devices("input"), [])
 
     def test_short_or_mixed_frames_are_handled_without_crashing(self) -> None:
         snapshot = analyze_audio_frames(
@@ -150,32 +150,48 @@ class AudioServiceTests(unittest.TestCase):
             def __init__(self) -> None:
                 self.snapshot_callback: Any | None = None
 
-            def list_input_devices(self) -> list[AudioDeviceDescriptor]:
+            def list_devices(self, device_flow: str) -> list[AudioDeviceDescriptor]:
+                if device_flow == "output":
+                    return [
+                        AudioDeviceDescriptor(
+                            device_identifier="speaker-1",
+                            name="Desktop speakers (WASAPI loopback)",
+                            max_input_channels=0,
+                            default_sample_rate=48_000,
+                            device_flow="output",
+                            max_output_channels=2,
+                        )
+                    ]
                 return [
                     AudioDeviceDescriptor(
                         device_identifier="device-1",
-                        name="Loopback device",
+                        name="USB microphone",
                         max_input_channels=2,
                         default_sample_rate=48_000,
                     )
                 ]
 
-            def open_input_stream(self, device_identifier: str, on_snapshot: Any) -> Any:
+            def open_stream(
+                self,
+                device_identifier: str,
+                device_flow: str,
+                on_snapshot: Any,
+            ) -> Any:
                 self.snapshot_callback = on_snapshot
                 return lambda: None
 
         backend = FakeBackend()
         service = DesktopAudioInputService(backend=backend)
-        self.assertEqual(len(service.refresh_devices()), 1)
-        started_snapshot = service.start_capture("device-1")
+        self.assertEqual(len(service.refresh_devices("output")), 1)
+        started_snapshot = service.start_capture("speaker-1", "output")
         self.assertIsNotNone(backend.snapshot_callback)
         snapshot_callback = backend.snapshot_callback
         assert snapshot_callback is not None
         snapshot_callback(
             AudioSignalSnapshot(
                 backend_name="fake",
-                device_identifier="device-1",
-                device_name="Loopback device",
+                device_identifier="speaker-1",
+                device_name="Desktop speakers (WASAPI loopback)",
                 available=True,
                 capturing=True,
                 level=0.7,
@@ -213,17 +229,51 @@ class AudioServiceTests(unittest.TestCase):
                 if device_index is None:
                     return [
                         {
+                            "name": "Desktop speakers",
+                            "max_input_channels": 0,
+                            "max_output_channels": 2,
+                            "default_samplerate": 48_000,
+                            "hostapi": 0,
+                        },
+                        {
                             "name": "Loopback device",
                             "max_input_channels": 2,
+                            "max_output_channels": 0,
                             "default_samplerate": 48_000,
                             "hostapi": 0,
                         }
                     ]
+                if device_index == 0 and kind is None:
+                    return {
+                        "name": "Desktop speakers",
+                        "max_input_channels": 0,
+                        "max_output_channels": 2,
+                        "default_samplerate": 48_000,
+                        "hostapi": 0,
+                    }
+                if device_index == 1 and kind is None:
+                    return {
+                        "name": "Loopback device",
+                        "max_input_channels": 2,
+                        "max_output_channels": 0,
+                        "default_samplerate": 48_000,
+                        "hostapi": 0,
+                    }
+                if kind == "output":
+                    return {
+                        "name": "Desktop speakers",
+                        "max_output_channels": 2,
+                        "default_samplerate": 48_000,
+                    }
                 return {
                     "name": "Loopback device",
                     "max_input_channels": 2,
                     "default_samplerate": 48_000,
                 }
+
+            class WasapiSettings:
+                def __init__(self, *, loopback: bool) -> None:
+                    self.loopback = loopback
 
             InputStream = FakeInputStream
 
@@ -234,9 +284,11 @@ class AudioServiceTests(unittest.TestCase):
             backend = SoundDeviceAudioCaptureBackend()
 
         snapshots: list[AudioSignalSnapshot] = []
-        devices = backend.list_input_devices()
-        self.assertEqual(devices[0].name, "Loopback device (WASAPI)")
-        stop_callback = backend.open_input_stream("0", snapshots.append)
+        output_devices = backend.list_devices("output")
+        input_devices = backend.list_devices("input")
+        self.assertEqual(output_devices[0].name, "Desktop speakers (WASAPI loopback)")
+        self.assertEqual(input_devices[0].name, "Loopback device (WASAPI)")
+        stop_callback = backend.open_stream("0", "output", snapshots.append)
         self.assertGreater(snapshots[0].level, 0.0)
         stop_callback()
 
@@ -259,7 +311,7 @@ class AudioServiceTests(unittest.TestCase):
             "desktop_render_control_panel.audio_input_service.importlib.import_module",
             side_effect=ImportError("missing"),
         ), mock.patch(
-            "desktop_render_control_panel.audio_input_service.WindowsWaveInListingBackend.list_input_devices",
+            "desktop_render_control_panel.audio_input_service.WindowsWaveInListingBackend.list_devices",
             return_value=[
                 AudioDeviceDescriptor(
                     device_identifier="winmm:0",
@@ -280,7 +332,7 @@ class AudioServiceTests(unittest.TestCase):
             "desktop_render_control_panel.audio_input_service.importlib.import_module",
             side_effect=ImportError("missing"),
         ), mock.patch(
-            "desktop_render_control_panel.audio_input_service.WindowsWaveInListingBackend.list_input_devices",
+            "desktop_render_control_panel.audio_input_service.WindowsWaveInListingBackend.list_devices",
             return_value=[],
         ):
             backend = create_default_audio_capture_backend()
@@ -394,29 +446,53 @@ class FakeAudioService:
     )
 
     def __post_init__(self) -> None:
-        self._devices = [
-            AudioDeviceDescriptor(
-                device_identifier="device-1",
-                name="Loopback device",
-                max_input_channels=2,
-                default_sample_rate=48_000,
-            )
-        ]
+        self._devices_by_flow = {
+            "input": [
+                AudioDeviceDescriptor(
+                    device_identifier="device-1",
+                    name="USB microphone",
+                    max_input_channels=2,
+                    default_sample_rate=48_000,
+                )
+            ],
+            "output": [
+                AudioDeviceDescriptor(
+                    device_identifier="device-2",
+                    name="Desktop speakers (WASAPI loopback)",
+                    max_input_channels=0,
+                    default_sample_rate=48_000,
+                    device_flow="output",
+                    max_output_channels=2,
+                )
+            ],
+        }
 
-    def devices(self) -> list[AudioDeviceDescriptor]:
-        return list(self._devices)
+    def devices(self, device_flow: str = "input") -> list[AudioDeviceDescriptor]:
+        return list(self._devices_by_flow[device_flow])
 
-    def refresh_devices(self) -> list[AudioDeviceDescriptor]:
-        return list(self._devices)
+    def refresh_devices(self, device_flow: str = "input") -> list[AudioDeviceDescriptor]:
+        return list(self._devices_by_flow[device_flow])
 
     def snapshot(self) -> AudioSignalSnapshot:
         return AudioSignalSnapshot(**self.current_snapshot.to_dict())
 
-    def start_capture(self, device_identifier: str) -> AudioSignalSnapshot:
+    def start_capture(
+        self,
+        device_identifier: str,
+        device_flow: str = "input",
+    ) -> AudioSignalSnapshot:
+        selected_device_name = next(
+            (
+                device.name
+                for device in self._devices_by_flow[device_flow]
+                if device.device_identifier == device_identifier
+            ),
+            "",
+        )
         self.current_snapshot = AudioSignalSnapshot(
             backend_name="fake",
             device_identifier=device_identifier,
-            device_name="Loopback device",
+            device_name=selected_device_name,
             available=True,
             capturing=True,
             level=0.65,
@@ -605,6 +681,13 @@ class DesktopControllerTests(unittest.TestCase):
         self.assertEqual(validation_result["status"], "validation-failed")
         self.assertEqual(apply_result["status"], "offline")
 
+    def test_controller_can_refresh_output_audio_sources(self) -> None:
+        output_devices = self.controller.refresh_audio_devices("output")
+        capture_snapshot = self.controller.start_audio_capture("device-2", "output")
+
+        self.assertEqual(output_devices[0].device_flow, "output")
+        self.assertIn("Desktop speakers", capture_snapshot.device_name)
+
     def test_live_stream_can_report_internal_errors(self) -> None:
         self.fake_api_client.raise_on_apply = RuntimeError("boom")
 
@@ -694,7 +777,7 @@ class DesktopWindowTests(unittest.TestCase):
 
     def test_window_can_drive_audio_and_pointer_inputs(self) -> None:
         self.window._refresh_audio_devices()
-        self.window._audio_device_variable.set("Loopback device")
+        self.window._audio_device_variable.set("Desktop speakers (WASAPI loopback)")
         self.window._start_audio_capture()
         pointer_event = type("PointerEvent", (), {"x": 120, "y": 80})()
         self.window._on_pointer_motion(pointer_event)
@@ -703,6 +786,7 @@ class DesktopWindowTests(unittest.TestCase):
         self.root.update_idletasks()
 
         self.assertIn("Pointer pad", self.window._pointer_status_variable.get())
+        self.assertEqual(self.window._audio_device_flow_variable.get(), "output")
 
     def test_window_color_choice_and_module_entry_point_are_exercised(self) -> None:
         with mock.patch(
@@ -763,7 +847,7 @@ class DesktopWindowTests(unittest.TestCase):
         self.assertIn("500", self.window._result_status_variable.get())
 
     def test_window_handles_audio_capture_errors_and_safe_int_parsing(self) -> None:
-        self.window._audio_device_variable.set("Loopback device")
+        self.window._audio_device_variable.set("Desktop speakers (WASAPI loopback)")
         with mock.patch.object(
             self.controller,
             "start_audio_capture",
@@ -779,6 +863,13 @@ class DesktopWindowTests(unittest.TestCase):
         showerror_mock.assert_called_once()
         self.assertEqual(collected_payload["target"]["port"], 8080)
         self.assertEqual(DesktopRenderControlPanelWindow._safe_int(object(), 7), 7)
+
+    def test_window_can_switch_to_input_sources(self) -> None:
+        self.window._on_audio_device_flow_button_pressed("input")
+        self.root.update_idletasks()
+
+        self.assertEqual(self.window._audio_device_flow_variable.get(), "input")
+        self.assertIn("USB microphone", self.window._audio_device_combobox["values"])
 
     def test_window_can_save_load_and_revert_settings(self) -> None:
         with TemporaryDirectory() as temporary_directory:

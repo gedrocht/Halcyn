@@ -29,6 +29,7 @@ It exists for the cases where the browser tools are helpful, but not quite enoug
 - unix time, deterministic noise, pointer, and audio signal sources
 - a larger native pointer pad for local motion control
 - real local audio device selection through the optional `sounddevice` package
+- a source-type toggle that defaults to output sources and can switch to microphones
 - a roomier right-hand diagnostics column that holds audio controls and pointer input
 
 ## What changed in the polished version
@@ -40,6 +41,7 @@ It exists for the cases where the browser tools are helpful, but not quite enoug
 - the full JSON preview opens in a separate window so the main panel fits typical desktop screens more comfortably
 - settings can be saved to and loaded from JSON files
 - Windows machines without `sounddevice` can still list input devices through a waveIn fallback, even though real capture still requires `sounddevice`
+- the prerequisite report now calls out the optional `sounddevice` package directly so audio setup is easier to diagnose
 
 ## Main pieces
 

@@ -60,7 +60,7 @@
             <h3>What it can do</h3>
             <div class="cards">
               <div class="card"><h4>Instant 2D and 3D switching</h4><p>One native panel can move between desktop-only 2D presets and the shared 3D preset catalog immediately.</p></div>
-              <div class="card"><h4>Local audio-device selection</h4><p>Unlike a browser-only surface, the desktop panel can enumerate real local input devices and explain when capture still needs the optional audio backend.</p></div>
+              <div class="card"><h4>Local audio-device selection</h4><p>Unlike a browser-only surface, the desktop panel can default to output sources for desktop loopback capture, switch over to microphone inputs when needed, and explain when capture still needs the optional <code>sounddevice</code> backend.</p></div>
               <div class="card"><h4>Preview, validate, apply, and save</h4><p>You can open the generated JSON in its own window when you need it, validate it against the live API, apply it immediately, or save the whole setup to a reusable JSON file.</p></div>
               <div class="card"><h4>Continuous live streaming</h4><p>The panel can keep submitting scenes on a controlled cadence while you adjust colors, density, motion, and signals.</p></div>
             </div>
@@ -71,7 +71,7 @@
             <div class="cards">
               <div class="card"><h4>Renderer connection</h4><p>Choose the API host, port, and live cadence, then run health, validate, apply, start, or stop actions.</p></div>
               <div class="card"><h4>Scene controls</h4><p>Choose scene type and preset with stay-selected buttons, then tune geometry density, motion speed, gain, manual drive, and live color swatches.</p></div>
-              <div class="card"><h4>Audio input</h4><p>The roomier diagnostics column now holds audio controls, so device refresh, capture, and routing are easier to reach on smaller displays. On Windows, the panel can still list devices even before the optional capture package is installed.</p></div>
+              <div class="card"><h4>Audio input</h4><p>The roomier diagnostics column now holds audio controls, including a toggle between output sources and input sources. Output sources are selected by default, and the panel can still explain when the optional <code>sounddevice</code> package is needed for real capture.</p></div>
               <div class="card"><h4>Pointer pad, settings, and preview</h4><p>Drive pointer-based motion on a larger pad, revert to preset defaults, save or load settings, and open the exact JSON scene in a dedicated window instead of stretching the main panel.</p></div>
             </div>
           </section>

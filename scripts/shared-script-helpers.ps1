@@ -133,8 +133,13 @@ function Test-PythonModuleAvailable {
     return $false
   }
 
-  & $pythonCommand.Source -c "import $ModuleName" *> $null
-  return $LASTEXITCODE -eq 0
+  try {
+    & $pythonCommand.Source -c "import $ModuleName" 1> $null 2> $null
+    return $LASTEXITCODE -eq 0
+  }
+  catch {
+    return $false
+  }
 }
 
 function Get-WingetInstalledBinaryPath {
