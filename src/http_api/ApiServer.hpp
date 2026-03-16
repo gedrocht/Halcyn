@@ -160,6 +160,7 @@ private:
    * - `/api/v1/runtime/limits`
    * - `/api/v1/examples/2d`
    * - `/api/v1/examples/3d`
+   * - `/api/v1/examples/spectrograph`
    */
   void ConfigureRoutes();
 

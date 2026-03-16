@@ -6,6 +6,45 @@
 #include "scene_description/SceneFactory.hpp"
 
 namespace halcyn::scene_description {
+namespace {
+void AppendBar(Scene3D& scene, float centerX, float centerZ, float width, float depth, float height,
+               const ColorRgba& color) {
+  const std::uint32_t firstVertexIndex = static_cast<std::uint32_t>(scene.vertices.size());
+  const float halfWidth = width * 0.5F;
+  const float halfDepth = depth * 0.5F;
+
+  scene.vertices.push_back(
+      {centerX - halfWidth, 0.0F, centerZ - halfDepth, color.r, color.g, color.b, color.a});
+  scene.vertices.push_back(
+      {centerX + halfWidth, 0.0F, centerZ - halfDepth, color.r, color.g, color.b, color.a});
+  scene.vertices.push_back(
+      {centerX + halfWidth, 0.0F, centerZ + halfDepth, color.r, color.g, color.b, color.a});
+  scene.vertices.push_back(
+      {centerX - halfWidth, 0.0F, centerZ + halfDepth, color.r, color.g, color.b, color.a});
+  scene.vertices.push_back(
+      {centerX - halfWidth, height, centerZ - halfDepth, color.r, color.g, color.b, color.a});
+  scene.vertices.push_back(
+      {centerX + halfWidth, height, centerZ - halfDepth, color.r, color.g, color.b, color.a});
+  scene.vertices.push_back(
+      {centerX + halfWidth, height, centerZ + halfDepth, color.r, color.g, color.b, color.a});
+  scene.vertices.push_back(
+      {centerX - halfWidth, height, centerZ + halfDepth, color.r, color.g, color.b, color.a});
+
+  const std::array<std::uint32_t, 36> cubeIndices = {
+      0, 1, 2, 0, 2, 3, // floor
+      4, 5, 6, 4, 6, 7, // top
+      0, 1, 5, 0, 5, 4, // front
+      1, 2, 6, 1, 6, 5, // right
+      2, 3, 7, 2, 7, 6, // back
+      3, 0, 4, 3, 4, 7  // left
+  };
+
+  for (const std::uint32_t indexOffset : cubeIndices) {
+    scene.indices.push_back(firstVertexIndex + indexOffset);
+  }
+}
+} // namespace
+
 SceneDocument CreateDefaultSceneDocument() {
   // The default scene is intentionally a 2D sample because it is the smallest,
   // friendliest possible success case when the app starts for the first time.
@@ -77,6 +116,65 @@ SceneDocument CreateSample3DSceneDocument() {
     { "x": 0.0, "y": 0.0, "z": 1.2, "r": 1.0, "g": 0.9, "b": 0.2 }
   ],
   "indices": [0, 1, 2, 0, 1, 3, 1, 2, 3, 2, 0, 3]
+})";
+  return document;
+}
+
+SceneDocument CreateSampleSpectrographSceneDocument() {
+  Scene3D scene;
+  scene.primitiveType = PrimitiveType::Triangles;
+  scene.clearColor = {0.03F, 0.04F, 0.08F, 1.0F};
+  scene.camera.position = {6.5F, 5.5F, 6.5F};
+  scene.camera.target = {0.0F, 1.4F, 0.0F};
+  scene.camera.up = {0.0F, 1.0F, 0.0F};
+  scene.presentationOptions.antiAliasingEnabled = true;
+  scene.presentationOptions.shaderStyle = ShaderStyle::Heatmap;
+
+  constexpr int gridSize = 6;
+  constexpr float spacing = 0.82F;
+  constexpr float barWidth = 0.58F;
+  constexpr float barDepth = 0.58F;
+
+  for (int rowIndex = 0; rowIndex < gridSize; ++rowIndex) {
+    for (int columnIndex = 0; columnIndex < gridSize; ++columnIndex) {
+      const float x =
+          (static_cast<float>(columnIndex) - static_cast<float>(gridSize - 1) * 0.5F) * spacing;
+      const float z =
+          (static_cast<float>(rowIndex) - static_cast<float>(gridSize - 1) * 0.5F) * spacing;
+      const float normalizedPhase = static_cast<float>((rowIndex * gridSize) + columnIndex) /
+                                    static_cast<float>((gridSize * gridSize) - 1);
+      const float height = 0.25F + (normalizedPhase * normalizedPhase * 3.2F);
+      const ColorRgba color = {
+          0.12F + normalizedPhase * 0.85F,
+          0.18F + (1.0F - normalizedPhase) * 0.46F,
+          0.88F - normalizedPhase * 0.58F,
+          1.0F,
+      };
+      AppendBar(scene, x, z, barWidth, barDepth, height, color);
+    }
+  }
+
+  SceneDocument document;
+  document.kind = SceneKind::ThreeDimensional;
+  document.payload = scene;
+  document.originalJson = R"({
+  "sceneType": "3d",
+  "primitive": "triangles",
+  "clearColor": { "r": 0.03, "g": 0.04, "b": 0.08, "a": 1.0 },
+  "camera": {
+    "position": { "x": 6.5, "y": 5.5, "z": 6.5 },
+    "target": { "x": 0.0, "y": 1.4, "z": 0.0 },
+    "up": { "x": 0.0, "y": 1.0, "z": 0.0 },
+    "fovYDegrees": 60.0,
+    "nearPlane": 0.1,
+    "farPlane": 100.0
+  },
+  "renderStyle": {
+    "shader": "heatmap",
+    "antiAliasing": true
+  },
+  "vertices": "Generated bar-grid sample omitted for brevity.",
+  "indices": "Generated bar-grid sample omitted for brevity."
 })";
   return document;
 }

@@ -221,6 +221,7 @@ RenderScene BuildRenderScene(const SceneDocument& document) {
   renderScene.lineWidth = scene.lineWidth;
   renderScene.clearColor = scene.clearColor;
   renderScene.camera = scene.camera;
+  renderScene.presentationOptions = scene.presentationOptions;
   renderScene.indices = scene.indices;
 
   renderScene.vertices.reserve(scene.vertices.size());
@@ -267,6 +268,35 @@ std::optional<PrimitiveType> PrimitiveTypeFromString(const std::string& value) {
 
   if (value == "triangles") {
     return PrimitiveType::Triangles;
+  }
+
+  return std::nullopt;
+}
+
+std::string ToString(ShaderStyle shaderStyle) {
+  switch (shaderStyle) {
+  case ShaderStyle::Standard:
+    return "standard";
+  case ShaderStyle::Neon:
+    return "neon";
+  case ShaderStyle::Heatmap:
+    return "heatmap";
+  }
+
+  return "unknown";
+}
+
+std::optional<ShaderStyle> ShaderStyleFromString(const std::string& value) {
+  if (value == "standard") {
+    return ShaderStyle::Standard;
+  }
+
+  if (value == "neon") {
+    return ShaderStyle::Neon;
+  }
+
+  if (value == "heatmap") {
+    return ShaderStyle::Heatmap;
   }
 
   return std::nullopt;

@@ -57,4 +57,20 @@ SceneDocument CreateSample2DSceneDocument();
  * without needing an external asset pipeline or mesh format.
  */
 SceneDocument CreateSample3DSceneDocument();
+
+/**
+ * @brief Creates a built-in 3D bar-grid scene that resembles a colorful spectrograph.
+ *
+ * @return A fully populated 3D scene document suitable for the dedicated spectrograph renderer.
+ *
+ * @details
+ * This sample exists for the same reasons as the simpler 2D and 3D samples, but it focuses on
+ * the new bar-grid visual vocabulary:
+ *
+ * - a grid of indexed 3D bars
+ * - height-encoded values
+ * - heatmap-style presentation settings
+ * - a camera angle tuned for dense 3D data walls
+ */
+SceneDocument CreateSampleSpectrographSceneDocument();
 } // namespace halcyn::scene_description

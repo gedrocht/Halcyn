@@ -173,11 +173,15 @@ Why this matters even in the Doxygen docs:
 
 ## Tkinter
 
-Halcyn uses **Tkinter** for the native desktop render control panel.
+Halcyn uses **Tkinter** for both native desktop operator tools:
+
+- the desktop render control panel
+- the desktop spectrograph control panel
 
 Where it appears:
 
 - `desktop_render_control_panel.desktop_control_panel_window`
+- `desktop_spectrograph_control_panel.spectrograph_control_panel_window`
 
 Official documentation:
 
@@ -195,7 +199,8 @@ Why Halcyn uses it:
 
 ## urllib.request
 
-Halcyn uses **urllib.request** for the desktop control panel's small HTTP client.
+Halcyn uses **urllib.request** for the desktop operator tools' small HTTP
+clients.
 
 Where it appears:
 
@@ -211,6 +216,31 @@ Why Halcyn uses it:
 - the desktop panel only needs a handful of simple HTTP calls
 - the standard library keeps that code dependency-light
 - it is easier for a beginner to study when the client layer is built on familiar Python docs
+
+## Python json and statistics
+
+Halcyn uses the standard-library **json** module and a handful of simple
+statistics concepts in the desktop spectrograph control panel.
+
+Where it appears:
+
+- `desktop_spectrograph_control_panel.spectrograph_scene_builder`
+- `desktop_spectrograph_control_panel.spectrograph_control_panel_controller`
+
+Official documentation:
+
+- [json](https://docs.python.org/3/library/json.html)
+- [statistics](https://docs.python.org/3/library/statistics.html)
+- [str.encode](https://docs.python.org/3/library/stdtypes.html#str.encode)
+
+Why Halcyn uses them:
+
+- the spectrograph tool needs to parse generic JSON without taking on another
+  dependency
+- the range model is easier for beginners to study when it is written in
+  ordinary Python terms such as mean and standard deviation
+- converting strings to UTF-8 byte values makes text payloads usable without
+  inventing a custom binary protocol
 
 ## ctypes and Windows waveIn
 

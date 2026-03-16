@@ -40,6 +40,15 @@ else {
 }
 
 Write-Host ''
+Write-Host 'Running desktop spectrograph control panel lint...'
+if (Test-PythonCommand -Arguments @('-m', 'ruff', '--version')) {
+  & (Join-Path $PSScriptRoot 'lint-desktop-spectrograph-control-panel.ps1')
+}
+else {
+  Write-Host 'Skipping desktop spectrograph control panel lint because ruff is not yet available.'
+}
+
+Write-Host ''
 Write-Host 'Running browser Control Center type checks...'
 if (Test-PythonCommand -Arguments @('-m', 'mypy', '--version')) {
   & (Join-Path $PSScriptRoot 'typecheck-browser-control-center.ps1')
@@ -55,6 +64,15 @@ if (Test-PythonCommand -Arguments @('-m', 'mypy', '--version')) {
 }
 else {
   Write-Host 'Skipping desktop render control panel type checks because mypy is not yet available.'
+}
+
+Write-Host ''
+Write-Host 'Running desktop spectrograph control panel type checks...'
+if (Test-PythonCommand -Arguments @('-m', 'mypy', '--version')) {
+  & (Join-Path $PSScriptRoot 'typecheck-desktop-spectrograph-control-panel.ps1')
+}
+else {
+  Write-Host 'Skipping desktop spectrograph control panel type checks because mypy is not yet available.'
 }
 
 Write-Host ''
@@ -75,6 +93,16 @@ if (Test-PythonCommand -Arguments @('-m', 'coverage', '--version')) {
 else {
   Write-Host 'Falling back to plain desktop render control panel tests because coverage is not yet available.'
   & (Join-Path $PSScriptRoot 'test-desktop-render-control-panel.ps1')
+}
+
+Write-Host ''
+Write-Host 'Running desktop spectrograph control panel quality checks...'
+if (Test-PythonCommand -Arguments @('-m', 'coverage', '--version')) {
+  & (Join-Path $PSScriptRoot 'measure-desktop-spectrograph-control-panel-coverage.ps1')
+}
+else {
+  Write-Host 'Falling back to plain desktop spectrograph control panel tests because coverage is not yet available.'
+  & (Join-Path $PSScriptRoot 'test-desktop-spectrograph-control-panel.ps1')
 }
 
 Write-Host ''

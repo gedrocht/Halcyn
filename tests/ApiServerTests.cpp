@@ -105,4 +105,30 @@ TEST_CASE("ApiServer rejects invalid media types and invalid scenes", "[api]") {
 
   apiServer.Stop();
 }
+
+TEST_CASE("ApiServer exposes the built-in spectrograph example scene", "[api][examples]") {
+  auto sceneStore = std::make_shared<shared_runtime::SceneStore>(
+      scene_description::CreateSample2DSceneDocument());
+  auto sceneJsonCodec = std::make_shared<scene_description::SceneJsonCodec>();
+  auto runtimeLog = std::make_shared<shared_runtime::RuntimeLog>(100);
+
+  http_api::ApiServerConfig serverConfiguration;
+  serverConfiguration.host = "127.0.0.1";
+  serverConfiguration.port = 0;
+
+  http_api::ApiServer apiServer(serverConfiguration, sceneStore, sceneJsonCodec, runtimeLog);
+  apiServer.Start();
+
+  httplib::Client httpClient("127.0.0.1", apiServer.GetBoundPort());
+  httpClient.set_connection_timeout(5, 0);
+  httpClient.set_read_timeout(5, 0);
+
+  const auto spectrographExampleResponse = httpClient.Get("/api/v1/examples/spectrograph");
+  REQUIRE(spectrographExampleResponse);
+  CHECK(spectrographExampleResponse->status == 200);
+  CHECK(spectrographExampleResponse->body.find("\"sceneType\": \"3d\"") != std::string::npos);
+  CHECK(spectrographExampleResponse->body.find("\"shader\": \"heatmap\"") != std::string::npos);
+
+  apiServer.Stop();
+}
 } // namespace halcyn::tests

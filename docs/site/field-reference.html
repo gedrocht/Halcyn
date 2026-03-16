@@ -37,6 +37,7 @@
             <li><a href="control-center.html" data-nav-link="control-center">Control Center</a></li>
             <li><a href="scene-studio.html" data-nav-link="scene-studio">Scene Studio</a></li>
             <li><a href="desktop-control-panel.html" data-nav-link="desktop-control-panel">Desktop Control Panel</a></li>
+            <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Spectrograph Suite</a></li>
           </ul>
         </nav>
 
@@ -72,6 +73,8 @@
                   <tr><td><code>fovYDegrees</code></td><td>The vertical field of view for the 3D projection.</td></tr>
                   <tr><td><code>nearPlane</code></td><td>The near clipping plane distance.</td></tr>
                   <tr><td><code>farPlane</code></td><td>The far clipping plane distance.</td></tr>
+                  <tr><td><code>renderStyle.shader</code></td><td>The fragment-shader presentation style for 3D scenes: <code>standard</code>, <code>neon</code>, or <code>heatmap</code>.</td></tr>
+                  <tr><td><code>renderStyle.antiAliasing</code></td><td>Whether OpenGL multisample anti-aliasing should stay enabled for the scene.</td></tr>
                 </tbody>
               </table>
             </div>
@@ -90,6 +93,26 @@
                   <tr><td><code>maxPayloadBytes</code></td><td>Caps how much JSON one request can send.</td></tr>
                   <tr><td><code>maxVertices</code></td><td>Caps scene complexity at a beginner-friendly level.</td></tr>
                   <tr><td><code>maxIndices</code></td><td>Caps indexed mesh size for 3D submissions.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h3>Desktop spectrograph request fields</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Field</th><th>Meaning</th></tr></thead>
+                <tbody>
+                  <tr><td><code>data.jsonText</code></td><td>The raw generic JSON text that will be flattened into numeric values.</td></tr>
+                  <tr><td><code>render.barGridSize</code></td><td>The <code>N</code> in the final <code>N x N</code> bar wall.</td></tr>
+                  <tr><td><code>render.shaderStyle</code></td><td>The chosen shader style for the generated 3D bar scene.</td></tr>
+                  <tr><td><code>render.antiAliasing</code></td><td>Whether multisample anti-aliasing should stay enabled.</td></tr>
+                  <tr><td><code>range.mode</code></td><td>Whether the normalization range is automatic or manually specified.</td></tr>
+                  <tr><td><code>range.manualMinimum</code> / <code>manualMaximum</code></td><td>The operator-defined normalization range when manual mode is selected.</td></tr>
+                  <tr><td><code>range.rollingHistoryValueCount</code></td><td>How many recent source values should contribute to the rolling statistics.</td></tr>
+                  <tr><td><code>range.standardDeviationMultiplier</code></td><td>How wide the automatic range should be relative to the rolling standard deviation.</td></tr>
+                  <tr><td><code>session.cadenceMs</code></td><td>The live-stream interval used by the spectrograph control panel.</td></tr>
                 </tbody>
               </table>
             </div>
