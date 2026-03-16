@@ -170,3 +170,64 @@ Why this matters even in the Doxygen docs:
 - many class and function examples are mirrored by tests
 - if you want to see "how the code is really expected to behave," the tests are often the most
   precise executable examples in the repository
+
+## Tkinter
+
+Halcyn uses **Tkinter** for the native desktop render control panel.
+
+Where it appears:
+
+- `desktop_render_control_panel.desktop_control_panel_window`
+
+Official documentation:
+
+- [Tkinter overview](https://docs.python.org/3/library/tkinter.html)
+- [Themed widgets (`tkinter.ttk`)](https://docs.python.org/3/library/tkinter.ttk.html)
+- [ScrolledText widget](https://docs.python.org/3/library/tkinter.scrolledtext.html)
+- [Color chooser dialog](https://docs.python.org/3/library/tkinter.colorchooser.html)
+
+Why Halcyn uses it:
+
+- it is included with standard Python on Windows
+- it keeps the desktop operator tool lightweight and easy to run locally
+- it is beginner-friendly enough to study without pulling in a large GUI framework
+
+## urllib.request
+
+Halcyn uses **urllib.request** for the desktop control panel's small HTTP client.
+
+Where it appears:
+
+- `desktop_render_control_panel.render_api_client`
+
+Official documentation:
+
+- [urllib.request](https://docs.python.org/3/library/urllib.request.html)
+- [urllib.error](https://docs.python.org/3/library/urllib.error.html)
+
+Why Halcyn uses it:
+
+- the desktop panel only needs a handful of simple HTTP calls
+- the standard library keeps that code dependency-light
+- it is easier for a beginner to study when the client layer is built on familiar Python docs
+
+## sounddevice
+
+Halcyn uses **sounddevice** as an optional bridge to real local audio input devices for the desktop
+render control panel.
+
+Where it appears:
+
+- `desktop_render_control_panel.audio_input_service`
+
+Official documentation:
+
+- [sounddevice documentation home](https://python-sounddevice.readthedocs.io/)
+- [Checking hardware / querying devices](https://python-sounddevice.readthedocs.io/en/latest/api/checking-hardware.html)
+- [InputStream reference](https://python-sounddevice.readthedocs.io/en/latest/api/streams.html)
+
+Why Halcyn uses it:
+
+- it exposes local audio devices through PortAudio without requiring a browser permission flow
+- it keeps the desktop tool useful even when a user wants the operator surface beside the renderer
+- it is optional, so the rest of the desktop control panel still works if audio capture is unavailable

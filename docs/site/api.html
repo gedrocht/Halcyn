@@ -36,6 +36,7 @@
             <li><a href="field-reference.html">Field Reference</a></li>
             <li><a href="control-center.html">Control Center</a></li>
             <li><a href="scene-studio.html">Scene Studio</a></li>
+            <li><a href="desktop-control-panel.html">Desktop Control Panel</a></li>
           </ul>
         </nav>
 
@@ -125,6 +126,16 @@
               beginners a browser-first way to probe the live API before they are comfortable with command-line tools.
             </p>
             <pre><code>.\scripts\launch-browser-control-center.ps1</code></pre>
+          </section>
+
+          <section class="panel">
+            <h3>Desktop control panel usage</h3>
+            <p>
+              The native desktop control panel talks to the same health, validation, and apply
+              endpoints. Its difference is not a separate API contract, but a different operator
+              experience layered on top of the same HTTP routes.
+            </p>
+            <pre><code>.\scripts\launch-desktop-render-control-panel.ps1</code></pre>
           </section>
 
           <section class="panel">

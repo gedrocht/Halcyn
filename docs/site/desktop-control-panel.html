@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Halcyn Desktop Control Panel</title>
+    <link rel="stylesheet" href="assets/styles.css">
+    <script defer src="assets/app.js"></script>
+  </head>
+  <body data-page="desktop-control-panel">
+    <div class="page-shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true"></div>
+          <div class="brand-copy">
+            <h1>Desktop Control Panel Guide</h1>
+            <p>How the native operator console drives live 2D and 3D scene control.</p>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <button class="button" data-theme-toggle>Toggle theme</button>
+          <a class="button" href="https://github.com/gedrocht/Halcyn/blob/main/scripts/launch-desktop-render-control-panel.ps1">View launcher script</a>
+        </div>
+      </header>
+
+      <div class="content-grid">
+        <nav class="nav-card">
+          <h3>Docs map</h3>
+          <ul>
+            <li><a href="index.html" data-nav-link="index">Overview</a></li>
+            <li><a href="tutorial.html" data-nav-link="tutorial">Tutorial</a></li>
+            <li><a href="api.html" data-nav-link="api">API Reference</a></li>
+            <li><a href="architecture.html" data-nav-link="architecture">Architecture</a></li>
+            <li><a href="testing.html" data-nav-link="testing">Testing</a></li>
+            <li><a href="code-docs.html" data-nav-link="code-docs">Code Docs</a></li>
+            <li><a href="field-reference.html" data-nav-link="field-reference">Field Reference</a></li>
+            <li><a href="control-center.html" data-nav-link="control-center">Control Center</a></li>
+            <li><a href="scene-studio.html" data-nav-link="scene-studio">Scene Studio</a></li>
+            <li><a href="desktop-control-panel.html" data-nav-link="desktop-control-panel">Desktop Control Panel</a></li>
+          </ul>
+        </nav>
+
+        <main>
+          <section class="panel">
+            <h3>What it is</h3>
+            <p>
+              The Desktop Render Control Panel is a native Tkinter application that talks to the
+              same Halcyn HTTP API as the browser tools, but presents the controls in a desktop
+              window that can live beside the renderer itself.
+            </p>
+            <pre><code>.\scripts\launch-desktop-render-control-panel.ps1</code></pre>
+            <div class="callout">
+              GitHub Pages can document this tool, but the real control panel runs locally on your
+              machine because it needs direct access to your desktop environment and optional audio
+              hardware.
+            </div>
+          </section>
+
+          <section class="panel">
+            <h3>What it can do</h3>
+            <div class="cards">
+              <div class="card"><h4>Instant 2D and 3D switching</h4><p>One native panel can move between desktop-only 2D presets and the shared 3D preset catalog immediately.</p></div>
+              <div class="card"><h4>Local audio-device selection</h4><p>Unlike a browser-only surface, the desktop panel can enumerate real local input devices through the optional audio backend.</p></div>
+              <div class="card"><h4>Preview, validate, and apply</h4><p>You can inspect the generated JSON, validate it against the live API, or apply it immediately without leaving the window.</p></div>
+              <div class="card"><h4>Continuous live streaming</h4><p>The panel can keep submitting scenes on a controlled cadence while you adjust colors, density, motion, and signals.</p></div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h3>Main areas in the window</h3>
+            <div class="cards">
+              <div class="card"><h4>Renderer connection</h4><p>Choose the API host, port, and live cadence, then run health, validate, apply, start, or stop actions.</p></div>
+              <div class="card"><h4>Scene controls</h4><p>Choose scene type, preset, geometry density, motion speed, gain, manual drive, and the active signal families.</p></div>
+              <div class="card"><h4>Audio input</h4><p>Refresh local devices, start or stop capture, and route the analyzed level, bass, mid, and treble bands into the current preset.</p></div>
+              <div class="card"><h4>Pointer pad and preview</h4><p>Drive pointer-based motion locally and inspect the exact JSON scene the renderer will receive.</p></div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h3>How it fits with the browser tools</h3>
+            <p>
+              The browser Control Center is still the orchestration dashboard for builds, tests,
+              logs, docs, and API experiments. The browser Scene Studio is still a browser-native
+              creative surface for live authoring. The Desktop Render Control Panel is the native
+              operator console for the situations where local hardware awareness and a desktop
+              companion window matter more than staying in a browser tab.
+            </p>
+          </section>
+
+          <section class="panel">
+            <h3>Testing and quality gates</h3>
+            <p>
+              The desktop panel is treated like the rest of the repo's maintained code, not like an
+              experimental extra. It has linting, type checks, unit tests, and a 90% coverage gate.
+            </p>
+            <pre><code>.\scripts\lint-desktop-render-control-panel.ps1
+.\scripts\typecheck-desktop-render-control-panel.ps1
+.\scripts\test-desktop-render-control-panel.ps1
+.\scripts\measure-desktop-render-control-panel-coverage.ps1</code></pre>
+          </section>
+
+          <section class="panel">
+            <h3>Optional audio dependency</h3>
+            <p>
+              Real device capture depends on the optional <code>sounddevice</code> package. If it is
+              missing, the desktop panel still opens and the rest of the controls still work; only
+              live device capture is disabled.
+            </p>
+            <pre><code>python -m pip install sounddevice</code></pre>
+          </section>
+
+          <section class="panel">
+            <h3>External library references</h3>
+            <p>
+              The desktop panel is intentionally built on small, well-documented
+              standard-library pieces plus one optional audio package. These are
+              the most relevant references if you want to study how the code
+              works line by line.
+            </p>
+            <ul>
+              <li><a href="https://docs.python.org/3/library/tkinter.html">Tkinter overview</a></li>
+              <li><a href="https://docs.python.org/3/library/tkinter.ttk.html">Tk themed widgets (`ttk`)</a></li>
+              <li><a href="https://docs.python.org/3/library/tkinter.scrolledtext.html">ScrolledText widget</a></li>
+              <li><a href="https://docs.python.org/3/library/urllib.request.html">urllib.request</a></li>
+              <li><a href="https://docs.python.org/3/library/threading.html">threading</a></li>
+              <li><a href="https://python-sounddevice.readthedocs.io/">sounddevice</a></li>
+            </ul>
+          </section>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

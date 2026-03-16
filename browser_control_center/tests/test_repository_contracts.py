@@ -149,6 +149,7 @@ class RepositoryContractTests(unittest.TestCase):
             "client-studio.html",
             "architecture.svg",
             "http://127.0.0.1:9001",
+            "../../README.md",
         ]
         for relative_path in [
             "docs/site/index.html",
@@ -158,6 +159,7 @@ class RepositoryContractTests(unittest.TestCase):
             "docs/site/testing.html",
             "docs/site/control-center.html",
             "docs/site/scene-studio.html",
+            "docs/site/desktop-control-panel.html",
             "docs/site/code-docs.html",
         ]:
             page_text = self._read_text(relative_path)
@@ -179,6 +181,7 @@ class RepositoryContractTests(unittest.TestCase):
             "field-reference.html",
             "control-center.html",
             "scene-studio.html",
+            "desktop-control-panel.html",
         }
 
         for relative_path in [
@@ -191,6 +194,7 @@ class RepositoryContractTests(unittest.TestCase):
             "docs/site/field-reference.html",
             "docs/site/control-center.html",
             "docs/site/scene-studio.html",
+            "docs/site/desktop-control-panel.html",
         ]:
             parser = self._parse_html(relative_path)
             missing_doc_links = sorted(expected_doc_links - parser.hrefs)
@@ -212,6 +216,7 @@ class RepositoryContractTests(unittest.TestCase):
             "docs/site/field-reference.html",
             "docs/site/control-center.html",
             "docs/site/scene-studio.html",
+            "docs/site/desktop-control-panel.html",
         ]:
             parser = self._parse_html(relative_path)
             root_relative_links = sorted(href for href in parser.hrefs if href.startswith("/"))

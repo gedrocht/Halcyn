@@ -36,6 +36,7 @@
             <li><a href="field-reference.html" data-nav-link="field-reference">Field Reference</a></li>
             <li><a href="control-center.html" data-nav-link="control-center">Control Center</a></li>
             <li><a href="scene-studio.html" data-nav-link="scene-studio">Scene Studio</a></li>
+            <li><a href="desktop-control-panel.html" data-nav-link="desktop-control-panel">Desktop Control Panel</a></li>
           </ul>
         </nav>
 
@@ -88,6 +89,13 @@
                     <p>
                       The scene authoring UI sends control changes that become scene updates or
                       server-driven live-session output.
+                    </p>
+                  </div>
+                  <div class="architecture-node">
+                    <strong>Desktop Render Control Panel</strong>
+                    <p>
+                      The native operator console offers local audio-device selection, a desktop
+                      pointer pad, instant 2D and 3D switching, and its own live-stream controls.
                     </p>
                   </div>
                   <div class="architecture-node">
@@ -287,9 +295,9 @@
                 </ul>
               </section>
               <section class="architecture-boundary">
-                <h4>Browser tooling</h4>
+                <h4>Operator tooling</h4>
                 <ul>
-                  <li>Owns operator workflow, authoring UX, and orchestration affordances.</li>
+                  <li>Owns operator workflow, authoring UX, local device selection, and orchestration affordances.</li>
                   <li>Does not replace the scene store as the canonical source of truth.</li>
                 </ul>
               </section>
@@ -297,12 +305,13 @@
           </section>
 
           <section class="panel">
-            <h3>Why there are separate browser tools</h3>
+            <h3>Why there are multiple control surfaces</h3>
             <p>
-              The Control Center and Scene Studio serve different jobs. The Control Center is about
-              orchestration: builds, tests, logs, docs, and API experiments. The Scene Studio is
-              about live scene authoring. Keeping them separate avoids one overloaded UI that tries
-              to be both a dashboard and a creative surface at once.
+              The Control Center, Scene Studio, and Desktop Render Control Panel serve different
+              jobs. The Control Center is about orchestration: builds, tests, logs, docs, and API
+              experiments. The Scene Studio is about browser-native live scene authoring. The
+              desktop panel is about a native operator experience with local hardware awareness.
+              Keeping them separate avoids one overloaded UI that tries to be every tool at once.
             </p>
           </section>
         </main>
