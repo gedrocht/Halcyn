@@ -6,6 +6,7 @@ Helpful library references:
 - `ttk` widgets: https://docs.python.org/3/library/tkinter.ttk.html
 - `ScrolledText`: https://docs.python.org/3/library/tkinter.scrolledtext.html
 - `colorchooser`: https://docs.python.org/3/library/tkinter.colorchooser.html
+- `filedialog`: https://docs.python.org/3/library/dialog.html#tkinter.filedialog
 """
 
 from __future__ import annotations
@@ -13,7 +14,8 @@ from __future__ import annotations
 import json
 import math
 import tkinter as tk
-from tkinter import colorchooser, messagebox, ttk
+from pathlib import Path
+from tkinter import colorchooser, filedialog, messagebox, ttk
 from tkinter.scrolledtext import ScrolledText
 from typing import Any
 
@@ -21,6 +23,21 @@ from desktop_render_control_panel.desktop_control_panel_controller import (
     DesktopRenderControlPanelController,
 )
 from desktop_render_control_panel.desktop_control_scene_builder import DEFAULT_DESKTOP_PRESET_ID
+
+WINDOW_BACKGROUND = "#071018"
+SURFACE_BACKGROUND = "#101b2a"
+SURFACE_BORDER = "#21364d"
+TEXT_PRIMARY = "#edf4ff"
+TEXT_SECONDARY = "#9eb3c9"
+ACCENT_COLOR = "#5fd1ff"
+ACCENT_COLOR_ACTIVE = "#89e0ff"
+ACCENT_FOREGROUND = "#04131d"
+ENTRY_BACKGROUND = "#162537"
+POINTER_PAD_BACKGROUND = "#09121c"
+POINTER_PAD_GRID = "#284058"
+POINTER_PAD_MARKER = "#ffd166"
+COLOR_SWATCH_BORDER = "#6b7f94"
+DEFAULT_SETTINGS_FILE_NAME = "halcyn-desktop-control-panel-settings.json"
 
 
 class DesktopRenderControlPanelWindow:
@@ -44,20 +61,17 @@ class DesktopRenderControlPanelWindow:
         self._preset_entries_by_identifier = {
             preset["id"]: preset for preset in self._catalog["presets"]
         }
-        self._preset_names_by_scene_type = {
+        self._preset_identifiers_by_scene_type = {
             "2d": [
-                preset["name"]
+                preset["id"]
                 for preset in self._catalog["presets"]
                 if preset["sceneType"] == "2d"
             ],
             "3d": [
-                preset["name"]
+                preset["id"]
                 for preset in self._catalog["presets"]
                 if preset["sceneType"] == "3d"
             ],
-        }
-        self._preset_ids_by_name = {
-            preset["name"]: preset["id"] for preset in self._catalog["presets"]
         }
         self._preset_names_by_identifier = {
             preset["id"]: preset["name"] for preset in self._catalog["presets"]
@@ -66,7 +80,13 @@ class DesktopRenderControlPanelWindow:
         self._suppress_variable_sync = False
         self._last_pointer_x = 0.5
         self._last_pointer_y = 0.5
+        self._pointer_crosshair_item_identifier: int | None = None
+        self._pointer_marker_item_identifier: int | None = None
+        self._settings_file_path: Path | None = None
         self._build_variables()
+        self._slider_display_variables = self._build_slider_display_variables()
+        self._color_swatch_frames: dict[str, tk.Frame] = {}
+        self._preset_button_widgets: list[tk.Radiobutton] = []
         self._build_user_interface()
         self._load_initial_state()
         self._root.protocol("WM_DELETE_WINDOW", self._on_close_requested)
@@ -76,7 +96,7 @@ class DesktopRenderControlPanelWindow:
         """Create the Tkinter variables that keep the UI and controller in sync."""
 
         self._scene_type_variable = tk.StringVar(value="2d")
-        self._preset_name_variable = tk.StringVar(value="")
+        self._preset_identifier_variable = tk.StringVar(value="")
         self._host_variable = tk.StringVar(value="127.0.0.1")
         self._port_variable = tk.StringVar(value="8080")
         self._cadence_variable = tk.IntVar(value=125)
@@ -100,18 +120,28 @@ class DesktopRenderControlPanelWindow:
         self._audio_status_variable = tk.StringVar(value="Audio capture not started.")
         self._result_status_variable = tk.StringVar(value="Ready.")
 
+    def _build_slider_display_variables(self) -> dict[str, tk.StringVar]:
+        """Create formatted label variables for the numeric slider values."""
+
+        return {
+            "cadence": tk.StringVar(value="125 ms"),
+            "density": tk.StringVar(value="96"),
+            "pointSize": tk.StringVar(value="6.0"),
+            "lineWidth": tk.StringVar(value="2.0"),
+            "speed": tk.StringVar(value="1.00"),
+            "gain": tk.StringVar(value="1.00"),
+            "manualDrive": tk.StringVar(value="0.35"),
+        }
+
     def _build_user_interface(self) -> None:
         """Create the three major page columns and their child sections."""
 
         self._root.title("Halcyn Desktop Render Control Panel")
         self._root.geometry("1460x920")
         self._root.minsize(1200, 760)
+        self._configure_dark_theme()
 
-        style = ttk.Style(self._root)
-        style.configure("Heading.TLabel", font=("Segoe UI", 18, "bold"))
-        style.configure("Section.TLabelframe.Label", font=("Segoe UI", 11, "bold"))
-
-        page_shell = ttk.Frame(self._root, padding=16)
+        page_shell = ttk.Frame(self._root, padding=18, style="Surface.TFrame")
         page_shell.grid(sticky="nsew")
         self._root.columnconfigure(0, weight=1)
         self._root.rowconfigure(0, weight=1)
@@ -127,36 +157,140 @@ class DesktopRenderControlPanelWindow:
             style="Heading.TLabel",
         )
         heading.grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 12))
+        subtitle = ttk.Label(
+            page_shell,
+            text=(
+                "Native live scene control with presets, local audio routing, "
+                "instant 2D/3D switching, and renderer-aware diagnostics."
+            ),
+            style="Subheading.TLabel",
+        )
+        subtitle.grid(row=1, column=0, columnspan=3, sticky="w", pady=(0, 16))
 
         self._connection_frame = ttk.LabelFrame(
             page_shell,
             text="Renderer Connection",
             padding=12,
-            style="Section.TLabelframe",
+            style="Panel.TLabelframe",
         )
-        self._connection_frame.grid(row=1, column=0, sticky="nsew", padx=(0, 12))
+        self._connection_frame.grid(row=2, column=0, sticky="nsew", padx=(0, 12))
 
         self._scene_frame = ttk.LabelFrame(
             page_shell,
             text="Scene Controls",
             padding=12,
-            style="Section.TLabelframe",
+            style="Panel.TLabelframe",
         )
-        self._scene_frame.grid(row=1, column=1, sticky="nsew", padx=(0, 12))
+        self._scene_frame.grid(row=2, column=1, sticky="nsew", padx=(0, 12))
 
         self._output_frame = ttk.LabelFrame(
             page_shell,
             text="Preview, Status, and Diagnostics",
             padding=12,
-            style="Section.TLabelframe",
+            style="Panel.TLabelframe",
         )
-        self._output_frame.grid(row=1, column=2, sticky="nsew")
+        self._output_frame.grid(row=2, column=2, sticky="nsew")
         self._output_frame.columnconfigure(0, weight=1)
-        self._output_frame.rowconfigure(3, weight=1)
+        self._output_frame.rowconfigure(4, weight=1)
 
         self._build_connection_section()
         self._build_scene_section()
         self._build_output_section()
+
+    def _configure_dark_theme(self) -> None:
+        """Apply a consistent dark theme so the desktop app matches the rest of the project."""
+
+        style = ttk.Style(self._root)
+        if "clam" in style.theme_names():
+            style.theme_use("clam")
+
+        self._root.configure(background=WINDOW_BACKGROUND)
+        style.configure(".", background=WINDOW_BACKGROUND, foreground=TEXT_PRIMARY)
+        style.configure("TFrame", background=WINDOW_BACKGROUND)
+        style.configure("Surface.TFrame", background=WINDOW_BACKGROUND)
+        style.configure("TLabel", background=WINDOW_BACKGROUND, foreground=TEXT_PRIMARY)
+        style.configure(
+            "Heading.TLabel",
+            background=WINDOW_BACKGROUND,
+            foreground=TEXT_PRIMARY,
+            font=("Segoe UI Semibold", 22),
+        )
+        style.configure(
+            "Subheading.TLabel",
+            background=WINDOW_BACKGROUND,
+            foreground=TEXT_SECONDARY,
+            font=("Segoe UI", 10),
+        )
+        style.configure(
+            "Panel.TLabelframe",
+            background=SURFACE_BACKGROUND,
+            foreground=TEXT_PRIMARY,
+            bordercolor=SURFACE_BORDER,
+            relief="solid",
+            borderwidth=1,
+        )
+        style.configure(
+            "Panel.TLabelframe.Label",
+            background=SURFACE_BACKGROUND,
+            foreground=TEXT_PRIMARY,
+            font=("Segoe UI Semibold", 11),
+        )
+        style.configure(
+            "PanelInner.TFrame",
+            background=SURFACE_BACKGROUND,
+        )
+        style.configure(
+            "TButton",
+            background=ENTRY_BACKGROUND,
+            foreground=TEXT_PRIMARY,
+            bordercolor=SURFACE_BORDER,
+            focusthickness=1,
+            focuscolor=ACCENT_COLOR,
+            padding=(10, 8),
+        )
+        style.map(
+            "TButton",
+            background=[("active", SURFACE_BORDER)],
+            foreground=[("disabled", TEXT_SECONDARY)],
+        )
+        style.configure(
+            "Accent.TButton",
+            background=ACCENT_COLOR,
+            foreground=ACCENT_FOREGROUND,
+            bordercolor=ACCENT_COLOR,
+            padding=(10, 8),
+        )
+        style.map(
+            "Accent.TButton",
+            background=[("active", ACCENT_COLOR_ACTIVE)],
+        )
+        style.configure(
+            "TEntry",
+            fieldbackground=ENTRY_BACKGROUND,
+            foreground=TEXT_PRIMARY,
+            insertcolor=TEXT_PRIMARY,
+            bordercolor=SURFACE_BORDER,
+        )
+        style.configure(
+            "TCombobox",
+            fieldbackground=ENTRY_BACKGROUND,
+            foreground=TEXT_PRIMARY,
+            arrowcolor=TEXT_PRIMARY,
+            bordercolor=SURFACE_BORDER,
+        )
+        style.map(
+            "TCombobox",
+            fieldbackground=[("readonly", ENTRY_BACKGROUND)],
+            foreground=[("readonly", TEXT_PRIMARY)],
+        )
+        style.configure(
+            "TLabelframe",
+            background=SURFACE_BACKGROUND,
+            foreground=TEXT_PRIMARY,
+            bordercolor=SURFACE_BORDER,
+        )
+        style.configure("TLabelframe.Label", background=SURFACE_BACKGROUND, foreground=TEXT_PRIMARY)
+        style.configure("TCheckbutton", background=SURFACE_BACKGROUND, foreground=TEXT_PRIMARY)
 
     def _build_connection_section(self) -> None:
         """Create the renderer-target and transport-action controls."""
@@ -182,22 +316,24 @@ class DesktopRenderControlPanelWindow:
         )
 
         ttk.Label(section_frame, text="Live cadence (ms)").grid(row=2, column=0, sticky="w")
-        ttk.Scale(
+        self._build_slider(
             section_frame,
-            from_=40,
-            to=1000,
-            orient="horizontal",
+            row=2,
             variable=self._cadence_variable,
-            command=lambda _: self._schedule_payload_sync(),
-        ).grid(row=2, column=1, sticky="ew")
-        ttk.Label(section_frame, textvariable=self._cadence_variable).grid(
-            row=3,
-            column=1,
-            sticky="e",
-            pady=(0, 8),
+            display_variable=self._slider_display_variables["cadence"],
+            minimum=40,
+            maximum=1000,
+            resolution=1.0,
+            digits_after_decimal=0,
+            suffix=" ms",
         )
 
-        ttk.Button(section_frame, text="Check health", command=self._run_health_check).grid(
+        ttk.Button(
+            section_frame,
+            text="Check health",
+            command=self._run_health_check,
+            style="Accent.TButton",
+        ).grid(
             row=4,
             column=0,
             columnspan=2,
@@ -264,76 +400,136 @@ class DesktopRenderControlPanelWindow:
         for column_index in range(2):
             section_frame.columnconfigure(column_index, weight=1 if column_index == 1 else 0)
 
-        ttk.Label(section_frame, text="Scene type").grid(row=0, column=0, sticky="w")
-        self._scene_type_combobox = ttk.Combobox(
+        ttk.Label(
             section_frame,
-            textvariable=self._scene_type_variable,
-            values=("2d", "3d"),
-            state="readonly",
-        )
-        self._scene_type_combobox.grid(row=0, column=1, sticky="ew", pady=(0, 8))
-        self._scene_type_combobox.bind("<<ComboboxSelected>>", self._on_scene_type_changed)
-
-        ttk.Label(section_frame, text="Preset").grid(row=1, column=0, sticky="w")
-        self._preset_combobox = ttk.Combobox(
+            text="Scene type",
+            style="Subheading.TLabel",
+        ).grid(row=0, column=0, columnspan=2, sticky="w")
+        self._scene_type_button_frame = tk.Frame(
             section_frame,
-            textvariable=self._preset_name_variable,
-            state="readonly",
+            background=SURFACE_BACKGROUND,
+            highlightthickness=0,
         )
-        self._preset_combobox.grid(row=1, column=1, sticky="ew", pady=(0, 8))
-        self._preset_combobox.bind("<<ComboboxSelected>>", self._on_preset_changed)
+        self._scene_type_button_frame.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(6, 10))
+        self._scene_type_button_frame.columnconfigure((0, 1), weight=1)
+        self._build_segmented_button(
+            parent=self._scene_type_button_frame,
+            text="2D",
+            variable=self._scene_type_variable,
+            value="2d",
+            column=0,
+            command=self._on_scene_type_changed,
+        )
+        self._build_segmented_button(
+            parent=self._scene_type_button_frame,
+            text="3D",
+            variable=self._scene_type_variable,
+            value="3d",
+            column=1,
+            command=self._on_scene_type_changed,
+        )
 
-        slider_row = 2
+        ttk.Label(
+            section_frame,
+            text="Preset",
+            style="Subheading.TLabel",
+        ).grid(row=2, column=0, columnspan=2, sticky="w")
+        self._preset_button_frame = tk.Frame(
+            section_frame,
+            background=SURFACE_BACKGROUND,
+            highlightthickness=0,
+        )
+        self._preset_button_frame.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(6, 12))
+        self._preset_button_frame.columnconfigure((0, 1), weight=1)
+
+        scene_actions_frame = ttk.Frame(section_frame, style="PanelInner.TFrame")
+        scene_actions_frame.grid(row=4, column=0, columnspan=2, sticky="ew", pady=(0, 12))
+        scene_actions_frame.columnconfigure((0, 1, 2), weight=1)
+        ttk.Button(
+            scene_actions_frame,
+            text="Revert to default",
+            command=self._revert_current_preset_to_default_settings,
+        ).grid(row=0, column=0, sticky="ew", padx=(0, 6))
+        ttk.Button(
+            scene_actions_frame,
+            text="Load settings",
+            command=self._load_settings_from_file,
+        ).grid(row=0, column=1, sticky="ew", padx=3)
+        ttk.Button(
+            scene_actions_frame,
+            text="Save settings",
+            command=self._save_settings_to_file,
+        ).grid(row=0, column=2, sticky="ew", padx=(6, 0))
+
+        slider_row = 5
         slider_row = self._add_slider(
             section_frame,
             slider_row,
             "Density",
             self._density_variable,
+            self._slider_display_variables["density"],
             24,
             320,
+            1.0,
+            0,
         )
         slider_row = self._add_slider(
             section_frame,
             slider_row,
             "Point size",
             self._point_size_variable,
+            self._slider_display_variables["pointSize"],
             1.0,
             24.0,
+            0.5,
+            1,
         )
         slider_row = self._add_slider(
             section_frame,
             slider_row,
             "Line width",
             self._line_width_variable,
+            self._slider_display_variables["lineWidth"],
             1.0,
             8.0,
+            0.25,
+            2,
         )
         slider_row = self._add_slider(
             section_frame,
             slider_row,
             "Speed",
             self._speed_variable,
+            self._slider_display_variables["speed"],
             0.1,
             4.0,
+            0.05,
+            2,
         )
         slider_row = self._add_slider(
             section_frame,
             slider_row,
             "Gain",
             self._gain_variable,
+            self._slider_display_variables["gain"],
             0.1,
             3.0,
+            0.05,
+            2,
         )
         slider_row = self._add_slider(
             section_frame,
             slider_row,
             "Manual drive",
             self._manual_drive_variable,
+            self._slider_display_variables["manualDrive"],
             0.0,
             2.0,
+            0.05,
+            2,
         )
 
-        ttk.Label(section_frame, text="Background").grid(
+        ttk.Label(section_frame, text="Background", style="Subheading.TLabel").grid(
             row=slider_row,
             column=0,
             sticky="w",
@@ -341,7 +537,7 @@ class DesktopRenderControlPanelWindow:
         )
         self._build_color_row(section_frame, slider_row, self._background_variable)
         slider_row += 1
-        ttk.Label(section_frame, text="Primary color").grid(
+        ttk.Label(section_frame, text="Primary color", style="Subheading.TLabel").grid(
             row=slider_row,
             column=0,
             sticky="w",
@@ -349,7 +545,7 @@ class DesktopRenderControlPanelWindow:
         )
         self._build_color_row(section_frame, slider_row, self._primary_color_variable)
         slider_row += 1
-        ttk.Label(section_frame, text="Secondary color").grid(
+        ttk.Label(section_frame, text="Secondary color", style="Subheading.TLabel").grid(
             row=slider_row,
             column=0,
             sticky="w",
@@ -358,7 +554,12 @@ class DesktopRenderControlPanelWindow:
         self._build_color_row(section_frame, slider_row, self._secondary_color_variable)
         slider_row += 1
 
-        signals_frame = ttk.LabelFrame(section_frame, text="Signal sources", padding=8)
+        signals_frame = ttk.LabelFrame(
+            section_frame,
+            text="Signal sources",
+            padding=10,
+            style="Panel.TLabelframe",
+        )
         signals_frame.grid(row=slider_row, column=0, columnspan=2, sticky="ew", pady=(12, 0))
         for signal_index, (label_text, variable) in enumerate(
             [
@@ -375,7 +576,12 @@ class DesktopRenderControlPanelWindow:
                 command=self._schedule_payload_sync,
             ).grid(row=signal_index // 2, column=signal_index % 2, sticky="w", padx=4, pady=4)
 
-        audio_frame = ttk.LabelFrame(section_frame, text="Audio input", padding=8)
+        audio_frame = ttk.LabelFrame(
+            section_frame,
+            text="Audio input",
+            padding=10,
+            style="Panel.TLabelframe",
+        )
         audio_frame.grid(row=slider_row + 1, column=0, columnspan=2, sticky="ew", pady=(12, 0))
         audio_frame.columnconfigure(1, weight=1)
         ttk.Label(audio_frame, text="Device").grid(row=0, column=0, sticky="w")
@@ -413,15 +619,23 @@ class DesktopRenderControlPanelWindow:
             pady=(8, 0),
         )
 
-        pointer_frame = ttk.LabelFrame(section_frame, text="Pointer pad", padding=8)
+        pointer_frame = ttk.LabelFrame(
+            section_frame,
+            text="Pointer pad",
+            padding=10,
+            style="Panel.TLabelframe",
+        )
         pointer_frame.grid(row=slider_row + 2, column=0, columnspan=2, sticky="nsew", pady=(12, 0))
+        pointer_frame.columnconfigure(0, weight=1)
         self._pointer_canvas = tk.Canvas(
             pointer_frame,
-            width=240,
-            height=160,
-            background="#0f1725",
+            width=420,
+            height=260,
+            background=POINTER_PAD_BACKGROUND,
             highlightthickness=1,
-            highlightbackground="#3d5a80",
+            highlightbackground=POINTER_PAD_GRID,
+            relief="flat",
+            borderwidth=0,
         )
         self._pointer_canvas.grid(row=0, column=0, sticky="nsew")
         self._pointer_canvas.bind("<Motion>", self._on_pointer_motion)
@@ -434,15 +648,22 @@ class DesktopRenderControlPanelWindow:
         )
 
         self._watch_control_variables()
+        self._rebuild_preset_button_group()
+        self._draw_pointer_pad_background()
 
     def _build_output_section(self) -> None:
         """Create the preview JSON pane and the small analysis summary."""
 
         section_frame = self._output_frame
-        section_frame.rowconfigure(3, weight=1)
+        section_frame.rowconfigure(4, weight=1)
         section_frame.columnconfigure(0, weight=1)
 
-        ttk.Button(section_frame, text="Refresh preview JSON", command=self._refresh_preview).grid(
+        ttk.Button(
+            section_frame,
+            text="Refresh preview JSON",
+            command=self._refresh_preview,
+            style="Accent.TButton",
+        ).grid(
             row=0,
             column=0,
             sticky="ew",
@@ -456,13 +677,24 @@ class DesktopRenderControlPanelWindow:
         )
         self._analysis_label.grid(row=1, column=0, sticky="w", pady=(10, 10))
 
-        ttk.Label(section_frame, text="Current scene JSON").grid(row=2, column=0, sticky="w")
+        ttk.Label(section_frame, text="Current scene JSON", style="Subheading.TLabel").grid(
+            row=2,
+            column=0,
+            sticky="w",
+        )
         self._preview_text = ScrolledText(
             section_frame,
             wrap="none",
             font=("Cascadia Code", 10),
+            background=ENTRY_BACKGROUND,
+            foreground=TEXT_PRIMARY,
+            insertbackground=TEXT_PRIMARY,
+            selectbackground=ACCENT_COLOR,
+            selectforeground=ACCENT_FOREGROUND,
+            relief="flat",
+            borderwidth=0,
         )
-        self._preview_text.grid(row=3, column=0, sticky="nsew")
+        self._preview_text.grid(row=4, column=0, sticky="nsew")
         self._preview_text.configure(state="disabled")
 
     def _add_slider(
@@ -471,19 +703,24 @@ class DesktopRenderControlPanelWindow:
         row: int,
         label_text: str,
         variable: tk.IntVar | tk.DoubleVar,
+        display_variable: tk.StringVar,
         minimum: float,
         maximum: float,
+        resolution: float,
+        digits_after_decimal: int,
     ) -> int:
         ttk.Label(parent, text=label_text).grid(row=row, column=0, sticky="w")
-        ttk.Scale(
+        self._build_slider(
             parent,
-            from_=minimum,
-            to=maximum,
-            orient="horizontal",
+            row=row,
             variable=variable,
-            command=lambda _: self._schedule_payload_sync(),
-        ).grid(row=row, column=1, sticky="ew")
-        ttk.Label(parent, textvariable=variable).grid(
+            display_variable=display_variable,
+            minimum=minimum,
+            maximum=maximum,
+            resolution=resolution,
+            digits_after_decimal=digits_after_decimal,
+        )
+        ttk.Label(parent, textvariable=display_variable).grid(
             row=row + 1,
             column=1,
             sticky="e",
@@ -491,11 +728,70 @@ class DesktopRenderControlPanelWindow:
         )
         return row + 2
 
+    def _build_slider(
+        self,
+        parent: Any,
+        *,
+        row: int,
+        variable: tk.IntVar | tk.DoubleVar,
+        display_variable: tk.StringVar,
+        minimum: float,
+        maximum: float,
+        resolution: float,
+        digits_after_decimal: int,
+        suffix: str = "",
+    ) -> None:
+        """Create one quantized dark-themed slider plus its display value."""
+
+        scale = tk.Scale(
+            parent,
+            from_=minimum,
+            to=maximum,
+            orient="horizontal",
+            resolution=resolution,
+            showvalue=False,
+            variable=variable,
+            background=SURFACE_BACKGROUND,
+            foreground=TEXT_SECONDARY,
+            troughcolor=ENTRY_BACKGROUND,
+            activebackground=ACCENT_COLOR_ACTIVE,
+            highlightthickness=0,
+            bd=0,
+            relief="flat",
+            command=lambda _: self._on_slider_value_changed(
+                variable,
+                display_variable,
+                resolution,
+                digits_after_decimal,
+                suffix,
+            ),
+        )
+        scale.grid(row=row, column=1, sticky="ew")
+        self._on_slider_value_changed(
+            variable,
+            display_variable,
+            resolution,
+            digits_after_decimal,
+            suffix,
+        )
+
     def _build_color_row(self, parent: Any, row: int, variable: tk.StringVar) -> None:
         color_frame = ttk.Frame(parent)
         color_frame.grid(row=row, column=1, sticky="ew", pady=(8, 0))
         color_frame.columnconfigure(0, weight=1)
         ttk.Entry(color_frame, textvariable=variable).grid(row=0, column=0, sticky="ew")
+        swatch_frame = tk.Frame(
+            color_frame,
+            width=26,
+            height=26,
+            background=variable.get(),
+            highlightthickness=1,
+            highlightbackground=COLOR_SWATCH_BORDER,
+            highlightcolor=COLOR_SWATCH_BORDER,
+        )
+        swatch_frame.grid(row=0, column=1, padx=(8, 0))
+        swatch_frame.grid_propagate(False)
+        self._color_swatch_frames[str(variable)] = swatch_frame
 
         def choose_bound_color() -> None:
             self._choose_color(variable)
@@ -504,7 +800,151 @@ class DesktopRenderControlPanelWindow:
             color_frame,
             text="Choose",
             command=choose_bound_color,
-        ).grid(row=0, column=1, padx=(6, 0))
+        ).grid(row=0, column=2, padx=(8, 0))
+
+    def _build_segmented_button(
+        self,
+        *,
+        parent: tk.Misc,
+        text: str,
+        variable: tk.StringVar,
+        value: str,
+        column: int,
+        command: Any,
+    ) -> tk.Radiobutton:
+        """Create one button-like radio control for scene type or preset selection."""
+
+        button = tk.Radiobutton(
+            parent,
+            text=text,
+            value=value,
+            variable=variable,
+            indicatoron=False,
+            command=command,
+            selectcolor=ACCENT_COLOR,
+            background=ENTRY_BACKGROUND,
+            foreground=TEXT_PRIMARY,
+            activebackground=ACCENT_COLOR_ACTIVE,
+            activeforeground=ACCENT_FOREGROUND,
+            disabledforeground=TEXT_SECONDARY,
+            highlightthickness=0,
+            bd=0,
+            relief="flat",
+            padx=12,
+            pady=10,
+            font=("Segoe UI Semibold", 10),
+        )
+        button.grid(row=0, column=column, sticky="ew", padx=(0 if column == 0 else 6, 0))
+        return button
+
+    def _rebuild_preset_button_group(self) -> None:
+        """Recreate the preset toggle buttons for the current 2D or 3D mode."""
+
+        for button in self._preset_button_widgets:
+            button.destroy()
+        self._preset_button_widgets.clear()
+
+        preset_identifiers = self._preset_identifiers_by_scene_type.get(
+            self._scene_type_variable.get().strip().lower(),
+            [],
+        )
+        for preset_button_index, preset_identifier in enumerate(preset_identifiers):
+            row_index = preset_button_index // 2
+            column_index = preset_button_index % 2
+            self._preset_button_frame.rowconfigure(row_index, weight=0)
+            button = tk.Radiobutton(
+                self._preset_button_frame,
+                text=self._preset_names_by_identifier[preset_identifier],
+                value=preset_identifier,
+                variable=self._preset_identifier_variable,
+                indicatoron=False,
+                command=self._on_preset_changed,
+                selectcolor=ACCENT_COLOR,
+                background=ENTRY_BACKGROUND,
+                foreground=TEXT_PRIMARY,
+                activebackground=ACCENT_COLOR_ACTIVE,
+                activeforeground=ACCENT_FOREGROUND,
+                disabledforeground=TEXT_SECONDARY,
+                highlightthickness=0,
+                bd=0,
+                relief="flat",
+                anchor="w",
+                justify="left",
+                wraplength=170,
+                padx=12,
+                pady=10,
+                font=("Segoe UI", 10),
+            )
+            button.grid(
+                row=row_index,
+                column=column_index,
+                sticky="ew",
+                padx=(0, 6) if column_index == 0 else (6, 0),
+                pady=(0, 6),
+            )
+            self._preset_button_widgets.append(button)
+
+    def _draw_pointer_pad_background(self) -> None:
+        """Render a simple guidance grid so the larger pointer pad feels intentional."""
+
+        self._pointer_canvas.delete("all")
+        canvas_width = int(self._pointer_canvas["width"])
+        canvas_height = int(self._pointer_canvas["height"])
+        for column_index in range(1, 4):
+            x_position = canvas_width * column_index / 4
+            self._pointer_canvas.create_line(
+                x_position,
+                0,
+                x_position,
+                canvas_height,
+                fill=POINTER_PAD_GRID,
+                dash=(2, 6),
+            )
+        for row_index in range(1, 4):
+            y_position = canvas_height * row_index / 4
+            self._pointer_canvas.create_line(
+                0,
+                y_position,
+                canvas_width,
+                y_position,
+                fill=POINTER_PAD_GRID,
+                dash=(2, 6),
+            )
+        self._pointer_crosshair_item_identifier = self._pointer_canvas.create_line(
+            canvas_width * 0.5,
+            0,
+            canvas_width * 0.5,
+            canvas_height,
+            fill=ACCENT_COLOR,
+            width=1,
+        )
+        self._pointer_marker_item_identifier = self._pointer_canvas.create_oval(
+            canvas_width * 0.5 - 8,
+            canvas_height * 0.5 - 8,
+            canvas_width * 0.5 + 8,
+            canvas_height * 0.5 + 8,
+            fill=POINTER_PAD_MARKER,
+            outline="",
+        )
+
+    def _on_slider_value_changed(
+        self,
+        variable: tk.IntVar | tk.DoubleVar,
+        display_variable: tk.StringVar,
+        resolution: float,
+        digits_after_decimal: int,
+        suffix: str = "",
+    ) -> None:
+        """Quantize slider values and keep the visible label human-friendly."""
+
+        quantized_value = self._round_to_increment(float(variable.get()), resolution)
+        if isinstance(variable, tk.IntVar):
+            variable.set(int(round(quantized_value)))
+            display_variable.set(f"{int(round(quantized_value))}{suffix}")
+        else:
+            variable.set(quantized_value)
+            display_variable.set(f"{quantized_value:.{digits_after_decimal}f}{suffix}")
+        self._schedule_payload_sync()
 
     def _watch_control_variables(self) -> None:
         """Register one shared "something changed" callback for UI variables."""
@@ -530,6 +970,19 @@ class DesktopRenderControlPanelWindow:
         for variable in watched_variables:
             variable.trace_add("write", lambda *_: self._schedule_payload_sync())
 
+        for color_variable in [
+            self._background_variable,
+            self._primary_color_variable,
+            self._secondary_color_variable,
+        ]:
+            color_variable.trace_add(
+                "write",
+                lambda *_,
+                watched_color_variable=color_variable: self._refresh_color_swatch(
+                    watched_color_variable
+                ),
+            )
+
     def _load_initial_state(self) -> None:
         """Populate the window from the controller's current payload."""
 
@@ -539,15 +992,11 @@ class DesktopRenderControlPanelWindow:
             self._preset_entries_by_identifier[default_preset_identifier]["sceneType"]
         )
         self._scene_type_variable.set(default_scene_type)
-        self._refresh_preset_combobox_values()
-        self._preset_name_variable.set(self._preset_names_by_identifier[default_preset_identifier])
+        self._rebuild_preset_button_group()
+        self._preset_identifier_variable.set(default_preset_identifier)
         self._set_user_interface_from_request_payload(default_payload)
         self._refresh_audio_devices()
         self._refresh_preview()
-
-    def _refresh_preset_combobox_values(self) -> None:
-        scene_type = self._scene_type_variable.get().strip().lower()
-        self._preset_combobox["values"] = self._preset_names_by_scene_type.get(scene_type, [])
 
     def _set_user_interface_from_request_payload(self, payload: dict[str, Any]) -> None:
         """Copy a normalized request payload into the visible widgets.
@@ -558,12 +1007,20 @@ class DesktopRenderControlPanelWindow:
 
         self._suppress_variable_sync = True
         try:
+            preset_identifier = str(payload.get("presetId", DEFAULT_DESKTOP_PRESET_ID))
+            preset_entry = self._preset_entries_by_identifier.get(
+                preset_identifier,
+                self._preset_entries_by_identifier[DEFAULT_DESKTOP_PRESET_ID],
+            )
             target = payload.get("target", {})
             settings = payload.get("settings", {})
             signals = payload.get("signals", {})
             audio = signals.get("audio", {})
             session = payload.get("session", {})
 
+            self._scene_type_variable.set(str(preset_entry.get("sceneType", "2d")))
+            self._rebuild_preset_button_group()
+            self._preset_identifier_variable.set(preset_identifier)
             self._host_variable.set(str(target.get("host", "127.0.0.1")))
             self._port_variable.set(str(target.get("port", 8080)))
             self._cadence_variable.set(int(session.get("cadenceMs", 125)))
@@ -588,15 +1045,15 @@ class DesktopRenderControlPanelWindow:
                 )
         finally:
             self._suppress_variable_sync = False
+        self._refresh_all_slider_display_labels()
+        self._refresh_all_color_swatches()
 
     def _collect_request_payload_from_user_interface(self) -> dict[str, Any]:
         """Build one full request payload from the current widget values."""
 
-        selected_preset_name = self._preset_name_variable.get().strip()
-        selected_preset_identifier = self._preset_ids_by_name.get(
-            selected_preset_name,
-            DEFAULT_DESKTOP_PRESET_ID,
-        )
+        selected_preset_identifier = self._preset_identifier_variable.get().strip()
+        if selected_preset_identifier not in self._preset_entries_by_identifier:
+            selected_preset_identifier = DEFAULT_DESKTOP_PRESET_ID
         current_payload = self._controller.current_request_payload()
         pointer_payload = current_payload.get("signals", {}).get("pointer", {})
 
@@ -608,11 +1065,14 @@ class DesktopRenderControlPanelWindow:
             },
             "settings": {
                 "density": self._safe_int(self._density_variable.get(), 96),
-                "pointSize": float(self._point_size_variable.get()),
-                "lineWidth": float(self._line_width_variable.get()),
-                "speed": float(self._speed_variable.get()),
-                "gain": float(self._gain_variable.get()),
-                "manualDrive": float(self._manual_drive_variable.get()),
+                "pointSize": self._round_to_increment(float(self._point_size_variable.get()), 0.5),
+                "lineWidth": self._round_to_increment(float(self._line_width_variable.get()), 0.25),
+                "speed": self._round_to_increment(float(self._speed_variable.get()), 0.05),
+                "gain": self._round_to_increment(float(self._gain_variable.get()), 0.05),
+                "manualDrive": self._round_to_increment(
+                    float(self._manual_drive_variable.get()),
+                    0.05,
+                ),
                 "background": self._background_variable.get().strip(),
                 "primaryColor": self._primary_color_variable.get().strip(),
                 "secondaryColor": self._secondary_color_variable.get().strip(),
@@ -655,18 +1115,20 @@ class DesktopRenderControlPanelWindow:
             self._refresh_preview()
 
     def _on_scene_type_changed(self, event: object | None = None) -> None:
-        self._refresh_preset_combobox_values()
-        preset_names = list(self._preset_combobox["values"])
-        if not preset_names:
+        self._rebuild_preset_button_group()
+        preset_identifiers = self._preset_identifiers_by_scene_type.get(
+            self._scene_type_variable.get().strip().lower(),
+            [],
+        )
+        if not preset_identifiers:
             return
-        self._preset_name_variable.set(preset_names[0])
+        self._preset_identifier_variable.set(preset_identifiers[0])
         self._on_preset_changed()
 
     def _on_preset_changed(self, event: object | None = None) -> None:
-        selected_preset_name = self._preset_name_variable.get().strip()
-        if not selected_preset_name:
+        selected_preset_identifier = self._preset_identifier_variable.get().strip()
+        if not selected_preset_identifier:
             return
-        selected_preset_identifier = self._preset_ids_by_name[selected_preset_name]
         updated_payload = self._controller.load_preset(selected_preset_identifier)
         self._set_user_interface_from_request_payload(updated_payload)
         self._refresh_preview()
@@ -683,9 +1145,18 @@ class DesktopRenderControlPanelWindow:
         devices = self._controller.refresh_audio_devices()
         device_names = [device.name for device in devices]
         self._audio_device_combobox["values"] = device_names
-        if device_names and not self._audio_device_variable.get().strip():
+        if device_names and self._audio_device_variable.get().strip() not in device_names:
             self._audio_device_variable.set(device_names[0])
-        if not device_names:
+        audio_snapshot = self._controller.audio_snapshot()
+        if device_names and audio_snapshot.last_error:
+            self._audio_status_variable.set(
+                f"Found {len(device_names)} input device(s). {audio_snapshot.last_error}"
+            )
+        elif device_names:
+            self._audio_status_variable.set(
+                f"Found {len(device_names)} input device(s). Choose one and start capture."
+            )
+        else:
             self._audio_status_variable.set(
                 "No audio devices detected. Install the optional sounddevice "
                 "package to enable capture."
@@ -740,6 +1211,7 @@ class DesktopRenderControlPanelWindow:
             normalized_y,
             normalized_pointer_speed,
         )
+        self._move_pointer_visual_marker(normalized_x, normalized_y)
         self._pointer_status_variable.set(
             f"Pointer x={normalized_x:.2f} y={normalized_y:.2f} "
             f"speed={normalized_pointer_speed:.2f}"
@@ -751,6 +1223,7 @@ class DesktopRenderControlPanelWindow:
         """Reset pointer speed when the operator leaves the pointer pad."""
 
         self._controller.update_pointer_signal(self._last_pointer_x, self._last_pointer_y, 0.0)
+        self._move_pointer_visual_marker(self._last_pointer_x, self._last_pointer_y)
         self._pointer_status_variable.set("Pointer pad idle")
 
     def _run_health_check(self) -> None:
@@ -821,10 +1294,11 @@ class DesktopRenderControlPanelWindow:
         """Render both the summary label and the full pretty-printed JSON scene."""
 
         analysis = preview_bundle["analysis"]
+        readable_scene_type = str(preview_bundle["scene"]["sceneType"]).upper()
         self._analysis_label.configure(
             text=(
                 f"Preset: {preview_bundle['preset']['name']} "
-                f"({preview_bundle['scene']['sceneType']})\n"
+                f"({readable_scene_type})\n"
                 f"Primitive: {analysis['primitive']}\n"
                 f"Vertices: {analysis['vertexCount']}  Indices: {analysis['indexCount']}\n"
                 f"Active sources: {', '.join(analysis['activeSources'])}\n"
@@ -864,11 +1338,163 @@ class DesktopRenderControlPanelWindow:
             f"failed {live_snapshot['frames_failed']}"
         )
 
+    def _move_pointer_visual_marker(self, normalized_x: float, normalized_y: float) -> None:
+        """Move the canvas marker and crosshair so the larger pad feels alive."""
+
+        if (
+            self._pointer_marker_item_identifier is None
+            or self._pointer_crosshair_item_identifier is None
+        ):
+            return
+        canvas_width = max(1, int(self._pointer_canvas.winfo_width()))
+        canvas_height = max(1, int(self._pointer_canvas.winfo_height()))
+        x_position = normalized_x * canvas_width
+        y_position = normalized_y * canvas_height
+        self._pointer_canvas.coords(
+            self._pointer_marker_item_identifier,
+            x_position - 8,
+            y_position - 8,
+            x_position + 8,
+            y_position + 8,
+        )
+        self._pointer_canvas.coords(
+            self._pointer_crosshair_item_identifier,
+            x_position,
+            0,
+            x_position,
+            canvas_height,
+        )
+
+    def _refresh_color_swatch(self, variable: tk.StringVar) -> None:
+        """Keep the visual color swatches in sync with the typed hex values."""
+
+        swatch_frame = self._color_swatch_frames.get(str(variable))
+        if swatch_frame is not None:
+            try:
+                swatch_frame.configure(background=variable.get())
+            except tk.TclError:
+                swatch_frame.configure(background="#000000")
+
+    def _refresh_all_color_swatches(self) -> None:
+        for color_variable in [
+            self._background_variable,
+            self._primary_color_variable,
+            self._secondary_color_variable,
+        ]:
+            self._refresh_color_swatch(color_variable)
+
+    def _refresh_all_slider_display_labels(self) -> None:
+        """Recompute the formatted slider labels after loading or reverting settings."""
+
+        self._on_slider_value_changed(
+            self._cadence_variable,
+            self._slider_display_variables["cadence"],
+            1.0,
+            0,
+            " ms",
+        )
+        self._on_slider_value_changed(
+            self._density_variable,
+            self._slider_display_variables["density"],
+            1.0,
+            0,
+        )
+        self._on_slider_value_changed(
+            self._point_size_variable,
+            self._slider_display_variables["pointSize"],
+            0.5,
+            1,
+        )
+        self._on_slider_value_changed(
+            self._line_width_variable,
+            self._slider_display_variables["lineWidth"],
+            0.25,
+            2,
+        )
+        self._on_slider_value_changed(
+            self._speed_variable,
+            self._slider_display_variables["speed"],
+            0.05,
+            2,
+        )
+        self._on_slider_value_changed(
+            self._gain_variable,
+            self._slider_display_variables["gain"],
+            0.05,
+            2,
+        )
+        self._on_slider_value_changed(
+            self._manual_drive_variable,
+            self._slider_display_variables["manualDrive"],
+            0.05,
+            2,
+        )
+
+    def _revert_current_preset_to_default_settings(self) -> None:
+        """Restore the current preset's default settings while keeping the current target."""
+
+        updated_payload = self._controller.reset_current_preset_to_defaults()
+        self._set_user_interface_from_request_payload(updated_payload)
+        self._result_status_variable.set("Reverted the current preset to its default settings.")
+        self._refresh_preview()
+
+    def _save_settings_to_file(self) -> None:
+        """Save the current control payload to a reusable JSON file."""
+
+        self._sync_payload_to_controller()
+        selected_path = filedialog.asksaveasfilename(
+            parent=self._root,
+            title="Save desktop control panel settings",
+            initialfile=DEFAULT_SETTINGS_FILE_NAME,
+            defaultextension=".json",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+        )
+        if not selected_path:
+            return
+        settings_document = self._controller.settings_document()
+        Path(selected_path).write_text(json.dumps(settings_document, indent=2), encoding="utf-8")
+        self._settings_file_path = Path(selected_path)
+        self._result_status_variable.set(f"Saved settings to {self._settings_file_path.name}.")
+
+    def _load_settings_from_file(self) -> None:
+        """Load a saved settings JSON file and refresh the whole window state."""
+
+        selected_path = filedialog.askopenfilename(
+            parent=self._root,
+            title="Load desktop control panel settings",
+            initialfile=DEFAULT_SETTINGS_FILE_NAME,
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+        )
+        if not selected_path:
+            return
+        try:
+            settings_document = json.loads(Path(selected_path).read_text(encoding="utf-8"))
+            if not isinstance(settings_document, dict):
+                raise ValueError("Settings files must contain a JSON object at the top level.")
+            updated_payload = self._controller.load_settings_document(settings_document)
+        except (OSError, ValueError, json.JSONDecodeError) as error:
+            messagebox.showerror("Load settings", str(error))
+            return
+        self._settings_file_path = Path(selected_path)
+        self._set_user_interface_from_request_payload(updated_payload)
+        self._result_status_variable.set(f"Loaded settings from {self._settings_file_path.name}.")
+        self._refresh_preview()
+
     def _on_close_requested(self) -> None:
         """Shut down background resources before destroying the window."""
 
         self._controller.close()
         self._root.destroy()
+
+    @staticmethod
+    def _round_to_increment(value: float, increment: float) -> float:
+        """Round a floating-point value to a friendly control increment."""
+
+        if increment <= 0:
+            return value
+        rounded_value = round(value / increment) * increment
+        decimal_places = max(0, len(str(increment).split(".")[-1].rstrip("0")))
+        return round(rounded_value, decimal_places)
 
     @staticmethod
     def _safe_int(value: object, default: int) -> int:
