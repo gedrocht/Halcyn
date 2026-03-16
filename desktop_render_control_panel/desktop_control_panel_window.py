@@ -37,10 +37,7 @@ POINTER_PAD_BACKGROUND = "#09121c"
 POINTER_PAD_GRID = "#284058"
 POINTER_PAD_MARKER = "#ffd166"
 COLOR_SWATCH_BORDER = "#6b7f94"
-LEVEL_METER_COLOR = ACCENT_COLOR
-BASS_METER_COLOR = "#ffd166"
-MID_METER_COLOR = "#7ee787"
-TREBLE_METER_COLOR = "#ff7eb6"
+VOLUME_METER_COLOR = ACCENT_COLOR
 SELECTION_BUTTON_BACKGROUND = "#172537"
 SELECTION_BUTTON_FOREGROUND = TEXT_PRIMARY
 SELECTION_BUTTON_BORDER = "#2d435c"
@@ -97,8 +94,8 @@ class DesktopRenderControlPanelWindow:
         self._live_cadence_value_label: ttk.Label | None = None
         self._latest_preview_json_text = ""
         self._audio_device_flow_button_widgets: dict[str, tk.Button] = {}
-        self._audio_meter_progress_variables = self._build_audio_meter_progress_variables()
-        self._audio_meter_text_variables = self._build_audio_meter_text_variables()
+        self._volume_meter_progress_variable = tk.DoubleVar(value=0.0)
+        self._volume_meter_text_variable = tk.StringVar(value="0%")
         self._scene_type_button_widgets: dict[str, tk.Button] = {}
         self._build_variables()
         self._slider_display_variables = self._build_slider_display_variables()
@@ -137,26 +134,6 @@ class DesktopRenderControlPanelWindow:
         self._live_status_variable = tk.StringVar(value="Live stream stopped.")
         self._audio_status_variable = tk.StringVar(value="Audio capture not started.")
         self._result_status_variable = tk.StringVar(value="Ready.")
-
-    def _build_audio_meter_progress_variables(self) -> dict[str, tk.DoubleVar]:
-        """Create one 0..100 Tk variable for each visible audio meter."""
-
-        return {
-            "level": tk.DoubleVar(value=0.0),
-            "bass": tk.DoubleVar(value=0.0),
-            "mid": tk.DoubleVar(value=0.0),
-            "treble": tk.DoubleVar(value=0.0),
-        }
-
-    def _build_audio_meter_text_variables(self) -> dict[str, tk.StringVar]:
-        """Create the small human-readable percentage labels beside each audio meter."""
-
-        return {
-            "level": tk.StringVar(value="0%"),
-            "bass": tk.StringVar(value="0%"),
-            "mid": tk.StringVar(value="0%"),
-            "treble": tk.StringVar(value="0%"),
-        }
 
     def _build_slider_display_variables(self) -> dict[str, tk.StringVar]:
         """Create formatted label variables for the numeric slider values."""
@@ -332,24 +309,17 @@ class DesktopRenderControlPanelWindow:
         self._configure_audio_meter_styles(style)
 
     def _configure_audio_meter_styles(self, style: ttk.Style) -> None:
-        """Give each audio meter its own readable color without breaking the dark theme."""
+        """Style the single visible volume meter so it stays readable on the dark theme."""
 
-        meter_style_names_by_key = {
-            "level": ("AudioLevel.Horizontal.TProgressbar", LEVEL_METER_COLOR),
-            "bass": ("AudioBass.Horizontal.TProgressbar", BASS_METER_COLOR),
-            "mid": ("AudioMid.Horizontal.TProgressbar", MID_METER_COLOR),
-            "treble": ("AudioTreble.Horizontal.TProgressbar", TREBLE_METER_COLOR),
-        }
-        for meter_style_name, meter_color in meter_style_names_by_key.values():
-            style.configure(
-                meter_style_name,
-                troughcolor=ENTRY_BACKGROUND,
-                background=meter_color,
-                lightcolor=meter_color,
-                darkcolor=meter_color,
-                bordercolor=SURFACE_BORDER,
-                thickness=10,
-            )
+        style.configure(
+            "AudioVolume.Horizontal.TProgressbar",
+            troughcolor=ENTRY_BACKGROUND,
+            background=VOLUME_METER_COLOR,
+            lightcolor=VOLUME_METER_COLOR,
+            darkcolor=VOLUME_METER_COLOR,
+            bordercolor=SURFACE_BORDER,
+            thickness=10,
+        )
 
     def _build_connection_section(self) -> None:
         """Create the renderer-target and transport-action controls."""
@@ -778,10 +748,7 @@ class DesktopRenderControlPanelWindow:
         )
         audio_frame.columnconfigure(1, weight=1)
         audio_frame.columnconfigure(2, weight=0)
-        self._build_audio_meter_row(audio_frame, row=7, meter_key="level", label_text="Level")
-        self._build_audio_meter_row(audio_frame, row=8, meter_key="bass", label_text="Bass")
-        self._build_audio_meter_row(audio_frame, row=9, meter_key="mid", label_text="Mid")
-        self._build_audio_meter_row(audio_frame, row=10, meter_key="treble", label_text="Treble")
+        self._build_volume_meter_row(audio_frame, row=7)
 
     def _build_pointer_pad_section(self, parent: ttk.LabelFrame, *, row: int) -> None:
         """Create the pointer pad in the column that can spare the vertical room."""
@@ -816,30 +783,22 @@ class DesktopRenderControlPanelWindow:
         )
         self._draw_pointer_pad_background()
 
-    def _build_audio_meter_row(
+    def _build_volume_meter_row(
         self,
         parent: ttk.LabelFrame,
         *,
         row: int,
-        meter_key: str,
-        label_text: str,
     ) -> None:
-        """Create one labeled progress meter for a single analyzed audio band."""
+        """Create the single visible volume meter used for capture confidence."""
 
-        meter_style_name_by_key = {
-            "level": "AudioLevel.Horizontal.TProgressbar",
-            "bass": "AudioBass.Horizontal.TProgressbar",
-            "mid": "AudioMid.Horizontal.TProgressbar",
-            "treble": "AudioTreble.Horizontal.TProgressbar",
-        }
-        ttk.Label(parent, text=label_text).grid(row=row, column=0, sticky="w", pady=(6, 0))
+        ttk.Label(parent, text="Volume").grid(row=row, column=0, sticky="w", pady=(6, 0))
         ttk.Progressbar(
             parent,
-            variable=self._audio_meter_progress_variables[meter_key],
+            variable=self._volume_meter_progress_variable,
             maximum=100.0,
-            style=meter_style_name_by_key[meter_key],
+            style="AudioVolume.Horizontal.TProgressbar",
         ).grid(row=row, column=1, sticky="ew", padx=(8, 8), pady=(6, 0))
-        ttk.Label(parent, textvariable=self._audio_meter_text_variables[meter_key]).grid(
+        ttk.Label(parent, textvariable=self._volume_meter_text_variable).grid(
             row=row,
             column=2,
             sticky="e",
@@ -1197,16 +1156,11 @@ class DesktopRenderControlPanelWindow:
             self._use_pointer_variable.set(bool(signals.get("usePointer", True)))
             self._use_audio_variable.set(bool(signals.get("useAudio", False)))
             if isinstance(audio, dict):
-                self._update_audio_meter_displays(
-                    level=float(audio.get("level", 0.0)),
-                    bass=float(audio.get("bass", 0.0)),
-                    mid=float(audio.get("mid", 0.0)),
-                    treble=float(audio.get("treble", 0.0)),
-                )
+                self._update_volume_meter_display(level=float(audio.get("level", 0.0)))
                 self._audio_status_variable.set(
                     "Audio capture not started."
                     if not audio
-                    else f"Audio bands ready: level {float(audio.get('level', 0.0)):.2f}"
+                    else f"Audio source ready: volume {float(audio.get('level', 0.0)):.2f}"
                 )
         finally:
             self._suppress_variable_sync = False
@@ -1357,7 +1311,7 @@ class DesktopRenderControlPanelWindow:
             )
         else:
             no_devices_message = (
-                "No output audio sources detected. Install the optional sounddevice package "
+                "No output audio sources detected. Install the optional soundcard package "
                 "to capture desktop output audio, or switch to input sources to use microphones."
                 if selected_device_flow == "output"
                 else "No input audio sources detected. Connect or enable a microphone, or switch "
@@ -1387,12 +1341,28 @@ class DesktopRenderControlPanelWindow:
             ),
             "",
         )
+        if not device_identifier:
+            messagebox.showerror(
+                "Audio capture",
+                (
+                    "The selected audio source is no longer available. "
+                    "Refresh the device list and try again."
+                ),
+            )
+            return
         try:
             self._controller.start_audio_capture(device_identifier, selected_device_flow)
-        except RuntimeError as error:
+        except Exception as error:
             messagebox.showerror("Audio capture", str(error))
             return
+        # Starting capture is the strongest signal that the operator wants the
+        # live scene to react to audio immediately, so the UI enables the audio
+        # source flag for them and refreshes the preview right away.
+        self._use_audio_variable.set(True)
+        self._sync_payload_to_controller()
         self._audio_status_variable.set(f"Capturing from {device_name}.")
+        self._refresh_status_labels()
+        self._refresh_preview()
 
     def _stop_audio_capture(self) -> None:
         """Stop audio capture while leaving the last known analysis visible."""
@@ -1402,6 +1372,8 @@ class DesktopRenderControlPanelWindow:
             self._audio_status_variable.set(snapshot.last_error)
         else:
             self._audio_status_variable.set("Audio capture stopped.")
+        self._refresh_status_labels()
+        self._refresh_preview()
 
     def _on_pointer_motion(self, event: tk.Event[tk.Misc]) -> None:
         """Translate pointer movement into normalized control values."""
@@ -1616,17 +1588,12 @@ class DesktopRenderControlPanelWindow:
         """Refresh status labels from the controller's latest snapshots."""
 
         audio_snapshot = self._controller.audio_snapshot()
-        self._update_audio_meter_displays(
-            level=audio_snapshot.level,
-            bass=audio_snapshot.bass,
-            mid=audio_snapshot.mid,
-            treble=audio_snapshot.treble,
+        self._update_volume_meter_display(
+            level=audio_snapshot.level if audio_snapshot.capturing else 0.0,
         )
         if audio_snapshot.capturing:
             self._audio_status_variable.set(
-                f"{audio_snapshot.device_name}: level {audio_snapshot.level:.2f}, "
-                f"bass {audio_snapshot.bass:.2f}, mid {audio_snapshot.mid:.2f}, "
-                f"treble {audio_snapshot.treble:.2f}"
+                f"{audio_snapshot.device_name}: volume {audio_snapshot.level:.2f}"
             )
         elif audio_snapshot.last_error:
             self._audio_status_variable.set(audio_snapshot.last_error)
@@ -1739,26 +1706,12 @@ class DesktopRenderControlPanelWindow:
         ]:
             self._refresh_color_swatch(color_variable)
 
-    def _update_audio_meter_displays(
-        self,
-        *,
-        level: float,
-        bass: float,
-        mid: float,
-        treble: float,
-    ) -> None:
-        """Keep the audio monitor bars and percentages synchronized with the latest snapshot."""
+    def _update_volume_meter_display(self, *, level: float) -> None:
+        """Keep the single visible volume meter synchronized with the latest snapshot."""
 
-        normalized_audio_levels = {
-            "level": level,
-            "bass": bass,
-            "mid": mid,
-            "treble": treble,
-        }
-        for meter_key, normalized_value in normalized_audio_levels.items():
-            clamped_percentage = max(0.0, min(100.0, float(normalized_value) * 100.0))
-            self._audio_meter_progress_variables[meter_key].set(clamped_percentage)
-            self._audio_meter_text_variables[meter_key].set(f"{int(round(clamped_percentage))}%")
+        clamped_percentage = max(0.0, min(100.0, float(level) * 100.0))
+        self._volume_meter_progress_variable.set(clamped_percentage)
+        self._volume_meter_text_variable.set(f"{int(round(clamped_percentage))}%")
 
     def _refresh_all_slider_display_labels(self) -> None:
         """Recompute the formatted slider labels after loading or reverting settings."""

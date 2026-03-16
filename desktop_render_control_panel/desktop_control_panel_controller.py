@@ -478,11 +478,15 @@ class DesktopRenderControlPanelController:
         signals = effective_request_payload.setdefault("signals", {})
         signals["epochSeconds"] = time.time()
         audio_snapshot = self._audio_input_service.snapshot()
+        effective_audio_level = audio_snapshot.level if audio_snapshot.capturing else 0.0
+        effective_audio_bass = audio_snapshot.bass if audio_snapshot.capturing else 0.0
+        effective_audio_mid = audio_snapshot.mid if audio_snapshot.capturing else 0.0
+        effective_audio_treble = audio_snapshot.treble if audio_snapshot.capturing else 0.0
         signals["audio"] = {
-            "level": audio_snapshot.level,
-            "bass": audio_snapshot.bass,
-            "mid": audio_snapshot.mid,
-            "treble": audio_snapshot.treble,
+            "level": effective_audio_level,
+            "bass": effective_audio_bass,
+            "mid": effective_audio_mid,
+            "treble": effective_audio_treble,
         }
         return effective_request_payload
 

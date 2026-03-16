@@ -60,7 +60,7 @@
             <h3>What it can do</h3>
             <div class="cards">
               <div class="card"><h4>Instant 2D and 3D switching</h4><p>One native panel can move between desktop-only 2D presets and the shared 3D preset catalog immediately.</p></div>
-              <div class="card"><h4>Local audio-device selection</h4><p>Unlike a browser-only surface, the desktop panel can default to output sources for desktop loopback capture, switch over to microphone inputs when needed, and explain when capture still needs the optional <code>sounddevice</code> backend.</p></div>
+              <div class="card"><h4>Local audio-device selection</h4><p>Unlike a browser-only surface, the desktop panel can default to output sources for desktop loopback capture, switch over to microphone inputs when needed, and explain which optional package is responsible for each path: <code>soundcard</code> for output loopback and <code>sounddevice</code> for microphones.</p></div>
               <div class="card"><h4>Preview, validate, apply, and save</h4><p>You can open the generated JSON in its own window when you need it, validate it against the live API, apply it immediately, or save the whole setup to a reusable JSON file.</p></div>
               <div class="card"><h4>Continuous live streaming</h4><p>The panel can keep submitting scenes on a controlled cadence while you adjust colors, density, motion, and signals.</p></div>
             </div>
@@ -71,7 +71,7 @@
             <div class="cards">
               <div class="card"><h4>Renderer connection</h4><p>Choose the API host, port, and live cadence, then see the exact cadence value in milliseconds beside the slider before you run health, validate, apply, start, or stop actions.</p></div>
               <div class="card"><h4>Scene controls</h4><p>Choose scene type and preset with stay-selected buttons, then tune geometry density, motion speed, gain, manual drive, and live color swatches.</p></div>
-              <div class="card"><h4>Audio input</h4><p>The roomier diagnostics column now holds audio controls, including a toggle between output sources and input sources plus a live monitor for overall level, bass, mid, and treble energy. Output sources are selected by default, and the panel can still explain when the optional <code>sounddevice</code> package is needed for real capture.</p></div>
+              <div class="card"><h4>Audio input</h4><p>The roomier diagnostics column now holds audio controls, including a toggle between output sources and input sources plus one easy-to-read live volume meter. Output sources are selected by default, and the panel can explain when <code>soundcard</code> is needed for loopback capture or when <code>sounddevice</code> is needed for microphones.</p></div>
               <div class="card"><h4>Pointer pad, settings, and preview</h4><p>Drive pointer-based motion on a larger pad, revert to preset defaults, save or load settings, and open the exact JSON scene in a dedicated window with a <code>Copy JSON</code> button instead of stretching the main panel.</p></div>
             </div>
           </section>
@@ -113,13 +113,15 @@
           <section class="panel">
             <h3>Optional audio dependency</h3>
             <p>
-              Real device capture depends on the optional <code>sounddevice</code> package. If it is
-              missing, the desktop panel still opens and the rest of the controls still work; only
-              live device capture is disabled. On Windows, the panel now tries to list available
-              input devices through the built-in waveIn API so the operator can still see what
-              hardware exists before installing the capture backend.
+              Real device capture depends on two optional Python packages. The desktop panel uses
+              <code>sounddevice</code> for microphone and line-input capture, and <code>soundcard</code>
+              for desktop output-loopback capture. If either package is missing, the panel still
+              opens and the rest of the controls still work; only that capture path is disabled. On
+              Windows, the panel still tries to list available input devices through the built-in
+              waveIn API so the operator can see what hardware exists before installing
+              <code>sounddevice</code>.
             </p>
-            <pre><code>python -m pip install sounddevice</code></pre>
+            <pre><code>python -m pip install sounddevice soundcard</code></pre>
           </section>
 
           <section class="panel">
@@ -141,6 +143,7 @@
               <li><a href="https://learn.microsoft.com/windows/win32/api/mmeapi/nf-mmeapi-waveingetdevcapsw">waveInGetDevCapsW</a></li>
               <li><a href="https://docs.python.org/3/library/threading.html">threading</a></li>
               <li><a href="https://python-sounddevice.readthedocs.io/">sounddevice</a></li>
+              <li><a href="https://soundcard.readthedocs.io/">soundcard</a></li>
             </ul>
           </section>
         </main>

@@ -3,13 +3,14 @@
 This module keeps audio-specific concerns out of the rest of the desktop app.
 The window only needs to know things like:
 
-- "Which input devices are available?"
+- "Which audio sources are available?"
 - "Start capture on this device."
-- "What are the latest level, bass, mid, and treble values?"
+- "What are the latest loudness and coarse frequency-band values?"
 
 Helpful library references:
 
 - `sounddevice`: https://python-sounddevice.readthedocs.io/
+- `soundcard`: https://soundcard.readthedocs.io/
 - PortAudio device query model: https://python-sounddevice.readthedocs.io/en/latest/api/checking-hardware.html
 - Python threading: https://docs.python.org/3/library/threading.html
 - `ctypes`: https://docs.python.org/3/library/ctypes.html
@@ -27,7 +28,11 @@ import threading
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass, field
+from numbers import Real
 from typing import Any, Protocol
+
+DEFAULT_AUDIO_CAPTURE_BLOCK_SIZE = 1024
+PREFERRED_AUDIO_CAPTURE_SAMPLE_RATES_HZ = (48_000, 44_100)
 
 
 @dataclass(frozen=True)
@@ -136,8 +141,8 @@ class UnavailableAudioCaptureBackend:
         raise RuntimeError(self._reason)
 
 
-class SoundDeviceAudioCaptureBackend:
-    """Real audio backend built on the optional sounddevice package.
+class SoundDeviceInputCaptureBackend:
+    """Real microphone/input backend built on the optional sounddevice package.
 
     Official docs:
     https://python-sounddevice.readthedocs.io/
@@ -167,12 +172,14 @@ class SoundDeviceAudioCaptureBackend:
         return self._sounddevice is not None
 
     def list_devices(self, device_flow: str) -> list[AudioDeviceDescriptor]:
-        """Enumerate selectable sources for the requested input or output flow."""
+        """Enumerate selectable microphone-style input sources."""
 
         if self._sounddevice is None:
             return []
 
         normalized_device_flow = _normalize_device_flow(device_flow)
+        if normalized_device_flow != "input":
+            return []
         try:
             queried_host_apis = self._sounddevice.query_hostapis()
             queried_device_descriptors = self._sounddevice.query_devices()
@@ -198,16 +205,11 @@ class SoundDeviceAudioCaptureBackend:
                 )
             )
 
-            if normalized_device_flow == "input":
-                if max_input_channels < 1:
-                    continue
-                device_name = (
-                    f"{base_device_name} ({host_api_name})" if host_api_name else base_device_name
-                )
-            else:
-                if max_output_channels < 1 or "WASAPI" not in host_api_name.upper():
-                    continue
-                device_name = f"{base_device_name} ({host_api_name} loopback)"
+            if max_input_channels < 1:
+                continue
+            device_name = (
+                f"{base_device_name} ({host_api_name})" if host_api_name else base_device_name
+            )
 
             available_audio_sources.append(
                 AudioDeviceDescriptor(
@@ -227,7 +229,7 @@ class SoundDeviceAudioCaptureBackend:
         device_flow: str,
         on_snapshot: Callable[[AudioSignalSnapshot], None],
     ) -> Callable[[], None]:
-        """Open an input or loopback stream and call back with analyzed snapshots.
+        """Open an input stream and call back with analyzed snapshots.
 
         `sounddevice` invokes our callback whenever a new chunk of audio
         arrives.  We immediately translate that raw sample block into the small
@@ -239,42 +241,18 @@ class SoundDeviceAudioCaptureBackend:
 
         device_index = int(device_identifier)
         normalized_device_flow = _normalize_device_flow(device_flow)
-        stream_extra_settings: Any | None = None
+        if normalized_device_flow != "input":
+            raise RuntimeError(
+                "The sounddevice backend only supports microphone or line-input capture. "
+                "Desktop output capture uses the optional 'soundcard' package instead."
+            )
 
-        if normalized_device_flow == "output":
-            full_device_info = self._sounddevice.query_devices(device_index)
-            queried_host_apis = self._sounddevice.query_hostapis()
-            raw_host_api_index = full_device_info.get("hostapi", -1)
-            host_api_index = -1 if raw_host_api_index is None else int(raw_host_api_index)
-            host_api_name = str(
-                queried_host_apis[host_api_index].get("name", "")
-                if 0 <= host_api_index < len(queried_host_apis)
-                else ""
-            )
-            if "WASAPI" not in host_api_name.upper():
-                raise RuntimeError(
-                    "Output capture requires a WASAPI output device when using the "
-                    "optional sounddevice package."
-                )
-            if not hasattr(self._sounddevice, "WasapiSettings"):
-                raise RuntimeError(
-                    "This sounddevice build does not expose WASAPI loopback settings."
-                )
-            device_info = self._sounddevice.query_devices(device_index, "output")
-            channel_count = max(
-                1,
-                min(int(device_info.get("max_output_channels", 1) or 1), 2),
-            )
-            base_device_name = str(device_info.get("name", f"Output device {device_identifier}"))
-            device_name = f"{base_device_name} ({host_api_name} loopback)"
-            stream_extra_settings = self._sounddevice.WasapiSettings(loopback=True)
-        else:
-            device_info = self._sounddevice.query_devices(device_index, "input")
-            channel_count = max(
-                1,
-                min(int(device_info.get("max_input_channels", 1) or 1), 2),
-            )
-            device_name = str(device_info.get("name", f"Input device {device_identifier}"))
+        device_info = self._sounddevice.query_devices(device_index, "input")
+        channel_count = max(
+            1,
+            min(int(device_info.get("max_input_channels", 1) or 1), 2),
+        )
+        device_name = str(device_info.get("name", f"Input device {device_identifier}"))
 
         sample_rate_hz = int(device_info.get("default_samplerate", 44100) or 44100)
 
@@ -302,10 +280,8 @@ class SoundDeviceAudioCaptureBackend:
             channels=channel_count,
             samplerate=sample_rate_hz,
             callback=handle_audio_callback,
-            blocksize=1024,
+            blocksize=DEFAULT_AUDIO_CAPTURE_BLOCK_SIZE,
         )
-        if stream_extra_settings is not None:
-            stream_arguments["extra_settings"] = stream_extra_settings
         stream = self._sounddevice.InputStream(**stream_arguments)
         stream.start()
 
@@ -314,6 +290,258 @@ class SoundDeviceAudioCaptureBackend:
             stream.close()
 
         return stop_stream
+
+
+class SoundCardLoopbackOutputCaptureBackend:
+    """Real speaker/output backend built on the optional soundcard package.
+
+    The `soundcard` package exposes Windows loopback capture in a much more
+    direct way than the PortAudio build bundled with `sounddevice` on this
+    machine. We use it only for output-device monitoring, while `sounddevice`
+    remains responsible for microphone and line-input capture.
+
+    Official docs:
+    https://soundcard.readthedocs.io/
+    """
+
+    def __init__(self) -> None:
+        self._soundcard: Any | None = None
+        self._availability_error = ""
+        try:
+            self._soundcard = importlib.import_module("soundcard")
+        except Exception as error:  # pragma: no cover - depends on local environment.
+            self._availability_error = (
+                "Desktop output capture requires the optional 'soundcard' package. "
+                f"Import failed with: {error}"
+            )
+
+    @property
+    def backend_name(self) -> str:
+        return "soundcard"
+
+    @property
+    def availability_error(self) -> str:
+        return self._availability_error
+
+    @property
+    def capture_available(self) -> bool:
+        return self._soundcard is not None
+
+    def list_devices(self, device_flow: str) -> list[AudioDeviceDescriptor]:
+        """Enumerate capturable desktop output sources."""
+
+        if self._soundcard is None or _normalize_device_flow(device_flow) != "output":
+            return []
+
+        try:
+            available_speakers = self._soundcard.all_speakers()
+            default_speaker = self._soundcard.default_speaker()
+        except Exception as error:  # pragma: no cover - depends on local audio stack.
+            self._availability_error = f"Could not query output audio sources: {error}"
+            return []
+
+        default_speaker_identifier = str(getattr(default_speaker, "id", ""))
+        ordered_speakers = sorted(
+            available_speakers,
+            key=lambda available_speaker: (
+                str(getattr(available_speaker, "id", ""))
+                != default_speaker_identifier,
+                str(getattr(available_speaker, "name", "")),
+            ),
+        )
+        available_output_sources = []
+        for speaker_index, available_speaker in enumerate(ordered_speakers):
+            available_output_sources.append(
+                AudioDeviceDescriptor(
+                    device_identifier=str(
+                        getattr(available_speaker, "id", f"speaker-{speaker_index}")
+                    ),
+                    name=str(
+                        getattr(
+                            available_speaker,
+                            "name",
+                            f"Output source {speaker_index + 1}",
+                        )
+                    ),
+                    device_flow="output",
+                    max_input_channels=0,
+                    max_output_channels=max(
+                        1,
+                        int(getattr(available_speaker, "channels", 2) or 2),
+                    ),
+                    default_sample_rate=PREFERRED_AUDIO_CAPTURE_SAMPLE_RATES_HZ[0],
+                )
+            )
+        return available_output_sources
+
+    def open_stream(
+        self,
+        device_identifier: str,
+        device_flow: str,
+        on_snapshot: Callable[[AudioSignalSnapshot], None],
+    ) -> Callable[[], None]:
+        """Open one speaker loopback recorder and stream analyzed snapshots."""
+
+        if self._soundcard is None:
+            raise RuntimeError(self._availability_error)
+        if _normalize_device_flow(device_flow) != "output":
+            raise RuntimeError(
+                "The soundcard backend only supports desktop output sources."
+            )
+
+        selected_loopback_microphone = self._soundcard.get_microphone(
+            device_identifier,
+            include_loopback=True,
+        )
+        if selected_loopback_microphone is None:
+            raise RuntimeError("Could not open the selected output source for loopback capture.")
+
+        loopback_device_name = str(
+            getattr(selected_loopback_microphone, "name", "Desktop output source")
+        )
+        channel_count = max(
+            1,
+            min(int(getattr(selected_loopback_microphone, "channels", 2) or 2), 2),
+        )
+        stop_capture_event = threading.Event()
+        capture_started_event = threading.Event()
+        startup_error: dict[str, Exception] = {}
+
+        def run_loopback_capture_loop() -> None:
+            recorder_context_manager: Any | None = None
+            last_open_error: Exception | None = None
+            try:
+                for sample_rate_hz in PREFERRED_AUDIO_CAPTURE_SAMPLE_RATES_HZ:
+                    try:
+                        recorder_context_manager = selected_loopback_microphone.recorder(
+                            samplerate=sample_rate_hz,
+                            channels=channel_count,
+                            blocksize=DEFAULT_AUDIO_CAPTURE_BLOCK_SIZE,
+                        )
+                        with recorder_context_manager as recorder:
+                            capture_started_event.set()
+                            while not stop_capture_event.is_set():
+                                raw_frames = recorder.record(
+                                    numframes=DEFAULT_AUDIO_CAPTURE_BLOCK_SIZE
+                                )
+                                raw_frame_list = (
+                                    raw_frames.tolist()
+                                    if hasattr(raw_frames, "tolist")
+                                    else raw_frames
+                                )
+                                on_snapshot(
+                                    analyze_audio_frames(
+                                        raw_frame_list,
+                                        sample_rate=sample_rate_hz,
+                                        device_identifier=device_identifier,
+                                        device_name=loopback_device_name,
+                                        backend_name=self.backend_name,
+                                        capturing=True,
+                                    )
+                                )
+                            return
+                    except Exception as error:  # pragma: no cover - depends on audio stack.
+                        last_open_error = error
+                        recorder_context_manager = None
+
+                if last_open_error is None:
+                    last_open_error = RuntimeError(
+                        "Could not create a recorder for the selected output source."
+                    )
+                startup_error["error"] = last_open_error
+                on_snapshot(
+                    AudioSignalSnapshot(
+                        backend_name=self.backend_name,
+                        device_identifier=device_identifier,
+                        device_name=loopback_device_name,
+                        available=True,
+                        capturing=False,
+                        last_error=f"Output capture failed: {last_open_error}",
+                    )
+                )
+            finally:
+                capture_started_event.set()
+
+        capture_thread = threading.Thread(
+            target=run_loopback_capture_loop,
+            name="desktop-output-loopback-capture",
+            daemon=True,
+        )
+        capture_thread.start()
+        capture_started_event.wait(timeout=2.0)
+        if "error" in startup_error:
+            raise RuntimeError(
+                f"Could not start output capture for {loopback_device_name}: "
+                f"{startup_error['error']}"
+            )
+
+        def stop_stream() -> None:
+            stop_capture_event.set()
+            capture_thread.join(timeout=1.5)
+
+        return stop_stream
+
+
+class CompositeAudioCaptureBackend:
+    """Route input and output capture requests to the most suitable backend."""
+
+    def __init__(
+        self,
+        *,
+        input_backend: AudioCaptureBackend,
+        output_backend: AudioCaptureBackend,
+    ) -> None:
+        self._backends_by_flow = {
+            "input": input_backend,
+            "output": output_backend,
+        }
+
+    @property
+    def backend_name(self) -> str:
+        backend_names_in_order = []
+        for backend in self._backends_by_flow.values():
+            backend_name = backend.backend_name
+            if backend_name not in backend_names_in_order:
+                backend_names_in_order.append(backend_name)
+        return "+".join(backend_names_in_order)
+
+    @property
+    def availability_error(self) -> str:
+        if self.capture_available:
+            return ""
+        unique_errors = []
+        for backend in self._backends_by_flow.values():
+            backend_error = backend.availability_error
+            if backend_error and backend_error not in unique_errors:
+                unique_errors.append(backend_error)
+        return " ".join(unique_errors)
+
+    @property
+    def capture_available(self) -> bool:
+        return any(backend.capture_available for backend in self._backends_by_flow.values())
+
+    def list_devices(self, device_flow: str) -> list[AudioDeviceDescriptor]:
+        normalized_device_flow = _normalize_device_flow(device_flow)
+        return self._backends_by_flow[normalized_device_flow].list_devices(
+            normalized_device_flow
+        )
+
+    def open_stream(
+        self,
+        device_identifier: str,
+        device_flow: str,
+        on_snapshot: Callable[[AudioSignalSnapshot], None],
+    ) -> Callable[[], None]:
+        normalized_device_flow = _normalize_device_flow(device_flow)
+        return self._backends_by_flow[normalized_device_flow].open_stream(
+            device_identifier,
+            normalized_device_flow,
+            on_snapshot,
+        )
+
+
+# Keep the older class name as a compatibility alias for any code that still imports it.
+SoundDeviceAudioCaptureBackend = SoundDeviceInputCaptureBackend
 
 
 class WindowsWaveInListingBackend:
@@ -538,19 +766,32 @@ def create_default_audio_capture_backend() -> AudioCaptureBackend:
 
     Today that means:
 
-    1. try `sounddevice`
-    2. if it is unavailable, return a backend that explains the problem clearly
+    1. use `sounddevice` for microphones and line inputs
+    2. use `soundcard` for desktop output loopback capture
+    3. if one side is unavailable, keep the other side working and explain the gap
     """
 
-    backend = SoundDeviceAudioCaptureBackend()
-    if backend.availability_error:
+    input_backend: AudioCaptureBackend = SoundDeviceInputCaptureBackend()
+    if input_backend.availability_error:
         listing_only_backend = WindowsWaveInListingBackend(
             "Install the optional 'sounddevice' package to capture from the listed devices."
         )
         if listing_only_backend.list_devices("input"):
-            return listing_only_backend
-        return UnavailableAudioCaptureBackend(backend.availability_error)
-    return backend
+            input_backend = listing_only_backend
+        else:
+            input_backend = UnavailableAudioCaptureBackend(input_backend.availability_error)
+
+    output_backend: AudioCaptureBackend = SoundCardLoopbackOutputCaptureBackend()
+    if output_backend.availability_error:
+        output_backend = UnavailableAudioCaptureBackend(
+            "Desktop output capture requires the optional 'soundcard' package. "
+            "Install with: python -m pip install soundcard"
+        )
+
+    return CompositeAudioCaptureBackend(
+        input_backend=input_backend,
+        output_backend=output_backend,
+    )
 
 
 def _normalize_device_flow(device_flow: str) -> str:
@@ -620,11 +861,11 @@ def _mono_samples(raw_frames: Sequence[object]) -> list[float]:
             numeric_channels = [
                 float(channel)
                 for channel in frame
-                if isinstance(channel, (int, float))
+                if isinstance(channel, Real)
             ]
             if numeric_channels:
                 mono_samples.append(sum(numeric_channels) / len(numeric_channels))
-        elif isinstance(frame, (int, float)):
+        elif isinstance(frame, Real):
             mono_samples.append(float(frame))
     return mono_samples
 
