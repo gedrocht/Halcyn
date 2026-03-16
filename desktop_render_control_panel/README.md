@@ -33,6 +33,19 @@ It exists for the cases where the browser tools are helpful, but not quite enoug
 - `audio_input_service.py`: audio backend detection, device enumeration, and band analysis
 - `render_api_client.py`: focused HTTP client for Halcyn's validation, apply, and health routes
 
+## Helpful external references
+
+- Tkinter overview: [docs.python.org/3/library/tkinter.html](https://docs.python.org/3/library/tkinter.html)
+- Tk themed widgets (`ttk`): [docs.python.org/3/library/tkinter.ttk.html](https://docs.python.org/3/library/tkinter.ttk.html)
+- `urllib.request`: [docs.python.org/3/library/urllib.request.html](https://docs.python.org/3/library/urllib.request.html)
+- `sounddevice`: [python-sounddevice.readthedocs.io](https://python-sounddevice.readthedocs.io/)
+- Threading basics: [docs.python.org/3/library/threading.html](https://docs.python.org/3/library/threading.html)
+
+These are the main external APIs the desktop panel leans on. The inline
+docstrings in the package point back to the same libraries so a beginner can
+move from "what this Halcyn code is doing" to "what the underlying library API
+means" without guessing where to read next.
+
 ## Testing and quality gates
 
 The desktop panel is held to the same Python quality bar as the browser tooling:

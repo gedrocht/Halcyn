@@ -1,4 +1,12 @@
-"""Tkinter window for the native Halcyn desktop render control panel."""
+"""Tkinter window for the native Halcyn desktop render control panel.
+
+Helpful library references:
+
+- Tkinter overview: https://docs.python.org/3/library/tkinter.html
+- `ttk` widgets: https://docs.python.org/3/library/tkinter.ttk.html
+- `ScrolledText`: https://docs.python.org/3/library/tkinter.scrolledtext.html
+- `colorchooser`: https://docs.python.org/3/library/tkinter.colorchooser.html
+"""
 
 from __future__ import annotations
 
@@ -16,13 +24,20 @@ from desktop_render_control_panel.desktop_control_scene_builder import DEFAULT_D
 
 
 class DesktopRenderControlPanelWindow:
-    """Build and manage the native desktop control panel window."""
+    """Build and manage the native desktop control panel window.
+
+    The window's job is to present controls and translate user gestures into
+    controller calls.  It should not contain the authoritative business logic
+    for scene generation, HTTP communication, or audio processing.
+    """
 
     def __init__(
         self,
         root: tk.Tk,
         controller: DesktopRenderControlPanelController | None = None,
     ) -> None:
+        # The catalog is fetched once during startup so every dropdown can build
+        # from one consistent source of truth.
         self._root = root
         self._controller = controller or DesktopRenderControlPanelController()
         self._catalog = self._controller.catalog_payload()
@@ -58,6 +73,8 @@ class DesktopRenderControlPanelWindow:
         self._schedule_status_refresh()
 
     def _build_variables(self) -> None:
+        """Create the Tkinter variables that keep the UI and controller in sync."""
+
         self._scene_type_variable = tk.StringVar(value="2d")
         self._preset_name_variable = tk.StringVar(value="")
         self._host_variable = tk.StringVar(value="127.0.0.1")
@@ -84,6 +101,8 @@ class DesktopRenderControlPanelWindow:
         self._result_status_variable = tk.StringVar(value="Ready.")
 
     def _build_user_interface(self) -> None:
+        """Create the three major page columns and their child sections."""
+
         self._root.title("Halcyn Desktop Render Control Panel")
         self._root.geometry("1460x920")
         self._root.minsize(1200, 760)
@@ -140,71 +159,73 @@ class DesktopRenderControlPanelWindow:
         self._build_output_section()
 
     def _build_connection_section(self) -> None:
-        frame = self._connection_frame
-        for column_index in range(2):
-            frame.columnconfigure(column_index, weight=1 if column_index == 1 else 0)
+        """Create the renderer-target and transport-action controls."""
 
-        ttk.Label(frame, text="Host").grid(row=0, column=0, sticky="w")
-        ttk.Entry(frame, textvariable=self._host_variable).grid(
+        section_frame = self._connection_frame
+        for column_index in range(2):
+            section_frame.columnconfigure(column_index, weight=1 if column_index == 1 else 0)
+
+        ttk.Label(section_frame, text="Host").grid(row=0, column=0, sticky="w")
+        ttk.Entry(section_frame, textvariable=self._host_variable).grid(
             row=0,
             column=1,
             sticky="ew",
             pady=(0, 8),
         )
 
-        ttk.Label(frame, text="Port").grid(row=1, column=0, sticky="w")
-        ttk.Entry(frame, textvariable=self._port_variable).grid(
+        ttk.Label(section_frame, text="Port").grid(row=1, column=0, sticky="w")
+        ttk.Entry(section_frame, textvariable=self._port_variable).grid(
             row=1,
             column=1,
             sticky="ew",
             pady=(0, 8),
         )
 
-        ttk.Label(frame, text="Live cadence (ms)").grid(row=2, column=0, sticky="w")
+        ttk.Label(section_frame, text="Live cadence (ms)").grid(row=2, column=0, sticky="w")
         ttk.Scale(
-            frame,
+            section_frame,
             from_=40,
             to=1000,
             orient="horizontal",
             variable=self._cadence_variable,
             command=lambda _: self._schedule_payload_sync(),
         ).grid(row=2, column=1, sticky="ew")
-        ttk.Label(frame, textvariable=self._cadence_variable).grid(
+        ttk.Label(section_frame, textvariable=self._cadence_variable).grid(
             row=3,
             column=1,
             sticky="e",
             pady=(0, 8),
         )
 
-        ttk.Button(frame, text="Check health", command=self._run_health_check).grid(
+        ttk.Button(section_frame, text="Check health", command=self._run_health_check).grid(
             row=4,
             column=0,
             columnspan=2,
             sticky="ew",
             pady=(4, 4),
         )
-        ttk.Button(frame, text="Validate scene", command=self._validate_current_scene).grid(
+        ttk.Button(section_frame, text="Validate scene", command=self._validate_current_scene).grid(
             row=5,
             column=0,
             columnspan=2,
             sticky="ew",
             pady=4,
         )
-        ttk.Button(frame, text="Apply once", command=self._apply_current_scene).grid(
+        ttk.Button(section_frame, text="Apply once", command=self._apply_current_scene).grid(
             row=6,
             column=0,
             columnspan=2,
             sticky="ew",
             pady=4,
         )
-        ttk.Button(frame, text="Start live stream", command=self._start_live_stream).grid(
+        ttk.Button(section_frame, text="Start live stream", command=self._start_live_stream).grid(
             row=7,
             column=0,
             columnspan=2,
             sticky="ew",
             pady=4,
         )
-        ttk.Button(frame, text="Stop live stream", command=self._stop_live_stream).grid(
+        ttk.Button(section_frame, text="Stop live stream", command=self._stop_live_stream).grid(
             row=8,
             column=0,
             columnspan=2,
@@ -212,24 +233,24 @@ class DesktopRenderControlPanelWindow:
             pady=4,
         )
 
-        ttk.Separator(frame).grid(row=9, column=0, columnspan=2, sticky="ew", pady=10)
-        ttk.Label(frame, text="Health").grid(row=10, column=0, sticky="nw")
-        ttk.Label(frame, textvariable=self._health_status_variable, wraplength=280).grid(
+        ttk.Separator(section_frame).grid(row=9, column=0, columnspan=2, sticky="ew", pady=10)
+        ttk.Label(section_frame, text="Health").grid(row=10, column=0, sticky="nw")
+        ttk.Label(section_frame, textvariable=self._health_status_variable, wraplength=280).grid(
             row=10,
             column=1,
             sticky="w",
         )
 
-        ttk.Label(frame, text="Live").grid(row=11, column=0, sticky="nw", pady=(8, 0))
-        ttk.Label(frame, textvariable=self._live_status_variable, wraplength=280).grid(
+        ttk.Label(section_frame, text="Live").grid(row=11, column=0, sticky="nw", pady=(8, 0))
+        ttk.Label(section_frame, textvariable=self._live_status_variable, wraplength=280).grid(
             row=11,
             column=1,
             sticky="w",
             pady=(8, 0),
         )
 
-        ttk.Label(frame, text="Result").grid(row=12, column=0, sticky="nw", pady=(8, 0))
-        ttk.Label(frame, textvariable=self._result_status_variable, wraplength=280).grid(
+        ttk.Label(section_frame, text="Result").grid(row=12, column=0, sticky="nw", pady=(8, 0))
+        ttk.Label(section_frame, textvariable=self._result_status_variable, wraplength=280).grid(
             row=12,
             column=1,
             sticky="w",
@@ -237,13 +258,15 @@ class DesktopRenderControlPanelWindow:
         )
 
     def _build_scene_section(self) -> None:
-        frame = self._scene_frame
-        for column_index in range(2):
-            frame.columnconfigure(column_index, weight=1 if column_index == 1 else 0)
+        """Create the visual-control, signal-source, and audio-device widgets."""
 
-        ttk.Label(frame, text="Scene type").grid(row=0, column=0, sticky="w")
+        section_frame = self._scene_frame
+        for column_index in range(2):
+            section_frame.columnconfigure(column_index, weight=1 if column_index == 1 else 0)
+
+        ttk.Label(section_frame, text="Scene type").grid(row=0, column=0, sticky="w")
         self._scene_type_combobox = ttk.Combobox(
-            frame,
+            section_frame,
             textvariable=self._scene_type_variable,
             values=("2d", "3d"),
             state="readonly",
@@ -251,9 +274,9 @@ class DesktopRenderControlPanelWindow:
         self._scene_type_combobox.grid(row=0, column=1, sticky="ew", pady=(0, 8))
         self._scene_type_combobox.bind("<<ComboboxSelected>>", self._on_scene_type_changed)
 
-        ttk.Label(frame, text="Preset").grid(row=1, column=0, sticky="w")
+        ttk.Label(section_frame, text="Preset").grid(row=1, column=0, sticky="w")
         self._preset_combobox = ttk.Combobox(
-            frame,
+            section_frame,
             textvariable=self._preset_name_variable,
             state="readonly",
         )
@@ -261,9 +284,16 @@ class DesktopRenderControlPanelWindow:
         self._preset_combobox.bind("<<ComboboxSelected>>", self._on_preset_changed)
 
         slider_row = 2
-        slider_row = self._add_slider(frame, slider_row, "Density", self._density_variable, 24, 320)
         slider_row = self._add_slider(
-            frame,
+            section_frame,
+            slider_row,
+            "Density",
+            self._density_variable,
+            24,
+            320,
+        )
+        slider_row = self._add_slider(
+            section_frame,
             slider_row,
             "Point size",
             self._point_size_variable,
@@ -271,17 +301,31 @@ class DesktopRenderControlPanelWindow:
             24.0,
         )
         slider_row = self._add_slider(
-            frame,
+            section_frame,
             slider_row,
             "Line width",
             self._line_width_variable,
             1.0,
             8.0,
         )
-        slider_row = self._add_slider(frame, slider_row, "Speed", self._speed_variable, 0.1, 4.0)
-        slider_row = self._add_slider(frame, slider_row, "Gain", self._gain_variable, 0.1, 3.0)
         slider_row = self._add_slider(
-            frame,
+            section_frame,
+            slider_row,
+            "Speed",
+            self._speed_variable,
+            0.1,
+            4.0,
+        )
+        slider_row = self._add_slider(
+            section_frame,
+            slider_row,
+            "Gain",
+            self._gain_variable,
+            0.1,
+            3.0,
+        )
+        slider_row = self._add_slider(
+            section_frame,
             slider_row,
             "Manual drive",
             self._manual_drive_variable,
@@ -289,27 +333,32 @@ class DesktopRenderControlPanelWindow:
             2.0,
         )
 
-        ttk.Label(frame, text="Background").grid(row=slider_row, column=0, sticky="w", pady=(8, 0))
-        self._build_color_row(frame, slider_row, self._background_variable)
-        slider_row += 1
-        ttk.Label(frame, text="Primary color").grid(
+        ttk.Label(section_frame, text="Background").grid(
             row=slider_row,
             column=0,
             sticky="w",
             pady=(8, 0),
         )
-        self._build_color_row(frame, slider_row, self._primary_color_variable)
+        self._build_color_row(section_frame, slider_row, self._background_variable)
         slider_row += 1
-        ttk.Label(frame, text="Secondary color").grid(
+        ttk.Label(section_frame, text="Primary color").grid(
             row=slider_row,
             column=0,
             sticky="w",
             pady=(8, 0),
         )
-        self._build_color_row(frame, slider_row, self._secondary_color_variable)
+        self._build_color_row(section_frame, slider_row, self._primary_color_variable)
+        slider_row += 1
+        ttk.Label(section_frame, text="Secondary color").grid(
+            row=slider_row,
+            column=0,
+            sticky="w",
+            pady=(8, 0),
+        )
+        self._build_color_row(section_frame, slider_row, self._secondary_color_variable)
         slider_row += 1
 
-        signals_frame = ttk.LabelFrame(frame, text="Signal sources", padding=8)
+        signals_frame = ttk.LabelFrame(section_frame, text="Signal sources", padding=8)
         signals_frame.grid(row=slider_row, column=0, columnspan=2, sticky="ew", pady=(12, 0))
         for signal_index, (label_text, variable) in enumerate(
             [
@@ -326,7 +375,7 @@ class DesktopRenderControlPanelWindow:
                 command=self._schedule_payload_sync,
             ).grid(row=signal_index // 2, column=signal_index % 2, sticky="w", padx=4, pady=4)
 
-        audio_frame = ttk.LabelFrame(frame, text="Audio input", padding=8)
+        audio_frame = ttk.LabelFrame(section_frame, text="Audio input", padding=8)
         audio_frame.grid(row=slider_row + 1, column=0, columnspan=2, sticky="ew", pady=(12, 0))
         audio_frame.columnconfigure(1, weight=1)
         ttk.Label(audio_frame, text="Device").grid(row=0, column=0, sticky="w")
@@ -364,7 +413,7 @@ class DesktopRenderControlPanelWindow:
             pady=(8, 0),
         )
 
-        pointer_frame = ttk.LabelFrame(frame, text="Pointer pad", padding=8)
+        pointer_frame = ttk.LabelFrame(section_frame, text="Pointer pad", padding=8)
         pointer_frame.grid(row=slider_row + 2, column=0, columnspan=2, sticky="nsew", pady=(12, 0))
         self._pointer_canvas = tk.Canvas(
             pointer_frame,
@@ -387,26 +436,32 @@ class DesktopRenderControlPanelWindow:
         self._watch_control_variables()
 
     def _build_output_section(self) -> None:
-        frame = self._output_frame
-        frame.rowconfigure(3, weight=1)
-        frame.columnconfigure(0, weight=1)
+        """Create the preview JSON pane and the small analysis summary."""
 
-        ttk.Button(frame, text="Refresh preview JSON", command=self._refresh_preview).grid(
+        section_frame = self._output_frame
+        section_frame.rowconfigure(3, weight=1)
+        section_frame.columnconfigure(0, weight=1)
+
+        ttk.Button(section_frame, text="Refresh preview JSON", command=self._refresh_preview).grid(
             row=0,
             column=0,
             sticky="ew",
         )
 
         self._analysis_label = ttk.Label(
-            frame,
+            section_frame,
             text="No preview generated yet.",
             wraplength=640,
             justify="left",
         )
         self._analysis_label.grid(row=1, column=0, sticky="w", pady=(10, 10))
 
-        ttk.Label(frame, text="Current scene JSON").grid(row=2, column=0, sticky="w")
-        self._preview_text = ScrolledText(frame, wrap="none", font=("Cascadia Code", 10))
+        ttk.Label(section_frame, text="Current scene JSON").grid(row=2, column=0, sticky="w")
+        self._preview_text = ScrolledText(
+            section_frame,
+            wrap="none",
+            font=("Cascadia Code", 10),
+        )
         self._preview_text.grid(row=3, column=0, sticky="nsew")
         self._preview_text.configure(state="disabled")
 
@@ -452,6 +507,8 @@ class DesktopRenderControlPanelWindow:
         ).grid(row=0, column=1, padx=(6, 0))
 
     def _watch_control_variables(self) -> None:
+        """Register one shared "something changed" callback for UI variables."""
+
         watched_variables = [
             self._host_variable,
             self._port_variable,
@@ -474,6 +531,8 @@ class DesktopRenderControlPanelWindow:
             variable.trace_add("write", lambda *_: self._schedule_payload_sync())
 
     def _load_initial_state(self) -> None:
+        """Populate the window from the controller's current payload."""
+
         default_payload = self._controller.current_request_payload()
         default_preset_identifier = str(default_payload["presetId"])
         default_scene_type = str(
@@ -491,6 +550,12 @@ class DesktopRenderControlPanelWindow:
         self._preset_combobox["values"] = self._preset_names_by_scene_type.get(scene_type, [])
 
     def _set_user_interface_from_request_payload(self, payload: dict[str, Any]) -> None:
+        """Copy a normalized request payload into the visible widgets.
+
+        The suppression flag matters because setting Tk variables would normally
+        trigger the "sync back into the controller" traces immediately.
+        """
+
         self._suppress_variable_sync = True
         try:
             target = payload.get("target", {})
@@ -525,6 +590,8 @@ class DesktopRenderControlPanelWindow:
             self._suppress_variable_sync = False
 
     def _collect_request_payload_from_user_interface(self) -> dict[str, Any]:
+        """Build one full request payload from the current widget values."""
+
         selected_preset_name = self._preset_name_variable.get().strip()
         selected_preset_identifier = self._preset_ids_by_name.get(
             selected_preset_name,
@@ -566,6 +633,8 @@ class DesktopRenderControlPanelWindow:
         }
 
     def _schedule_payload_sync(self) -> None:
+        """Debounce rapid widget changes before syncing them into the controller."""
+
         if self._suppress_variable_sync:
             return
 
@@ -578,6 +647,8 @@ class DesktopRenderControlPanelWindow:
         )
 
     def _sync_payload_to_controller(self) -> None:
+        """Push the latest widget state into the controller and refresh preview if needed."""
+
         self._pending_sync_after_identifier = None
         self._controller.update_request_payload(self._collect_request_payload_from_user_interface())
         if self._controller.live_stream_snapshot()["status"] in {"running", "starting"}:
@@ -607,6 +678,8 @@ class DesktopRenderControlPanelWindow:
             self._schedule_payload_sync()
 
     def _refresh_audio_devices(self) -> None:
+        """Refresh the device dropdown from the audio service."""
+
         devices = self._controller.refresh_audio_devices()
         device_names = [device.name for device in devices]
         self._audio_device_combobox["values"] = device_names
@@ -619,6 +692,8 @@ class DesktopRenderControlPanelWindow:
             )
 
     def _start_audio_capture(self) -> None:
+        """Start capture on the chosen device and surface readable UI errors."""
+
         device_name = self._audio_device_variable.get().strip()
         if not device_name:
             messagebox.showinfo("Audio capture", "Choose an input device first.")
@@ -639,6 +714,8 @@ class DesktopRenderControlPanelWindow:
         self._audio_status_variable.set(f"Capturing from {device_name}.")
 
     def _stop_audio_capture(self) -> None:
+        """Stop audio capture while leaving the last known analysis visible."""
+
         snapshot = self._controller.stop_audio_capture()
         if snapshot.last_error:
             self._audio_status_variable.set(snapshot.last_error)
@@ -646,6 +723,8 @@ class DesktopRenderControlPanelWindow:
             self._audio_status_variable.set("Audio capture stopped.")
 
     def _on_pointer_motion(self, event: tk.Event[tk.Misc]) -> None:
+        """Translate pointer movement into normalized control values."""
+
         canvas_width = max(1, int(self._pointer_canvas.winfo_width()))
         canvas_height = max(1, int(self._pointer_canvas.winfo_height()))
         normalized_x = max(0.0, min(1.0, event.x / canvas_width))
@@ -669,10 +748,14 @@ class DesktopRenderControlPanelWindow:
             self._refresh_preview()
 
     def _on_pointer_leave(self, event: tk.Event[tk.Misc]) -> None:
+        """Reset pointer speed when the operator leaves the pointer pad."""
+
         self._controller.update_pointer_signal(self._last_pointer_x, self._last_pointer_y, 0.0)
         self._pointer_status_variable.set("Pointer pad idle")
 
     def _run_health_check(self) -> None:
+        """Update the status label using the renderer health endpoint."""
+
         response = self._controller.health_check()
         if response.status == 200:
             self._health_status_variable.set("Renderer API reachable and healthy.")
@@ -684,6 +767,8 @@ class DesktopRenderControlPanelWindow:
             )
 
     def _validate_current_scene(self) -> None:
+        """Validate the current preview and show both result text and JSON preview."""
+
         validation_result = self._controller.validate_current_scene()
         response = validation_result["response"]
         if response.status == 200:
@@ -697,6 +782,8 @@ class DesktopRenderControlPanelWindow:
         self._show_preview_bundle(validation_result["bundle"])
 
     def _apply_current_scene(self) -> None:
+        """Apply the current preview scene and update the status text."""
+
         apply_result = self._controller.apply_current_scene()
         response = apply_result["response"]
         if apply_result["status"] == "applied":
@@ -710,6 +797,8 @@ class DesktopRenderControlPanelWindow:
         self._show_preview_bundle(apply_result["bundle"])
 
     def _start_live_stream(self) -> None:
+        """Start the controller-owned live stream from the current UI state."""
+
         self._sync_payload_to_controller()
         snapshot = self._controller.start_live_stream()
         self._live_status_variable.set(
@@ -717,14 +806,20 @@ class DesktopRenderControlPanelWindow:
         )
 
     def _stop_live_stream(self) -> None:
+        """Stop the live stream and refresh the visible status line."""
+
         snapshot = self._controller.stop_live_stream()
         self._live_status_variable.set(f"Live stream {snapshot['status']}.")
 
     def _refresh_preview(self) -> None:
+        """Rebuild and display the current preview bundle."""
+
         preview_bundle = self._controller.preview_scene_bundle()
         self._show_preview_bundle(preview_bundle)
 
     def _show_preview_bundle(self, preview_bundle: dict[str, Any]) -> None:
+        """Render both the summary label and the full pretty-printed JSON scene."""
+
         analysis = preview_bundle["analysis"]
         self._analysis_label.configure(
             text=(
@@ -743,10 +838,14 @@ class DesktopRenderControlPanelWindow:
         self._preview_text.configure(state="disabled")
 
     def _schedule_status_refresh(self) -> None:
+        """Keep audio/live-stream status labels gently refreshed over time."""
+
         self._refresh_status_labels()
         self._root.after(250, self._schedule_status_refresh)
 
     def _refresh_status_labels(self) -> None:
+        """Refresh status labels from the controller's latest snapshots."""
+
         audio_snapshot = self._controller.audio_snapshot()
         if audio_snapshot.capturing:
             self._audio_status_variable.set(
@@ -766,11 +865,15 @@ class DesktopRenderControlPanelWindow:
         )
 
     def _on_close_requested(self) -> None:
+        """Shut down background resources before destroying the window."""
+
         self._controller.close()
         self._root.destroy()
 
     @staticmethod
     def _safe_int(value: object, default: int) -> int:
+        """Parse an integer-like value without raising UI-facing exceptions."""
+
         if not isinstance(value, (bool, int, float, str)):
             return default
         try:

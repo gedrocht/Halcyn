@@ -1,4 +1,16 @@
-"""Controller logic for the native desktop render control panel."""
+"""Controller logic for the native desktop render control panel.
+
+This module is the "brain" behind the desktop window.  The Tkinter UI asks
+questions such as:
+
+- "What presets exist?"
+- "What does the current preview scene look like?"
+- "Please start streaming scenes every 125 milliseconds."
+
+The controller answers those questions without exposing the GUI to lower-level
+details such as HTTP request formatting, audio-device state, or cross-thread
+bookkeeping.
+"""
 
 from __future__ import annotations
 
@@ -24,7 +36,9 @@ from desktop_render_control_panel.desktop_control_scene_builder import (
 from desktop_render_control_panel.render_api_client import RenderApiClient, RenderApiResponse
 
 
-def _utc_now_iso() -> str:
+def _current_utc_timestamp_iso8601() -> str:
+    """Return a readable UTC timestamp for status snapshots and diagnostics."""
+
     return datetime.now(timezone.utc).isoformat()
 
 
@@ -102,6 +116,9 @@ class DesktopRenderControlPanelController:
         render_api_client: RenderApiClientProtocol | None = None,
         audio_input_service: AudioInputServiceProtocol | None = None,
     ) -> None:
+        # One lock guards all mutable controller state so the Tkinter thread,
+        # audio callback thread, and live-stream worker never partially step on
+        # each other's updates.
         self._render_api_client = render_api_client or RenderApiClient()
         self._audio_input_service = audio_input_service or DesktopAudioInputService()
         self._lock = threading.Lock()
@@ -125,6 +142,9 @@ class DesktopRenderControlPanelController:
         """Replace the current scene preset while preserving target/cadence routing."""
 
         with self._lock:
+            # Preset changes should feel like "swap the visual idea, keep my
+            # current connection/session settings" rather than "reset the whole
+            # application."
             previous_target = copy.deepcopy(self._current_request_payload.get("target", {}))
             previous_session = copy.deepcopy(self._current_request_payload.get("session", {}))
             self._current_request_payload = build_default_request_payload(preset_identifier)
@@ -144,21 +164,26 @@ class DesktopRenderControlPanelController:
 
         with self._lock:
             _deep_merge(self._current_request_payload, update)
-            cadence = (
+            requested_cadence_in_milliseconds = (
                 self._current_request_payload.get("session", {}).get("cadenceMs", 125)
             )
-            self._live_stream_snapshot.cadence_ms = _clamp_int(cadence, 125, 40, 1000)
+            self._live_stream_snapshot.cadence_ms = _clamp_int(
+                requested_cadence_in_milliseconds,
+                125,
+                40,
+                1000,
+            )
             return copy.deepcopy(self._current_request_payload)
 
     def update_pointer_signal(self, normalized_x: float, normalized_y: float, speed: float) -> None:
         """Store the latest pointer-pad sample from the desktop UI."""
 
         with self._lock:
-            signals = self._current_request_payload.setdefault("signals", {})
-            pointer = signals.setdefault("pointer", {})
-            pointer["x"] = _clamp_float(normalized_x, 0.5, 0.0, 1.0)
-            pointer["y"] = _clamp_float(normalized_y, 0.5, 0.0, 1.0)
-            pointer["speed"] = _clamp_float(speed, 0.0, 0.0, 1.0)
+            signals_payload = self._current_request_payload.setdefault("signals", {})
+            pointer_payload = signals_payload.setdefault("pointer", {})
+            pointer_payload["x"] = _clamp_float(normalized_x, 0.5, 0.0, 1.0)
+            pointer_payload["y"] = _clamp_float(normalized_y, 0.5, 0.0, 1.0)
+            pointer_payload["speed"] = _clamp_float(speed, 0.0, 0.0, 1.0)
 
     def audio_devices(self) -> list[AudioDeviceDescriptor]:
         """Return the currently known audio input devices."""
@@ -216,8 +241,8 @@ class DesktopRenderControlPanelController:
     def health_check(self) -> RenderApiResponse:
         """Query the live Halcyn API health endpoint."""
 
-        payload = self.current_request_payload()
-        target = payload.get("target", {})
+        current_request_payload = self.current_request_payload()
+        target = current_request_payload.get("target", {})
         host = str(target.get("host", "127.0.0.1"))
         port = int(target.get("port", 8080))
         return self._render_api_client.health(host=host, port=port)
@@ -238,7 +263,7 @@ class DesktopRenderControlPanelController:
             self._stop_live_stream_event = threading.Event()
             self._live_stream_snapshot.status = "starting"
             self._live_stream_snapshot.last_error = ""
-            self._live_stream_snapshot.last_started_at_utc = _utc_now_iso()
+            self._live_stream_snapshot.last_started_at_utc = _current_utc_timestamp_iso8601()
             self._live_stream_thread = threading.Thread(
                 target=self._run_live_stream_loop,
                 daemon=True,
@@ -254,7 +279,9 @@ class DesktopRenderControlPanelController:
             if live_stream_thread is None or not live_stream_thread.is_alive():
                 self._live_stream_snapshot.status = "stopped"
                 if self._live_stream_snapshot.last_stopped_at_utc is None:
-                    self._live_stream_snapshot.last_stopped_at_utc = _utc_now_iso()
+                    self._live_stream_snapshot.last_stopped_at_utc = (
+                        _current_utc_timestamp_iso8601()
+                    )
                 return copy.deepcopy(self._live_stream_snapshot.to_dict())
 
             self._live_stream_snapshot.status = "stopping"
@@ -264,7 +291,9 @@ class DesktopRenderControlPanelController:
         with self._lock:
             if self._live_stream_thread is None or not self._live_stream_thread.is_alive():
                 self._live_stream_snapshot.status = "stopped"
-                self._live_stream_snapshot.last_stopped_at_utc = _utc_now_iso()
+                self._live_stream_snapshot.last_stopped_at_utc = (
+                    _current_utc_timestamp_iso8601()
+                )
             return copy.deepcopy(self._live_stream_snapshot.to_dict())
 
     def close(self) -> None:
@@ -274,12 +303,19 @@ class DesktopRenderControlPanelController:
         self._audio_input_service.close()
 
     def _run_live_stream_loop(self) -> None:
+        """Continuously regenerate and apply scenes until stopped.
+
+        The controller does not keep one precomputed scene and replay it.  It
+        rebuilds the scene every loop so time, pointer motion, and live audio
+        can keep influencing the result.
+        """
+
         with self._lock:
             self._live_stream_snapshot.status = "running"
 
         try:
             while not self._stop_live_stream_event.is_set():
-                loop_started = time.perf_counter()
+                loop_started_at = time.perf_counter()
                 preview_bundle = self.preview_scene_bundle()
                 apply_result = self._apply_preview_bundle(preview_bundle)
                 self._record_live_stream_attempt(
@@ -287,24 +323,33 @@ class DesktopRenderControlPanelController:
                     apply_result=apply_result,
                 )
 
-                effective_cadence_ms = self.live_stream_snapshot()["cadence_ms"]
-                elapsed_seconds = time.perf_counter() - loop_started
-                remaining_seconds = max(0.0, effective_cadence_ms / 1000.0 - elapsed_seconds)
+                effective_cadence_in_milliseconds = self.live_stream_snapshot()["cadence_ms"]
+                elapsed_seconds = time.perf_counter() - loop_started_at
+                remaining_seconds = max(
+                    0.0,
+                    effective_cadence_in_milliseconds / 1000.0 - elapsed_seconds,
+                )
                 self._stop_live_stream_event.wait(remaining_seconds)
         except Exception as error:  # pragma: no cover - depends on timing and machine failures.
             with self._lock:
                 self._live_stream_snapshot.status = "error"
                 self._live_stream_snapshot.last_error = str(error)
                 self._live_stream_snapshot.last_submission_reason = "exception"
-                self._live_stream_snapshot.last_stopped_at_utc = _utc_now_iso()
+                self._live_stream_snapshot.last_stopped_at_utc = (
+                    _current_utc_timestamp_iso8601()
+                )
         finally:
             with self._lock:
                 if self._live_stream_snapshot.status != "error":
                     self._live_stream_snapshot.status = "stopped"
-                    self._live_stream_snapshot.last_stopped_at_utc = _utc_now_iso()
+                    self._live_stream_snapshot.last_stopped_at_utc = (
+                        _current_utc_timestamp_iso8601()
+                    )
                 self._live_stream_thread = None
 
     def _apply_preview_bundle(self, preview_bundle: dict[str, Any]) -> dict[str, Any]:
+        """Submit one already-generated preview bundle to the live renderer."""
+
         target = preview_bundle["target"]
         scene_json = json.dumps(preview_bundle["scene"], separators=(",", ":"))
         response = self._render_api_client.apply_scene(
@@ -329,14 +374,26 @@ class DesktopRenderControlPanelController:
         }
 
     def _build_effective_payload(self) -> dict[str, Any]:
-        """Inject fresh time and audio data into the editable control payload."""
+        """Inject fresh time and audio data into the editable control payload.
+
+        The GUI stores a user-editable payload, but some parts of that payload
+        should be "live" rather than static.  Time always moves forward, and
+        the latest audio snapshot changes whenever capture is active.
+        """
 
         with self._lock:
-            payload = copy.deepcopy(self._current_request_payload)
-            cadence_ms = int(payload.get("session", {}).get("cadenceMs", 125))
-            self._live_stream_snapshot.cadence_ms = _clamp_int(cadence_ms, 125, 40, 1000)
+            effective_request_payload = copy.deepcopy(self._current_request_payload)
+            cadence_in_milliseconds = int(
+                effective_request_payload.get("session", {}).get("cadenceMs", 125)
+            )
+            self._live_stream_snapshot.cadence_ms = _clamp_int(
+                cadence_in_milliseconds,
+                125,
+                40,
+                1000,
+            )
 
-        signals = payload.setdefault("signals", {})
+        signals = effective_request_payload.setdefault("signals", {})
         signals["epochSeconds"] = time.time()
         audio_snapshot = self._audio_input_service.snapshot()
         signals["audio"] = {
@@ -345,7 +402,7 @@ class DesktopRenderControlPanelController:
             "mid": audio_snapshot.mid,
             "treble": audio_snapshot.treble,
         }
-        return payload
+        return effective_request_payload
 
     def _record_live_stream_attempt(
         self,
@@ -363,7 +420,9 @@ class DesktopRenderControlPanelController:
             if apply_result["status"] == "applied":
                 self._live_stream_snapshot.frames_applied += 1
                 self._live_stream_snapshot.last_error = ""
-                self._live_stream_snapshot.last_applied_at_utc = _utc_now_iso()
+                self._live_stream_snapshot.last_applied_at_utc = (
+                    _current_utc_timestamp_iso8601()
+                )
                 return
 
             self._live_stream_snapshot.frames_failed += 1
@@ -371,7 +430,12 @@ class DesktopRenderControlPanelController:
 
 
 def _deep_merge(target: dict[str, Any], update: dict[str, Any]) -> None:
-    """Recursively merge nested dictionaries in-place."""
+    """Recursively merge nested dictionaries in-place.
+
+    This lets the UI submit tiny partial edits such as
+    `{"settings": {"speed": 1.5}}` without rebuilding the entire payload by
+    hand every time a single slider moves.
+    """
 
     for key, value in update.items():
         if isinstance(value, dict):
@@ -385,6 +449,8 @@ def _deep_merge(target: dict[str, Any], update: dict[str, Any]) -> None:
 
 
 def _clamp_float(value: object, default: float, lower: float, upper: float) -> float:
+    """Coerce a value to float and keep it inside an allowed range."""
+
     if not isinstance(value, (bool, int, float, str)):
         coerced = default
     else:
@@ -396,6 +462,8 @@ def _clamp_float(value: object, default: float, lower: float, upper: float) -> f
 
 
 def _clamp_int(value: object, default: int, lower: int, upper: int) -> int:
+    """Coerce a value to int and keep it inside an allowed range."""
+
     if not isinstance(value, (bool, int, float, str)):
         coerced = default
     else:
