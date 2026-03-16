@@ -26,13 +26,15 @@ import math
 import os
 import threading
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from numbers import Real
 from typing import Any, Protocol
 
 DEFAULT_AUDIO_CAPTURE_BLOCK_SIZE = 1024
 PREFERRED_AUDIO_CAPTURE_SAMPLE_RATES_HZ = (48_000, 44_100)
+WINDOWS_COM_CHANGED_MODE_HRESULT = 0x80010106
 
 
 @dataclass(frozen=True)
@@ -104,6 +106,60 @@ class AudioCaptureBackend(Protocol):
         on_snapshot: Callable[[AudioSignalSnapshot], None],
     ) -> Callable[[], None]:
         ...
+
+
+@contextmanager
+def _initialize_windows_com_for_current_thread() -> Iterator[None]:
+    """Ensure the current Windows thread has COM initialized before soundcard runs.
+
+    The `soundcard` package talks to Windows audio APIs through COM. On some
+    machines, especially when the GUI thread or a fresh worker thread has not
+    touched COM yet, loopback capture can fail immediately with HRESULT
+    `0x800401F0` ("CoInitialize has not been called").
+
+    This helper keeps that Windows-specific detail in one place:
+
+    - non-Windows platforms simply fall through with no extra work
+    - Windows threads call `CoInitialize`
+    - if this helper performed the initialization, it also performs the matching
+      `CoUninitialize` on the way out
+    - if the thread was already initialized in a different COM mode, Windows
+      reports `RPC_E_CHANGED_MODE`, which is safe for us to treat as "COM is
+      already available; keep going"
+    """
+
+    if os.name != "nt":
+        yield
+        return
+
+    try:
+        ole32_library = ctypes.OleDLL("ole32")
+    except Exception:
+        # If the platform claims to be Windows but we still cannot load ole32,
+        # the follow-up soundcard call will surface the real backend error.
+        yield
+        return
+
+    ole32_library.CoInitialize.argtypes = [ctypes.c_void_p]
+    ole32_library.CoInitialize.restype = ctypes.c_long
+    ole32_library.CoUninitialize.argtypes = []
+    ole32_library.CoUninitialize.restype = None
+
+    initialization_result = int(ole32_library.CoInitialize(None))
+    normalized_hresult = initialization_result & 0xFFFFFFFF
+    should_uninitialize = initialization_result in (0, 1)
+
+    if not should_uninitialize and normalized_hresult != WINDOWS_COM_CHANGED_MODE_HRESULT:
+        raise RuntimeError(
+            "Could not initialize Windows audio capture COM state. "
+            f"Error 0x{normalized_hresult:08x}"
+        )
+
+    try:
+        yield
+    finally:
+        if should_uninitialize:
+            ole32_library.CoUninitialize()
 
 
 class UnavailableAudioCaptureBackend:
@@ -334,8 +390,9 @@ class SoundCardLoopbackOutputCaptureBackend:
             return []
 
         try:
-            available_speakers = self._soundcard.all_speakers()
-            default_speaker = self._soundcard.default_speaker()
+            with _initialize_windows_com_for_current_thread():
+                available_speakers = self._soundcard.all_speakers()
+                default_speaker = self._soundcard.default_speaker()
         except Exception as error:  # pragma: no cover - depends on local audio stack.
             self._availability_error = f"Could not query output audio sources: {error}"
             return []
@@ -389,10 +446,11 @@ class SoundCardLoopbackOutputCaptureBackend:
                 "The soundcard backend only supports desktop output sources."
             )
 
-        selected_loopback_microphone = self._soundcard.get_microphone(
-            device_identifier,
-            include_loopback=True,
-        )
+        with _initialize_windows_com_for_current_thread():
+            selected_loopback_microphone = self._soundcard.get_microphone(
+                device_identifier,
+                include_loopback=True,
+            )
         if selected_loopback_microphone is None:
             raise RuntimeError("Could not open the selected output source for loopback capture.")
 
@@ -411,38 +469,39 @@ class SoundCardLoopbackOutputCaptureBackend:
             recorder_context_manager: Any | None = None
             last_open_error: Exception | None = None
             try:
-                for sample_rate_hz in PREFERRED_AUDIO_CAPTURE_SAMPLE_RATES_HZ:
-                    try:
-                        recorder_context_manager = selected_loopback_microphone.recorder(
-                            samplerate=sample_rate_hz,
-                            channels=channel_count,
-                            blocksize=DEFAULT_AUDIO_CAPTURE_BLOCK_SIZE,
-                        )
-                        with recorder_context_manager as recorder:
-                            capture_started_event.set()
-                            while not stop_capture_event.is_set():
-                                raw_frames = recorder.record(
-                                    numframes=DEFAULT_AUDIO_CAPTURE_BLOCK_SIZE
-                                )
-                                raw_frame_list = (
-                                    raw_frames.tolist()
-                                    if hasattr(raw_frames, "tolist")
-                                    else raw_frames
-                                )
-                                on_snapshot(
-                                    analyze_audio_frames(
-                                        raw_frame_list,
-                                        sample_rate=sample_rate_hz,
-                                        device_identifier=device_identifier,
-                                        device_name=loopback_device_name,
-                                        backend_name=self.backend_name,
-                                        capturing=True,
+                with _initialize_windows_com_for_current_thread():
+                    for sample_rate_hz in PREFERRED_AUDIO_CAPTURE_SAMPLE_RATES_HZ:
+                        try:
+                            recorder_context_manager = selected_loopback_microphone.recorder(
+                                samplerate=sample_rate_hz,
+                                channels=channel_count,
+                                blocksize=DEFAULT_AUDIO_CAPTURE_BLOCK_SIZE,
+                            )
+                            with recorder_context_manager as recorder:
+                                capture_started_event.set()
+                                while not stop_capture_event.is_set():
+                                    raw_frames = recorder.record(
+                                        numframes=DEFAULT_AUDIO_CAPTURE_BLOCK_SIZE
                                     )
-                                )
-                            return
-                    except Exception as error:  # pragma: no cover - depends on audio stack.
-                        last_open_error = error
-                        recorder_context_manager = None
+                                    raw_frame_list = (
+                                        raw_frames.tolist()
+                                        if hasattr(raw_frames, "tolist")
+                                        else raw_frames
+                                    )
+                                    on_snapshot(
+                                        analyze_audio_frames(
+                                            raw_frame_list,
+                                            sample_rate=sample_rate_hz,
+                                            device_identifier=device_identifier,
+                                            device_name=loopback_device_name,
+                                            backend_name=self.backend_name,
+                                            capturing=True,
+                                        )
+                                    )
+                                return
+                        except Exception as error:  # pragma: no cover - depends on audio stack.
+                            last_open_error = error
+                            recorder_context_manager = None
 
                 if last_open_error is None:
                     last_open_error = RuntimeError(

@@ -8,6 +8,7 @@ import threading
 import time
 import tkinter as tk
 import unittest
+from contextlib import contextmanager
 from dataclasses import dataclass
 from fractions import Fraction
 from http import HTTPStatus
@@ -25,6 +26,7 @@ from desktop_render_control_panel.audio_input_service import (
     SoundCardLoopbackOutputCaptureBackend,
     SoundDeviceInputCaptureBackend,
     UnavailableAudioCaptureBackend,
+    _initialize_windows_com_for_current_thread,
     analyze_audio_frames,
     create_default_audio_capture_backend,
 )
@@ -157,6 +159,23 @@ class AudioAnalysisTests(unittest.TestCase):
 
 class AudioServiceTests(unittest.TestCase):
     """Exercise the optional audio backend integration and high-level service."""
+
+    def test_windows_com_scope_initializes_and_uninitializes_when_needed(self) -> None:
+        fake_ole32_library = mock.Mock()
+        fake_ole32_library.CoInitialize.return_value = 0
+
+        with mock.patch(
+            "desktop_render_control_panel.audio_input_service.os.name",
+            "nt",
+        ), mock.patch(
+            "desktop_render_control_panel.audio_input_service.ctypes.OleDLL",
+            return_value=fake_ole32_library,
+        ):
+            with _initialize_windows_com_for_current_thread():
+                pass
+
+        fake_ole32_library.CoInitialize.assert_called_once()
+        fake_ole32_library.CoUninitialize.assert_called_once()
 
     def test_audio_service_wraps_a_fake_backend(self) -> None:
         class FakeBackend:
@@ -361,19 +380,26 @@ class AudioServiceTests(unittest.TestCase):
         with mock.patch(
             "desktop_render_control_panel.audio_input_service.importlib.import_module",
             return_value=FakeSoundCardModule(),
-        ):
+        ), mock.patch(
+            "desktop_render_control_panel.audio_input_service._initialize_windows_com_for_current_thread"
+        ) as com_scope_factory:
+            @contextmanager
+            def fake_com_scope() -> Any:
+                yield
+
+            com_scope_factory.side_effect = fake_com_scope
             backend = SoundCardLoopbackOutputCaptureBackend()
+            output_devices = backend.list_devices("output")
+            self.assertEqual(output_devices[0].name, "Desktop speakers")
 
-        output_devices = backend.list_devices("output")
-        self.assertEqual(output_devices[0].name, "Desktop speakers")
-
-        snapshots: list[AudioSignalSnapshot] = []
-        stop_callback = backend.open_stream("speaker-1", "output", snapshots.append)
-        deadline = time.time() + 1.0
-        while time.time() < deadline and not snapshots:
-            time.sleep(0.01)
-        self.assertGreater(snapshots[0].level, 0.0)
-        stop_callback()
+            snapshots: list[AudioSignalSnapshot] = []
+            stop_callback = backend.open_stream("speaker-1", "output", snapshots.append)
+            deadline = time.time() + 1.0
+            while time.time() < deadline and not snapshots:
+                time.sleep(0.01)
+            self.assertGreater(snapshots[0].level, 0.0)
+            stop_callback()
+            self.assertGreaterEqual(com_scope_factory.call_count, 2)
 
     def test_audio_service_reports_backend_unavailability_and_safe_stop(self) -> None:
         service = DesktopAudioInputService(
