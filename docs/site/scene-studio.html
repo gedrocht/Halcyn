@@ -19,7 +19,7 @@
         </div>
         <div class="topbar-actions">
           <button class="button" data-theme-toggle>Toggle theme</button>
-          <a class="button" href="/scene-studio/">Open Scene Studio</a>
+          <a class="button" href="https://github.com/gedrocht/Halcyn/blob/main/scripts/launch-browser-scene-studio.ps1">View launcher script</a>
         </div>
       </header>
 
@@ -36,6 +36,7 @@
             <li><a href="field-reference.html" data-nav-link="field-reference">Field Reference</a></li>
             <li><a href="control-center.html" data-nav-link="control-center">Control Center</a></li>
             <li><a href="scene-studio.html" data-nav-link="scene-studio">Scene Studio</a></li>
+            <li><a href="desktop-control-panel.html" data-nav-link="desktop-control-panel">Desktop Control Panel</a></li>
           </ul>
         </nav>
 
@@ -48,6 +49,10 @@
               server for routing, live-session control, logging, and test coverage.
             </p>
             <pre><code>/scene-studio/</code></pre>
+            <div class="callout">
+              The live Scene Studio route exists on your local Control Center server, not inside the
+              static GitHub Pages site. Use the launcher script when you want the real app.
+            </div>
           </section>
 
           <section class="panel">
@@ -94,6 +99,16 @@
               JavaScript app preserves the repo's existing quality gates on machines without a Node
               toolchain. If the UI grows more state-heavy later, the backend contract is now stable
               enough to support a React migration without changing the renderer-facing design.
+            </p>
+          </section>
+
+          <section class="panel">
+            <h3>How it differs from the native desktop panel</h3>
+            <p>
+              Scene Studio is best when you want a browser-first creative surface and do not mind
+              browser permissions for microphone input. The Desktop Render Control Panel is best
+              when you want local audio-device selection, a native pointer pad, and a second window
+              that can sit beside the renderer without relying on browser tabs.
             </p>
           </section>
 

@@ -149,6 +149,7 @@ class RepositoryContractTests(unittest.TestCase):
             "client-studio.html",
             "architecture.svg",
             "http://127.0.0.1:9001",
+            "../../README.md",
         ]
         for relative_path in [
             "docs/site/index.html",
@@ -158,6 +159,7 @@ class RepositoryContractTests(unittest.TestCase):
             "docs/site/testing.html",
             "docs/site/control-center.html",
             "docs/site/scene-studio.html",
+            "docs/site/desktop-control-panel.html",
             "docs/site/code-docs.html",
         ]:
             page_text = self._read_text(relative_path)
@@ -179,6 +181,7 @@ class RepositoryContractTests(unittest.TestCase):
             "field-reference.html",
             "control-center.html",
             "scene-studio.html",
+            "desktop-control-panel.html",
         }
 
         for relative_path in [
@@ -191,6 +194,7 @@ class RepositoryContractTests(unittest.TestCase):
             "docs/site/field-reference.html",
             "docs/site/control-center.html",
             "docs/site/scene-studio.html",
+            "docs/site/desktop-control-panel.html",
         ]:
             parser = self._parse_html(relative_path)
             missing_doc_links = sorted(expected_doc_links - parser.hrefs)
@@ -198,6 +202,18 @@ class RepositoryContractTests(unittest.TestCase):
                 missing_doc_links,
                 f"{relative_path} is missing docs map links: {missing_doc_links}",
             )
+
+    def test_docs_site_runtime_pages_do_not_use_root_relative_launch_links(self) -> None:
+        """GitHub Pages docs should not pretend the live local tools run inside the static site."""
+
+        for relative_path in [
+            "docs/site/control-center.html",
+            "docs/site/scene-studio.html",
+            "docs/site/desktop-control-panel.html",
+        ]:
+            page_text = self._read_text(relative_path)
+            self.assertNotIn('href="/"', page_text)
+            self.assertNotIn('href="/scene-studio/"', page_text)
 
     def test_docs_site_uses_browser_rendered_architecture_text(self) -> None:
         """The architecture page should be real HTML text, not an SVG diagram reference."""

@@ -19,7 +19,7 @@
         </div>
         <div class="topbar-actions">
           <button class="button" data-theme-toggle>Toggle theme</button>
-          <a class="button" href="../../README.md">Open README</a>
+          <a class="button" href="https://github.com/gedrocht/Halcyn/blob/main/README.md">Open README</a>
         </div>
       </header>
 
@@ -49,8 +49,10 @@
               <dt>2.</dt>
               <dd>Run <code>.\scripts\launch-halcyn-app.ps1</code> to build and launch the app.</dd>
               <dt>3.</dt>
-              <dd>Run <code>.\scripts\post-example-2d-scene.ps1</code> or <code>.\scripts\post-example-3d-scene.ps1</code>.</dd>
+              <dd>Run <code>.\scripts\launch-desktop-render-control-panel.ps1</code> if you want a native operator console with local audio devices.</dd>
               <dt>4.</dt>
+              <dd>Run <code>.\scripts\post-example-2d-scene.ps1</code> or <code>.\scripts\post-example-3d-scene.ps1</code>.</dd>
+              <dt>5.</dt>
               <dd>Read the tutorial page to learn how each layer works.</dd>
             </dl>
           </aside>
@@ -70,6 +72,7 @@
             <li><a href="field-reference.html">Field Reference</a></li>
             <li><a href="control-center.html">Control Center</a></li>
             <li><a href="scene-studio.html">Scene Studio</a></li>
+            <li><a href="desktop-control-panel.html">Desktop Control Panel</a></li>
           </ul>
         </nav>
 
@@ -149,6 +152,10 @@
                     <td><code>scripts</code></td>
                     <td>Easy entry points for building, running, testing, posting sample JSON, and serving docs.</td>
                   </tr>
+                  <tr>
+                    <td><code>desktop_render_control_panel</code></td>
+                    <td>A native Tk-based operator console for local audio-device control, 2D/3D switching, preview, validate, and live streaming.</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
@@ -164,6 +171,10 @@
               <div class="card">
                 <h4>Browser Scene Studio</h4>
                 <p>Launch <code>.\scripts\launch-browser-scene-studio.ps1</code> to get a separate live scene authoring surface for presets, signal inputs, and streaming control.</p>
+              </div>
+              <div class="card">
+                <h4>Desktop Render Control Panel</h4>
+                <p>Launch <code>.\scripts\launch-desktop-render-control-panel.ps1</code> to get a native operator console with local audio-device selection and instant 2D/3D switching.</p>
               </div>
               <div class="card">
                 <h4>Safer runtime behavior</h4>

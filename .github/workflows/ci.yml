@@ -54,6 +54,44 @@ jobs:
           path: coverage-browser-control-center.xml
           if-no-files-found: error
 
+  desktop-render-control-panel-tests:
+    runs-on: windows-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+          cache: "pip"
+          cache-dependency-path: pyproject.toml
+
+      - name: Install Python dependencies
+        shell: pwsh
+        run: python -m pip install --upgrade pip "coverage[toml]" jinja2 mypy ruff
+
+      - name: Lint desktop render control panel
+        shell: pwsh
+        run: ./scripts/lint-desktop-render-control-panel.ps1
+
+      - name: Type-check desktop render control panel
+        shell: pwsh
+        run: ./scripts/typecheck-desktop-render-control-panel.ps1
+
+      - name: Measure desktop render control panel coverage
+        shell: pwsh
+        run: ./scripts/measure-desktop-render-control-panel-coverage.ps1
+
+      - name: Upload desktop render control panel coverage artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: desktop-render-control-panel-coverage
+          path: coverage-desktop-render-control-panel.xml
+          if-no-files-found: error
+
   native-debug:
     runs-on: windows-latest
     timeout-minutes: 25

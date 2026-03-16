@@ -4,7 +4,7 @@
 [![Pages](https://github.com/gedrocht/Halcyn/actions/workflows/pages.yml/badge.svg)](https://github.com/gedrocht/Halcyn/actions/workflows/pages.yml)
 [![CodeQL](https://github.com/gedrocht/Halcyn/actions/workflows/codeql.yml/badge.svg)](https://github.com/gedrocht/Halcyn/actions/workflows/codeql.yml)
 
-Halcyn is a C++20 application that accepts JSON scene descriptions over HTTP and renders them in a GPU-backed OpenGL window at a 60 FPS target. It supports both 2D and 3D payloads, includes unit tests, ships with example scenes and helper scripts, and now includes both a browser-based Control Center and a separate browser-facing Scene Studio for live scene manipulation.
+Halcyn is a C++20 application that accepts JSON scene descriptions over HTTP and renders them in a GPU-backed OpenGL window at a 60 FPS target. It supports both 2D and 3D payloads, includes unit tests, ships with example scenes and helper scripts, and now includes three operator surfaces around the renderer: a browser-based Control Center, a separate browser-facing Scene Studio, and a native desktop render control panel for hardware-aware live control.
 
 ## What you get
 
@@ -14,6 +14,7 @@ Halcyn is a C++20 application that accepts JSON scene descriptions over HTTP and
 - Unit tests for the scene codec, validation rules, and scene store behavior.
 - PowerShell scripts for build, run, test, formatting, docs serving, code-doc generation, and sample posting.
 - A browser-based Control Center under `browser_control_center/` that can kick off builds, tests, smoke checks, docs, and API requests.
+- A native desktop operator app under `desktop_render_control_panel/` that can preview, validate, apply, and live-stream scenes while selecting real local audio devices.
 - A static dark-mode docs site under `docs/site`.
 - Doxygen-ready source comments and a `Doxyfile` for generated code reference output.
 
@@ -27,6 +28,7 @@ Halcyn is a C++20 application that accepts JSON scene descriptions over HTTP and
 |-- browser_scene_studio/
 |-- examples/
 |-- browser_control_center/
+|-- desktop_render_control_panel/
 |-- scripts/
 |-- src/
 |   |-- http_api/
@@ -44,10 +46,11 @@ Halcyn is a C++20 application that accepts JSON scene descriptions over HTTP and
 1. Run `.\scripts\report-prerequisites.ps1` to see which prerequisites are already installed.
 2. Launch the browser Control Center with `.\scripts\launch-browser-control-center.ps1`.
 3. Open the separate client-facing scene GUI with `.\scripts\launch-browser-scene-studio.ps1` or by visiting `/scene-studio/` from the Control Center.
-4. Use the Control Center dashboard to run the prerequisite report, build, tests, and app startup from the browser.
-5. In the Scene Studio or API Lab, generate and submit sample scenes to the live renderer.
-6. Open the docs site directly from the Control Center or with `.\scripts\serve-docs-site.ps1`.
-7. For a full Windows setup and troubleshooting guide, see `INSTALL.md`.
+4. Launch the native desktop render control panel with `.\scripts\launch-desktop-render-control-panel.ps1` if you want local audio-device selection and instant 2D/3D switching in a desktop window.
+5. Use the Control Center dashboard to run the prerequisite report, build, tests, and app startup from the browser.
+6. In the Scene Studio, Desktop Render Control Panel, or API Lab, generate and submit sample scenes to the live renderer.
+7. Open the docs site directly from the Control Center or with `.\scripts\serve-docs-site.ps1`.
+8. For a full Windows setup and troubleshooting guide, see `INSTALL.md`.
 
 ## PowerShell first-run note
 
@@ -171,7 +174,12 @@ Example:
 - `.\scripts\create-release-package.ps1`
 - `.\scripts\launch-browser-control-center.ps1`
 - `.\scripts\launch-browser-scene-studio.ps1`
+- `.\scripts\launch-desktop-render-control-panel.ps1`
 - `.\scripts\test-browser-control-center.ps1`
+- `.\scripts\test-desktop-render-control-panel.ps1`
+- `.\scripts\lint-desktop-render-control-panel.ps1`
+- `.\scripts\typecheck-desktop-render-control-panel.ps1`
+- `.\scripts\measure-desktop-render-control-panel-coverage.ps1`
 - `.\scripts\post-example-2d-scene.ps1`
 - `.\scripts\post-example-3d-scene.ps1`
 - `.\scripts\serve-docs-site.ps1`
@@ -184,6 +192,7 @@ Example:
 - Field reference: `docs/site/field-reference.html`
 - Control center guide: `docs/site/control-center.html`
 - Scene Studio guide: `docs/site/scene-studio.html`
+- Desktop control panel guide: `docs/site/desktop-control-panel.html`
 - Architecture guide: `docs/site/architecture.html`
 - API guide: `docs/site/api.html`
 - Testing guide: `docs/site/testing.html`
@@ -213,6 +222,18 @@ Run `.\scripts\launch-browser-scene-studio.ps1` or open `/scene-studio/` from th
 - send lighter browser control updates while the Control Center owns the continuous scene stream
 - receive server-pushed live-session status instead of relying on tight browser polling
 
+## Desktop Render Control Panel
+
+Run `.\scripts\launch-desktop-render-control-panel.ps1` to open the native Tk-based operator console. The desktop panel can:
+
+- switch between 2D and 3D presets immediately without changing tools
+- choose real local audio input devices instead of relying only on browser microphone permissions
+- preview generated JSON scenes before applying them
+- validate the current scene against the live Halcyn API
+- apply one scene immediately or keep a live stream running at a chosen cadence
+- expose signal controls for unix time, deterministic noise, pointer input, audio energy bands, and manual drive
+- serve as a desktop-side companion to the browser Control Center and Scene Studio instead of replacing them
+
 ## Code documentation generation
 
 Run `.\scripts\generate-code-reference-docs.ps1` after installing Doxygen. Generated HTML will be written to `docs/generated/code-reference`.
@@ -225,7 +246,8 @@ Run `.\scripts\create-release-package.ps1` to produce a versioned ZIP file under
 
 - C++ warnings are treated as build failures by default.
 - The Control Center is linted, type-checked, and required to maintain at least 90% Python coverage.
-- GitHub Actions lint the Control Center, type-check it, run coverage for it, build the native project in Debug and Release, and run the native tests.
+- The desktop render control panel is also linted, type-checked, and required to maintain at least 90% Python coverage.
+- GitHub Actions lint and cover both Python operator surfaces, build the native project in Debug and Release, and run the native tests.
 - CodeQL analyzes the native code on pushes, pull requests, and a weekly schedule.
 - The Pages workflow now publishes the static docs site together with generated Doxygen output.
 - Repository formatting is explicitly governed by `.clang-format` and `.editorconfig`.

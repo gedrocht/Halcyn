@@ -36,6 +36,7 @@
             <li><a href="field-reference.html" data-nav-link="field-reference">Field Reference</a></li>
             <li><a href="control-center.html" data-nav-link="control-center">Control Center</a></li>
             <li><a href="scene-studio.html" data-nav-link="scene-studio">Scene Studio</a></li>
+            <li><a href="desktop-control-panel.html" data-nav-link="desktop-control-panel">Desktop Control Panel</a></li>
           </ul>
         </nav>
 
@@ -89,6 +90,24 @@
                   <tr><td><code>maxPayloadBytes</code></td><td>Caps how much JSON one request can send.</td></tr>
                   <tr><td><code>maxVertices</code></td><td>Caps scene complexity at a beginner-friendly level.</td></tr>
                   <tr><td><code>maxIndices</code></td><td>Caps indexed mesh size for 3D submissions.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h3>Desktop control panel request fields</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Field</th><th>Meaning</th></tr></thead>
+                <tbody>
+                  <tr><td><code>presetId</code></td><td>The chosen 2D or 3D preset identifier.</td></tr>
+                  <tr><td><code>target.host</code> / <code>target.port</code></td><td>The Halcyn API endpoint the desktop panel talks to.</td></tr>
+                  <tr><td><code>settings</code></td><td>Editable visual parameters such as density, size, speed, gain, and colors.</td></tr>
+                  <tr><td><code>signals.useEpoch</code>, <code>useNoise</code>, <code>usePointer</code>, <code>useAudio</code></td><td>Toggles that decide which signal families influence the generated scene.</td></tr>
+                  <tr><td><code>signals.pointer</code></td><td>The normalized desktop pointer-pad state used by the controller.</td></tr>
+                  <tr><td><code>signals.audio</code></td><td>The latest analyzed audio values such as level, bass, mid, and treble.</td></tr>
+                  <tr><td><code>session.cadenceMs</code></td><td>The live-stream update interval used when the desktop panel is streaming continuously.</td></tr>
                 </tbody>
               </table>
             </div>

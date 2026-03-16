@@ -31,12 +31,30 @@ else {
 }
 
 Write-Host ''
+Write-Host 'Running desktop render control panel lint...'
+if (Test-PythonCommand -Arguments @('-m', 'ruff', '--version')) {
+  & (Join-Path $PSScriptRoot 'lint-desktop-render-control-panel.ps1')
+}
+else {
+  Write-Host 'Skipping desktop render control panel lint because ruff is not yet available.'
+}
+
+Write-Host ''
 Write-Host 'Running browser Control Center type checks...'
 if (Test-PythonCommand -Arguments @('-m', 'mypy', '--version')) {
   & (Join-Path $PSScriptRoot 'typecheck-browser-control-center.ps1')
 }
 else {
   Write-Host 'Skipping browser Control Center type checks because mypy is not yet available.'
+}
+
+Write-Host ''
+Write-Host 'Running desktop render control panel type checks...'
+if (Test-PythonCommand -Arguments @('-m', 'mypy', '--version')) {
+  & (Join-Path $PSScriptRoot 'typecheck-desktop-render-control-panel.ps1')
+}
+else {
+  Write-Host 'Skipping desktop render control panel type checks because mypy is not yet available.'
 }
 
 Write-Host ''
@@ -47,6 +65,16 @@ if (Test-PythonCommand -Arguments @('-m', 'coverage', '--version')) {
 else {
   Write-Host 'Falling back to plain browser Control Center tests because coverage is not yet available.'
   & (Join-Path $PSScriptRoot 'test-browser-control-center.ps1')
+}
+
+Write-Host ''
+Write-Host 'Running desktop render control panel quality checks...'
+if (Test-PythonCommand -Arguments @('-m', 'coverage', '--version')) {
+  & (Join-Path $PSScriptRoot 'measure-desktop-render-control-panel-coverage.ps1')
+}
+else {
+  Write-Host 'Falling back to plain desktop render control panel tests because coverage is not yet available.'
+  & (Join-Path $PSScriptRoot 'test-desktop-render-control-panel.ps1')
 }
 
 Write-Host ''
