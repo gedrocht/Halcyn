@@ -38,6 +38,7 @@
             <li><a href="scene-studio.html" data-nav-link="scene-studio">Scene Studio</a></li>
             <li><a href="desktop-control-panel.html" data-nav-link="desktop-control-panel">Desktop Control Panel</a></li>
             <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Spectrograph Suite</a></li>
+            <li><a href="multi-renderer-data-source-panel.html" data-nav-link="multi-renderer-data-source-panel">Shared Data Source Panel</a></li>
           </ul>
         </nav>
 
@@ -81,6 +82,11 @@
               <div class="card"><h4>Geometry shape</h4><p>Change floor height and peak height so the bars can feel flatter, denser, taller, or more dramatic.</p></div>
               <div class="card"><h4>Live operation</h4><p>Preview, validate, apply once, or continuously live-stream at a chosen cadence.</p></div>
             </div>
+            <p>
+              If you want one shared live source to drive both the classic renderer and this
+              spectrograph renderer, use the
+              <a href="multi-renderer-data-source-panel.html">Shared Data Source Panel</a>.
+            </p>
           </section>
 
           <section class="panel">
@@ -108,6 +114,7 @@
               <li>Switch between automatic and manual range modes and watch how the bars respond.</li>
               <li>Change the bar-grid size to see how grouping changes the final scene.</li>
               <li>Open the generated scene JSON window and compare the source data to the final renderer payload.</li>
+              <li>Then try the Shared Data Source Panel so the same live source can feed both renderer families.</li>
             </ol>
           </section>
 
@@ -127,7 +134,8 @@
             <pre><code>.\scripts\lint-desktop-spectrograph-control-panel.ps1
 .\scripts\typecheck-desktop-spectrograph-control-panel.ps1
 .\scripts\test-desktop-spectrograph-control-panel.ps1
-.\scripts\measure-desktop-spectrograph-control-panel-coverage.ps1</code></pre>
+.\scripts\measure-desktop-spectrograph-control-panel-coverage.ps1
+.\scripts\launch-desktop-multi-renderer-data-source-panel.ps1</code></pre>
             <p>
               The repo-wide pass still lives at
               <code>.\scripts\run-all-quality-checks.ps1 -Configuration Debug</code>.

@@ -177,11 +177,13 @@ Halcyn uses **Tkinter** for both native desktop operator tools:
 
 - the desktop render control panel
 - the desktop spectrograph control panel
+- the shared data-source panel
 
 Where it appears:
 
 - `desktop_render_control_panel.desktop_control_panel_window`
 - `desktop_spectrograph_control_panel.spectrograph_control_panel_window`
+- `desktop_multi_renderer_data_source_panel.multi_renderer_data_source_window`
 
 Official documentation:
 
@@ -205,6 +207,7 @@ clients.
 Where it appears:
 
 - `desktop_render_control_panel.render_api_client`
+- `desktop_shared_control_support.render_api_client`
 
 Official documentation:
 
@@ -219,17 +222,21 @@ Why Halcyn uses it:
 
 ## Python json and statistics
 
-Halcyn uses the standard-library **json** module and a handful of simple
-statistics concepts in the desktop spectrograph control panel.
+Halcyn uses the standard-library **json** module, **random** module, and a
+handful of simple statistics concepts in the desktop spectrograph control panel
+and the shared data-source panel.
 
 Where it appears:
 
 - `desktop_spectrograph_control_panel.spectrograph_scene_builder`
 - `desktop_spectrograph_control_panel.spectrograph_control_panel_controller`
+- `desktop_multi_renderer_data_source_panel.multi_renderer_data_source_builder`
+- `desktop_multi_renderer_data_source_panel.multi_renderer_data_source_controller`
 
 Official documentation:
 
 - [json](https://docs.python.org/3/library/json.html)
+- [random](https://docs.python.org/3/library/random.html)
 - [statistics](https://docs.python.org/3/library/statistics.html)
 - [str.encode](https://docs.python.org/3/library/stdtypes.html#str.encode)
 
@@ -241,6 +248,8 @@ Why Halcyn uses them:
   ordinary Python terms such as mean and standard deviation
 - converting strings to UTF-8 byte values makes text payloads usable without
   inventing a custom binary protocol
+- the shared data-source panel uses `random.Random` for deterministic synthetic
+  input streams so tests and tutorials can reproduce the same behavior
 
 ## ctypes and Windows waveIn
 

@@ -38,6 +38,7 @@
             <li><a href="scene-studio.html" data-nav-link="scene-studio">Scene Studio</a></li>
             <li><a href="desktop-control-panel.html" data-nav-link="desktop-control-panel">Desktop Control Panel</a></li>
             <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Spectrograph Suite</a></li>
+            <li><a href="multi-renderer-data-source-panel.html" data-nav-link="multi-renderer-data-source-panel">Shared Data Source Panel</a></li>
           </ul>
         </nav>
 
@@ -105,6 +106,14 @@
                       A dedicated renderer executable plus a native desktop operator panel transform
                       generic JSON into an adaptive 3D bar wall before submitting ordinary scene
                       JSON into the shared renderer pipeline.
+                    </p>
+                  </div>
+                  <div class="architecture-node">
+                    <strong>Shared Data Source Panel</strong>
+                    <p>
+                      A native routing console captures or generates one source stream, translates it
+                      into classic-scene signals and spectrograph data, and can send the results to
+                      either renderer family or both.
                     </p>
                   </div>
                   <div class="architecture-node">
@@ -233,13 +242,16 @@
             <h3>Request-to-pixels sequence</h3>
             <ol class="architecture-sequence">
               <li>
-                A person, script, Control Center action, Scene Studio control, or spectrograph
-                control-panel action emits a request or startup instruction.
+                A person, script, Control Center action, Scene Studio control, spectrograph
+                control-panel action, or shared data-source action emits a request or startup
+                instruction.
               </li>
               <li>
                 The desktop app or embedded HTTP API receives that input and turns it into a scene
                 loading or scene submission attempt. In the spectrograph workflow, the desktop panel
-                first converts generic JSON into a full 3D bar scene.
+                first converts generic JSON into a full 3D bar scene. In the shared data-source
+                workflow, one source stream can be translated into both classic and spectrograph
+                scenes before submission.
               </li>
               <li>
                 The JSON codec converts raw text into typed scene objects and preserves readable
@@ -318,11 +330,14 @@
           <section class="panel">
             <h3>Why there are multiple control surfaces</h3>
             <p>
-              The Control Center, Scene Studio, and Desktop Render Control Panel serve different
-              jobs. The Control Center is about orchestration: builds, tests, logs, docs, and API
-              experiments. The Scene Studio is about browser-native live scene authoring. The
-              desktop panel is about a native operator experience with local hardware awareness.
-              Keeping them separate avoids one overloaded UI that tries to be every tool at once.
+              The Control Center, Scene Studio, Desktop Render Control Panel, Spectrograph Suite,
+              and Shared Data Source Panel serve different jobs. The Control Center is about
+              orchestration: builds, tests, logs, docs, and API experiments. The Scene Studio is
+              about browser-native live scene authoring. The desktop panel is about a native
+              operator experience with local hardware awareness. The spectrograph suite is about
+              generic-data-to-bar-wall transformation. The shared data-source panel is about
+              capturing one input stream and routing it into one or both renderer families. Keeping
+              them separate avoids one overloaded UI that tries to be every tool at once.
             </p>
           </section>
         </main>
