@@ -431,10 +431,9 @@ class AudioServiceTests(unittest.TestCase):
             ],
         ):
             backend = create_default_audio_capture_backend()
-
-        self.assertIsInstance(backend, CompositeAudioCaptureBackend)
-        self.assertEqual(backend.list_devices("input")[0].device_identifier, "winmm:0")
-        self.assertEqual(backend.list_devices("output"), [])
+            self.assertIsInstance(backend, CompositeAudioCaptureBackend)
+            self.assertEqual(backend.list_devices("input")[0].device_identifier, "winmm:0")
+            self.assertEqual(backend.list_devices("output"), [])
 
     def test_create_default_backend_uses_unavailable_backend_when_no_listing_fallback_exists(
         self,
@@ -447,10 +446,9 @@ class AudioServiceTests(unittest.TestCase):
             return_value=[],
         ):
             backend = create_default_audio_capture_backend()
-
-        self.assertIsInstance(backend, CompositeAudioCaptureBackend)
-        self.assertEqual(backend.list_devices("input"), [])
-        self.assertEqual(backend.list_devices("output"), [])
+            self.assertIsInstance(backend, CompositeAudioCaptureBackend)
+            self.assertEqual(backend.list_devices("input"), [])
+            self.assertEqual(backend.list_devices("output"), [])
 
     def test_create_default_backend_can_expose_output_sources_through_soundcard(self) -> None:
         class FakeSpeaker:
