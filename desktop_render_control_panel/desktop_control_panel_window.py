@@ -37,6 +37,11 @@ POINTER_PAD_BACKGROUND = "#09121c"
 POINTER_PAD_GRID = "#284058"
 POINTER_PAD_MARKER = "#ffd166"
 COLOR_SWATCH_BORDER = "#6b7f94"
+SELECTION_BUTTON_BACKGROUND = "#172537"
+SELECTION_BUTTON_FOREGROUND = TEXT_PRIMARY
+SELECTION_BUTTON_BORDER = "#2d435c"
+SELECTION_BUTTON_SELECTED_BACKGROUND = ACCENT_COLOR
+SELECTION_BUTTON_SELECTED_FOREGROUND = ACCENT_FOREGROUND
 DEFAULT_SETTINGS_FILE_NAME = "halcyn-desktop-control-panel-settings.json"
 
 
@@ -83,10 +88,11 @@ class DesktopRenderControlPanelWindow:
         self._pointer_crosshair_item_identifier: int | None = None
         self._pointer_marker_item_identifier: int | None = None
         self._settings_file_path: Path | None = None
+        self._scene_type_button_widgets: dict[str, tk.Button] = {}
         self._build_variables()
         self._slider_display_variables = self._build_slider_display_variables()
         self._color_swatch_frames: dict[str, tk.Frame] = {}
-        self._preset_button_widgets: list[tk.Radiobutton] = []
+        self._preset_button_widgets: dict[str, tk.Button] = {}
         self._build_user_interface()
         self._load_initial_state()
         self._root.protocol("WM_DELETE_WINDOW", self._on_close_requested)
@@ -119,6 +125,7 @@ class DesktopRenderControlPanelWindow:
         self._live_status_variable = tk.StringVar(value="Live stream stopped.")
         self._audio_status_variable = tk.StringVar(value="Audio capture not started.")
         self._result_status_variable = tk.StringVar(value="Ready.")
+        self._preview_visible_variable = tk.BooleanVar(value=False)
 
     def _build_slider_display_variables(self) -> dict[str, tk.StringVar]:
         """Create formatted label variables for the numeric slider values."""
@@ -137,19 +144,19 @@ class DesktopRenderControlPanelWindow:
         """Create the three major page columns and their child sections."""
 
         self._root.title("Halcyn Desktop Render Control Panel")
-        self._root.geometry("1460x920")
-        self._root.minsize(1200, 760)
+        self._root.geometry("1440x840")
+        self._root.minsize(1180, 700)
         self._configure_dark_theme()
 
-        page_shell = ttk.Frame(self._root, padding=18, style="Surface.TFrame")
+        page_shell = ttk.Frame(self._root, padding=16, style="Surface.TFrame")
         page_shell.grid(sticky="nsew")
         self._root.columnconfigure(0, weight=1)
         self._root.rowconfigure(0, weight=1)
 
-        page_shell.columnconfigure(0, weight=0)
-        page_shell.columnconfigure(1, weight=0)
-        page_shell.columnconfigure(2, weight=1)
-        page_shell.rowconfigure(1, weight=1)
+        page_shell.columnconfigure(0, weight=1)
+        page_shell.columnconfigure(1, weight=2)
+        page_shell.columnconfigure(2, weight=2)
+        page_shell.rowconfigure(2, weight=1)
 
         heading = ttk.Label(
             page_shell,
@@ -191,7 +198,7 @@ class DesktopRenderControlPanelWindow:
         )
         self._output_frame.grid(row=2, column=2, sticky="nsew")
         self._output_frame.columnconfigure(0, weight=1)
-        self._output_frame.rowconfigure(4, weight=1)
+        self._output_frame.rowconfigure(3, weight=1)
 
         self._build_connection_section()
         self._build_scene_section()
@@ -412,21 +419,19 @@ class DesktopRenderControlPanelWindow:
         )
         self._scene_type_button_frame.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(6, 10))
         self._scene_type_button_frame.columnconfigure((0, 1), weight=1)
-        self._build_segmented_button(
+        self._scene_type_button_widgets["2d"] = self._build_segmented_button(
             parent=self._scene_type_button_frame,
             text="2D",
-            variable=self._scene_type_variable,
             value="2d",
             column=0,
-            command=self._on_scene_type_changed,
+            command=self._on_scene_type_button_pressed,
         )
-        self._build_segmented_button(
+        self._scene_type_button_widgets["3d"] = self._build_segmented_button(
             parent=self._scene_type_button_frame,
             text="3D",
-            variable=self._scene_type_variable,
             value="3d",
             column=1,
-            command=self._on_scene_type_changed,
+            command=self._on_scene_type_button_pressed,
         )
 
         ttk.Label(
@@ -629,8 +634,8 @@ class DesktopRenderControlPanelWindow:
         pointer_frame.columnconfigure(0, weight=1)
         self._pointer_canvas = tk.Canvas(
             pointer_frame,
-            width=420,
-            height=260,
+            width=380,
+            height=220,
             background=POINTER_PAD_BACKGROUND,
             highlightthickness=1,
             highlightbackground=POINTER_PAD_GRID,
@@ -649,41 +654,70 @@ class DesktopRenderControlPanelWindow:
 
         self._watch_control_variables()
         self._rebuild_preset_button_group()
+        self._refresh_scene_type_button_styles()
         self._draw_pointer_pad_background()
 
     def _build_output_section(self) -> None:
         """Create the preview JSON pane and the small analysis summary."""
 
         section_frame = self._output_frame
-        section_frame.rowconfigure(4, weight=1)
+        section_frame.rowconfigure(3, weight=1)
         section_frame.columnconfigure(0, weight=1)
 
+        action_frame = ttk.Frame(section_frame, style="PanelInner.TFrame")
+        action_frame.grid(
+            row=0,
+            column=0,
+            sticky="ew",
+        )
+        action_frame.columnconfigure(0, weight=1)
+        action_frame.columnconfigure(1, weight=1)
         ttk.Button(
-            section_frame,
-            text="Refresh preview JSON",
+            action_frame,
+            text="Refresh preview",
             command=self._refresh_preview,
             style="Accent.TButton",
         ).grid(
             row=0,
             column=0,
             sticky="ew",
+            padx=(0, 6),
+        )
+        self._preview_toggle_button = ttk.Button(
+            action_frame,
+            text="Show current scene JSON",
+            command=self._toggle_preview_visibility,
+        )
+        self._preview_toggle_button.grid(
+            row=0,
+            column=1,
+            sticky="ew",
+            padx=(6, 0),
         )
 
         self._analysis_label = ttk.Label(
             section_frame,
             text="No preview generated yet.",
-            wraplength=640,
+            wraplength=520,
             justify="left",
         )
         self._analysis_label.grid(row=1, column=0, sticky="w", pady=(10, 10))
 
-        ttk.Label(section_frame, text="Current scene JSON", style="Subheading.TLabel").grid(
-            row=2,
+        self._preview_container = ttk.Frame(section_frame, style="PanelInner.TFrame")
+        self._preview_container.columnconfigure(0, weight=1)
+        self._preview_container.rowconfigure(1, weight=1)
+        ttk.Label(
+            self._preview_container,
+            text="Current scene JSON",
+            style="Subheading.TLabel",
+        ).grid(
+            row=0,
             column=0,
             sticky="w",
+            pady=(0, 8),
         )
         self._preview_text = ScrolledText(
-            section_frame,
+            self._preview_container,
             wrap="none",
             font=("Cascadia Code", 10),
             background=ENTRY_BACKGROUND,
@@ -694,8 +728,9 @@ class DesktopRenderControlPanelWindow:
             relief="flat",
             borderwidth=0,
         )
-        self._preview_text.grid(row=4, column=0, sticky="nsew")
+        self._preview_text.grid(row=1, column=0, sticky="nsew")
         self._preview_text.configure(state="disabled")
+        self._update_preview_visibility()
 
     def _add_slider(
         self,
@@ -807,32 +842,33 @@ class DesktopRenderControlPanelWindow:
         *,
         parent: tk.Misc,
         text: str,
-        variable: tk.StringVar,
         value: str,
         column: int,
         command: Any,
-    ) -> tk.Radiobutton:
+    ) -> tk.Button:
         """Create one button-like radio control for scene type or preset selection."""
 
-        button = tk.Radiobutton(
+        def choose_bound_value() -> None:
+            command(value)
+
+        button = tk.Button(
             parent,
             text=text,
-            value=value,
-            variable=variable,
-            indicatoron=False,
-            command=command,
-            selectcolor=ACCENT_COLOR,
-            background=ENTRY_BACKGROUND,
-            foreground=TEXT_PRIMARY,
+            command=choose_bound_value,
+            background=SELECTION_BUTTON_BACKGROUND,
+            foreground=SELECTION_BUTTON_FOREGROUND,
             activebackground=ACCENT_COLOR_ACTIVE,
             activeforeground=ACCENT_FOREGROUND,
             disabledforeground=TEXT_SECONDARY,
-            highlightthickness=0,
+            highlightthickness=1,
+            highlightbackground=SELECTION_BUTTON_BORDER,
+            highlightcolor=SELECTION_BUTTON_BORDER,
             bd=0,
             relief="flat",
             padx=12,
-            pady=10,
+            pady=9,
             font=("Segoe UI Semibold", 10),
+            cursor="hand2",
         )
         button.grid(row=0, column=column, sticky="ew", padx=(0 if column == 0 else 6, 0))
         return button
@@ -840,9 +876,9 @@ class DesktopRenderControlPanelWindow:
     def _rebuild_preset_button_group(self) -> None:
         """Recreate the preset toggle buttons for the current 2D or 3D mode."""
 
-        for button in self._preset_button_widgets:
+        for button in self._preset_button_widgets.values():
             button.destroy()
-        self._preset_button_widgets.clear()
+        self._preset_button_widgets = {}
 
         preset_identifiers = self._preset_identifiers_by_scene_type.get(
             self._scene_type_variable.get().strip().lower(),
@@ -852,28 +888,33 @@ class DesktopRenderControlPanelWindow:
             row_index = preset_button_index // 2
             column_index = preset_button_index % 2
             self._preset_button_frame.rowconfigure(row_index, weight=0)
-            button = tk.Radiobutton(
+
+            def choose_bound_preset(
+                selected_preset_identifier: str = preset_identifier,
+            ) -> None:
+                self._on_preset_button_pressed(selected_preset_identifier)
+
+            button = tk.Button(
                 self._preset_button_frame,
                 text=self._preset_names_by_identifier[preset_identifier],
-                value=preset_identifier,
-                variable=self._preset_identifier_variable,
-                indicatoron=False,
-                command=self._on_preset_changed,
-                selectcolor=ACCENT_COLOR,
-                background=ENTRY_BACKGROUND,
-                foreground=TEXT_PRIMARY,
+                command=choose_bound_preset,
+                background=SELECTION_BUTTON_BACKGROUND,
+                foreground=SELECTION_BUTTON_FOREGROUND,
                 activebackground=ACCENT_COLOR_ACTIVE,
                 activeforeground=ACCENT_FOREGROUND,
                 disabledforeground=TEXT_SECONDARY,
-                highlightthickness=0,
+                highlightthickness=1,
+                highlightbackground=SELECTION_BUTTON_BORDER,
+                highlightcolor=SELECTION_BUTTON_BORDER,
                 bd=0,
                 relief="flat",
                 anchor="w",
                 justify="left",
                 wraplength=170,
                 padx=12,
-                pady=10,
+                pady=9,
                 font=("Segoe UI", 10),
+                cursor="hand2",
             )
             button.grid(
                 row=row_index,
@@ -882,7 +923,8 @@ class DesktopRenderControlPanelWindow:
                 padx=(0, 6) if column_index == 0 else (6, 0),
                 pady=(0, 6),
             )
-            self._preset_button_widgets.append(button)
+            self._preset_button_widgets[preset_identifier] = button
+        self._refresh_preset_button_styles()
 
     def _draw_pointer_pad_background(self) -> None:
         """Render a simple guidance grid so the larger pointer pad feels intentional."""
@@ -994,6 +1036,8 @@ class DesktopRenderControlPanelWindow:
         self._scene_type_variable.set(default_scene_type)
         self._rebuild_preset_button_group()
         self._preset_identifier_variable.set(default_preset_identifier)
+        self._refresh_scene_type_button_styles()
+        self._refresh_preset_button_styles()
         self._set_user_interface_from_request_payload(default_payload)
         self._refresh_audio_devices()
         self._refresh_preview()
@@ -1045,6 +1089,8 @@ class DesktopRenderControlPanelWindow:
                 )
         finally:
             self._suppress_variable_sync = False
+        self._refresh_scene_type_button_styles()
+        self._refresh_preset_button_styles()
         self._refresh_all_slider_display_labels()
         self._refresh_all_color_swatches()
 
@@ -1123,15 +1169,30 @@ class DesktopRenderControlPanelWindow:
         if not preset_identifiers:
             return
         self._preset_identifier_variable.set(preset_identifiers[0])
+        self._refresh_scene_type_button_styles()
+        self._refresh_preset_button_styles()
         self._on_preset_changed()
 
     def _on_preset_changed(self, event: object | None = None) -> None:
         selected_preset_identifier = self._preset_identifier_variable.get().strip()
         if not selected_preset_identifier:
             return
+        self._refresh_preset_button_styles()
         updated_payload = self._controller.load_preset(selected_preset_identifier)
         self._set_user_interface_from_request_payload(updated_payload)
         self._refresh_preview()
+
+    def _on_scene_type_button_pressed(self, selected_scene_type: str) -> None:
+        """Handle a direct press on one of the 2D/3D mode buttons."""
+
+        self._scene_type_variable.set(selected_scene_type)
+        self._on_scene_type_changed()
+
+    def _on_preset_button_pressed(self, selected_preset_identifier: str) -> None:
+        """Handle a direct press on one of the preset buttons."""
+
+        self._preset_identifier_variable.set(selected_preset_identifier)
+        self._on_preset_changed()
 
     def _choose_color(self, variable: tk.StringVar) -> None:
         chosen_color = colorchooser.askcolor(color=variable.get(), parent=self._root)[1]
@@ -1311,6 +1372,24 @@ class DesktopRenderControlPanelWindow:
         self._preview_text.insert("1.0", formatted_json)
         self._preview_text.configure(state="disabled")
 
+    def _toggle_preview_visibility(self) -> None:
+        """Show or hide the full JSON preview to save vertical space by default."""
+
+        self._preview_visible_variable.set(not self._preview_visible_variable.get())
+        self._update_preview_visibility()
+
+    def _update_preview_visibility(self) -> None:
+        """Apply the current preview-visibility choice to the output layout."""
+
+        if self._preview_visible_variable.get():
+            self._preview_container.grid(row=3, column=0, sticky="nsew", pady=(4, 0))
+            self._preview_toggle_button.configure(text="Hide current scene JSON")
+            self._output_frame.rowconfigure(3, weight=1)
+        else:
+            self._preview_container.grid_remove()
+            self._preview_toggle_button.configure(text="Show current scene JSON")
+            self._output_frame.rowconfigure(3, weight=0)
+
     def _schedule_status_refresh(self) -> None:
         """Keep audio/live-stream status labels gently refreshed over time."""
 
@@ -1363,6 +1442,51 @@ class DesktopRenderControlPanelWindow:
             0,
             x_position,
             canvas_height,
+        )
+
+    def _refresh_scene_type_button_styles(self) -> None:
+        """Keep the 2D/3D buttons visibly selected with strong contrast."""
+
+        selected_scene_type = self._scene_type_variable.get().strip().lower()
+        for scene_type_value, button in self._scene_type_button_widgets.items():
+            self._apply_selection_button_style(
+                button,
+                selected=(scene_type_value == selected_scene_type),
+            )
+
+    def _refresh_preset_button_styles(self) -> None:
+        """Keep the preset buttons visually aligned with the active preset."""
+
+        selected_preset_identifier = self._preset_identifier_variable.get().strip()
+        for preset_identifier, button in self._preset_button_widgets.items():
+            self._apply_selection_button_style(
+                button,
+                selected=(preset_identifier == selected_preset_identifier),
+            )
+
+    def _apply_selection_button_style(self, button: tk.Button, *, selected: bool) -> None:
+        """Apply the selected or unselected palette to one custom selection button."""
+
+        if selected:
+            button.configure(
+                background=SELECTION_BUTTON_SELECTED_BACKGROUND,
+                foreground=SELECTION_BUTTON_SELECTED_FOREGROUND,
+                activebackground=ACCENT_COLOR_ACTIVE,
+                activeforeground=ACCENT_FOREGROUND,
+                highlightbackground=SELECTION_BUTTON_SELECTED_BACKGROUND,
+                highlightcolor=SELECTION_BUTTON_SELECTED_BACKGROUND,
+                relief="sunken",
+            )
+            return
+
+        button.configure(
+            background=SELECTION_BUTTON_BACKGROUND,
+            foreground=SELECTION_BUTTON_FOREGROUND,
+            activebackground=SURFACE_BORDER,
+            activeforeground=TEXT_PRIMARY,
+            highlightbackground=SELECTION_BUTTON_BORDER,
+            highlightcolor=SELECTION_BUTTON_BORDER,
+            relief="flat",
         )
 
     def _refresh_color_swatch(self, variable: tk.StringVar) -> None:

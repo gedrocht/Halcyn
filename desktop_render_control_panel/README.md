@@ -11,6 +11,7 @@ It exists for the cases where the browser tools are helpful, but not quite enoug
 - saving and loading operator setups as JSON
 - reverting the current preset back to its default control values
 - seeing the selected colors and pointer motion reflected immediately in the UI
+- keeping the full scene JSON hidden until you explicitly choose to inspect it
 
 ## Launch it
 
@@ -32,9 +33,10 @@ It exists for the cases where the browser tools are helpful, but not quite enoug
 ## What changed in the polished version
 
 - the window now uses a dark-mode-first theme instead of a plain default Tk look
-- the 2D/3D and preset selectors are button groups that stay visibly selected
+- the 2D/3D and preset selectors are button groups that stay visibly selected with higher-contrast text
 - integer-valued sliders snap to whole numbers, and float-valued sliders snap to practical increments
 - the current color choices are shown with live swatches instead of only text fields
+- the full JSON preview starts hidden so the panel fits typical desktop screens more comfortably
 - settings can be saved to and loaded from JSON files
 - Windows machines without `sounddevice` can still list input devices through a waveIn fallback, even though real capture still requires `sounddevice`
 

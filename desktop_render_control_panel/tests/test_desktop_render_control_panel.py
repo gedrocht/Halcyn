@@ -658,16 +658,23 @@ class DesktopWindowTests(unittest.TestCase):
         self.root.update_idletasks()
 
         preset_button_labels = [
-            button.cget("text") for button in self.window._preset_button_widgets
+            button.cget("text") for button in self.window._preset_button_widgets.values()
         ]
         self.assertIn("Aurora Orbit", preset_button_labels)
         self.assertEqual(
-            self.window._scene_type_button_frame.winfo_children()[0].cget("text"),
-            "2D",
+            self.window._scene_type_button_widgets["3d"].cget("foreground"),
+            "#04131d",
+        )
+        self.assertEqual(
+            self.window._scene_type_button_widgets["3d"].cget("background"),
+            "#5fd1ff",
         )
 
     def test_window_can_refresh_preview_and_apply_actions(self) -> None:
+        self.assertFalse(self.window._preview_visible_variable.get())
         self.window._refresh_preview()
+        self.window._toggle_preview_visibility()
+        self.root.update_idletasks()
         self.window._run_health_check()
         self.window._validate_current_scene()
         self.window._apply_current_scene()
@@ -676,6 +683,7 @@ class DesktopWindowTests(unittest.TestCase):
         self.window._stop_live_stream()
         self.root.update_idletasks()
 
+        self.assertTrue(self.window._preview_visible_variable.get())
         preview_text = self.window._preview_text.get("1.0", "end").strip()
         self.assertIn('"sceneType"', preview_text)
 
