@@ -59,6 +59,21 @@ The normalized intensity affects things like:
 - sometimes color
 - sometimes style or emphasis
 
+## The emotional translation
+
+If the raw input feels like chaos, the bar-wall pipeline's job is to turn that
+chaos into a shape that still feels readable to a human.
+
+That is why there is so much emphasis on:
+
+- flattening
+- history
+- normalization
+- grouping
+
+Without those steps, the bars would often be technically correct but visually
+unhelpful.
+
 ## Formal references for this chapter
 
 - [Bar-wall scene guide](../site/spectrograph-suite.html)

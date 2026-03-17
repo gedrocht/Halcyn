@@ -57,6 +57,16 @@ numeric input.
 When a tool converts text into UTF-8 byte values, even plain text can become a
 visual signal.
 
+## A good beginner exercise
+
+Open a preview JSON and do only these three things:
+
+1. identify the scene family
+2. find one part that clearly came from your source data
+3. find one part that is clearly about presentation or rendering choice
+
+That is enough. You do not need to decode the entire payload at once.
+
 ## Formal references for this chapter
 
 - [Field reference](../site/field-reference.html)

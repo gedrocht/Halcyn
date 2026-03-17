@@ -47,6 +47,16 @@ If your change is about:
 5. Run the relevant focused script first.
 6. Run the full quality pass after that.
 
+## One very safe beginner pattern
+
+If you are unsure where to begin, make a documentation-or-test improvement
+first.
+
+Why?
+
+Because those changes teach you the shape of the repo while carrying much less
+risk than changing renderer behavior immediately.
+
 ## Keep the story aligned
 
 One of the easiest ways to make a project harder to learn is to change code

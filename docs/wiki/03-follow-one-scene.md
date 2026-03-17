@@ -5,6 +5,20 @@ This chapter is the heart of the walkthrough.
 Instead of talking about the project in categories, we will follow one scene
 all the way from idea to pixels.
 
+## The short visual version
+
+```mermaid
+flowchart LR
+    A["Visualizer Studio or Scene Studio"] --> B["Scene JSON"]
+    B --> C["Validation request or apply request"]
+    C --> D["HTTP API"]
+    D --> E["JSON codec"]
+    E --> F["Validation rules"]
+    F --> G["Scene store"]
+    G --> H["OpenGL renderer"]
+    H --> I["Pixels in the Visualizer window"]
+```
+
 ## Step 1: A tool creates or edits scene data
 
 The scene usually starts in one of two places:
@@ -126,6 +140,18 @@ They are simply one scene family that reaches the same renderer through the
 same general path.
 
 The difference is in how the scene is *constructed* before it reaches the API.
+
+## Try this now
+
+With the workbench open:
+
+1. Make a small scene change in Visualizer Studio.
+2. Preview it first.
+3. Validate it.
+4. Apply it.
+5. Watch the Activity Monitor while you do that.
+
+That one tiny exercise makes the whole pipeline much less abstract.
 
 ## Formal references for this chapter
 

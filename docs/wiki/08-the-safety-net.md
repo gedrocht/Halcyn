@@ -51,6 +51,17 @@ If you want one strong local confidence check, use:
 .\scripts\run-all-quality-checks.ps1 -Configuration Debug
 ```
 
+## A tiny panic-proof checklist
+
+If you are tired or anxious and just want a short answer, check these:
+
+1. does the main app open?
+2. can you preview and apply a scene?
+3. does `.\scripts\run-all-quality-checks.ps1 -Configuration Debug` finish cleanly?
+4. are GitHub checks green on `main`?
+
+If those are true, the project is usually in a healthy state.
+
 ## GitHub as a second opinion
 
 Local success is good.

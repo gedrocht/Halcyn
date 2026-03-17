@@ -43,6 +43,13 @@ matches your question:
 - "How do I change Halcyn without getting lost?"
   - [Chapter 9: How To Extend Halcyn](09-how-to-extend-halcyn.md)
 
+Helpful appendices:
+
+- "I need a calm dictionary of the project words."
+  - [Appendix A: Glossary](appendix-glossary.md)
+- "I just want a guided first hour."
+  - [Appendix B: Your First Hour With Halcyn](appendix-first-hour.md)
+
 ## What this wiki assumes
 
 Very little.
@@ -99,6 +106,27 @@ field-by-field or endpoint-by-endpoint view, keep these pages nearby:
    Visualizer Studio.
 6. Read [Chapter 8](08-the-safety-net.md) the first time a test fails and you
    want to know what is protecting what.
+
+## Two reading tracks
+
+### Track 1: absolute beginner
+
+Read:
+
+1. [Chapter 1](01-start-here.md)
+2. [Chapter 2](02-meet-the-cast.md)
+3. [Appendix A](appendix-glossary.md)
+4. [Chapter 3](03-follow-one-scene.md)
+5. [Appendix B](appendix-first-hour.md)
+
+### Track 2: "I can run the tools, but I still feel lost"
+
+Read:
+
+1. [Chapter 3](03-follow-one-scene.md)
+2. [Chapter 6](06-visualizer-studio-as-a-daily-driver.md)
+3. [Chapter 7](07-how-bar-wall-scenes-think.md)
+4. [Chapter 8](08-the-safety-net.md)
 
 ## External references you may want nearby
 

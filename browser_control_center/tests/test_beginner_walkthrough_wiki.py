@@ -38,6 +38,8 @@ class BeginnerWalkthroughWikiTests(unittest.TestCase):
             "07-how-bar-wall-scenes-think.md",
             "08-the-safety-net.md",
             "09-how-to-extend-halcyn.md",
+            "appendix-glossary.md",
+            "appendix-first-hour.md",
         }
 
         discovered_files = {path.name for path in self.wiki_root.glob("*.md")}
@@ -57,6 +59,8 @@ class BeginnerWalkthroughWikiTests(unittest.TestCase):
             "07-how-bar-wall-scenes-think.md",
             "08-the-safety-net.md",
             "09-how-to-extend-halcyn.md",
+            "appendix-glossary.md",
+            "appendix-first-hour.md",
         ]:
             self.assertIn(file_name, index_text)
 
@@ -84,3 +88,17 @@ class BeginnerWalkthroughWikiTests(unittest.TestCase):
                     resolved_target.exists(),
                     f"{markdown_path.name} links to missing local target {link_target!r}",
                 )
+
+    def test_key_learning_aids_remain_present(self) -> None:
+        """The walkthrough should keep its gentler study aids."""
+
+        self.assertIn("Two reading tracks", self._read_text("docs/wiki/README.md"))
+        self.assertIn("```mermaid", self._read_text("docs/wiki/03-follow-one-scene.md"))
+        self.assertIn(
+            "Try this now",
+            self._read_text("docs/wiki/06-visualizer-studio-as-a-daily-driver.md"),
+        )
+        self.assertIn(
+            "panic-proof checklist",
+            self._read_text("docs/wiki/08-the-safety-net.md"),
+        )

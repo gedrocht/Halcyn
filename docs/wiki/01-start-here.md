@@ -104,6 +104,22 @@ At the end, Halcyn produces:
 
 That input-to-output journey is the core story of the whole project.
 
+## If you only remember three things from this chapter
+
+1. Halcyn is one renderer surrounded by helper tools, not a random pile of apps.
+2. The renderer's job is to turn valid scene data into pixels.
+3. The easiest supported starting point is still
+   `.\scripts\launch-visualizer-workbench.ps1`.
+
+## Try this now
+
+If you want this chapter to become real instead of theoretical:
+
+1. Open a PowerShell window in the repo.
+2. Run `.\scripts\report-prerequisites.ps1`.
+3. Run `.\scripts\launch-visualizer-workbench.ps1`.
+4. Confirm that you can see at least the Visualizer window and one operator tool.
+
 ## If you want the formal version of this chapter
 
 Use these pages when you want the more compact, reference-style version:

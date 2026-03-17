@@ -68,6 +68,16 @@ One beginner-friendly workflow looks like this:
 4. Use Scene Studio or Visualizer Studio to generate a scene.
 5. Watch the logs update while you do it.
 
+## A reassuring rule
+
+You do not have to decide which browser tool is "the best one."
+
+Usually:
+
+- Control Center is where you check health and run operations
+- Activity Monitor is where you watch behavior over time
+- Scene Studio is where you experiment creatively in the browser
+
 ## Formal references for this chapter
 
 - [Control Center guide](../site/control-center.html)

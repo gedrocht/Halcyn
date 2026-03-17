@@ -134,6 +134,18 @@ That can feel confusing at first, so here is the plain explanation:
 
 So "folder exists" does not always mean "this is still a user-facing app."
 
+## One memory trick
+
+If the names start to blur together, remember this:
+
+- Visualizer = the thing that draws
+- Visualizer Studio = the native control desk
+- Control Center = the browser operations desk
+- Activity Monitor = the shared timeline
+- Scene Studio = the browser sketchbook
+
+That is often enough to get unstuck.
+
 ## Formal references for this chapter
 
 - [Architecture guide](../site/architecture.html)

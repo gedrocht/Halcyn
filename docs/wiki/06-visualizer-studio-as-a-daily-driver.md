@@ -63,6 +63,18 @@ It lets you see:
 - what the desktop app thinks the current scene is
 - what will be sent to the renderer
 
+## Try this now: a good first ten minutes in Visualizer Studio
+
+If you want a very practical learning loop:
+
+1. choose a simple source such as plain text
+2. leave the scene family on a preset scene first
+3. preview the generated scene
+4. apply it once
+5. switch to the bar-wall scene family
+6. preview again
+7. compare how the same source becomes a different scene
+
 ## Why the desktop app and browser tools both exist
 
 They solve different comfort problems:
