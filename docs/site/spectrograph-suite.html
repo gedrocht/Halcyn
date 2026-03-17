@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Halcyn Spectrograph Suite</title>
+    <title>Halcyn Bar-Wall Workflow Guide</title>
     <link rel="stylesheet" href="assets/styles.css">
     <script defer src="assets/app.js"></script>
   </head>
@@ -13,13 +13,13 @@
         <div class="brand">
           <div class="brand-mark" aria-hidden="true"></div>
           <div class="brand-copy">
-            <h1>Spectrograph Suite Guide</h1>
-            <p>The dedicated renderer and the native desktop control surface for data-driven 3D bars.</p>
+            <h1>Bar-Wall Workflow Guide</h1>
+            <p>The Visualizer, Signal Router, Bars Studio, and Audio Sender working together for data-driven 3D bars.</p>
           </div>
         </div>
         <div class="topbar-actions">
           <button class="button" data-theme-toggle>Toggle theme</button>
-          <a class="button" href="https://github.com/gedrocht/Halcyn/blob/main/scripts/launch-halcyn-spectrograph-app.ps1">View spectrograph launcher</a>
+          <a class="button" href="https://github.com/gedrocht/Halcyn/blob/main/scripts/launch-bars-workbench.ps1">View workbench launcher</a>
         </div>
       </header>
 
@@ -37,32 +37,33 @@
             <li><a href="control-center.html" data-nav-link="control-center">Control Center</a></li>
             <li><a href="scene-studio.html" data-nav-link="scene-studio">Scene Studio</a></li>
             <li><a href="desktop-control-panel.html" data-nav-link="desktop-control-panel">Desktop Control Panel</a></li>
-            <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Spectrograph Suite</a></li>
-            <li><a href="spectrograph-audio-source-panel.html" data-nav-link="spectrograph-audio-source-panel">Spectrograph Audio Source Panel</a></li>
-            <li><a href="multi-renderer-data-source-panel.html" data-nav-link="multi-renderer-data-source-panel">Shared Data Source Panel</a></li>
+            <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Bar-Wall Workflow</a></li>
+            <li><a href="spectrograph-audio-source-panel.html" data-nav-link="spectrograph-audio-source-panel">Audio Sender</a></li>
+            <li><a href="multi-renderer-data-source-panel.html" data-nav-link="multi-renderer-data-source-panel">Signal Router</a></li>
           </ul>
         </nav>
 
         <main>
           <section class="panel">
-            <h3>What the spectrograph suite is</h3>
+            <h3>What the bar-wall workflow is</h3>
             <p>
-              The spectrograph suite is a coordinated tool set:
+              The bar-wall workflow is a coordinated tool set:
             </p>
             <ul>
-              <li><code>.\scripts\launch-halcyn-spectrograph-app.ps1</code> starts a dedicated native renderer that defaults to a 3D bar-grid scene and API port <code>8090</code>.</li>
-              <li><code>.\scripts\launch-desktop-spectrograph-control-panel.ps1</code> opens a native desktop operator app that turns generic JSON into a rolling 3D spectrograph scene.</li>
-              <li><code>.\scripts\launch-desktop-spectrograph-audio-source-panel.ps1</code> opens a companion native helper app that captures live audio and feeds it into the spectrograph control panel.</li>
+              <li><code>.\scripts\launch-visualizer.ps1 -Sample spectrograph -Port 8090</code> starts the renderer in its bar-wall personality.</li>
+              <li><code>.\scripts\launch-signal-router.ps1</code> opens the central live-source router that can drive the scene renderer, the bar-wall renderer, or both.</li>
+              <li><code>.\scripts\launch-bars-studio.ps1</code> opens the specialized deep-tuning console for bar-wall-specific behavior.</li>
+              <li><code>.\scripts\launch-audio-sender.ps1</code> opens a companion helper app that captures live audio and feeds it into Signal Router or Bars Studio.</li>
             </ul>
             <div class="callout">
-              The renderer still consumes ordinary Halcyn scene JSON. The new work lives in how the control panel interprets arbitrary source data and shapes it into a bar scene.
+              The renderer still consumes ordinary Halcyn scene JSON. The new work lives in how the desktop tools interpret arbitrary source data and shape it into a bar-wall scene.
             </div>
             <p>
               If you want the quickest beginner path, run
-              <code>.\scripts\launch-spectrograph-audio-workbench.ps1</code>.
-              That one helper opens the renderer, the control panel, and the
-              audio-source panel in separate windows so you can see the whole
-              workflow without memorizing three separate commands first.
+              <code>.\scripts\launch-bars-workbench.ps1</code>.
+              That one helper opens the Visualizer, Signal Router, and Audio
+              Sender in separate windows so you can see the whole workflow
+              without memorizing several commands first.
             </p>
           </section>
 
@@ -84,30 +85,30 @@
           <section class="panel">
             <h3>What the desktop control panel can change</h3>
             <div class="cards">
-              <div class="card"><h4>Data source</h4><p>Paste generic JSON directly, load a JSON file, pick a built-in example, or generate a fresh random numeric sample.</p></div>
+              <div class="card"><h4>Data source</h4><p>Paste generic JSON directly, load a JSON file, pick a built-in example, generate a fresh random numeric sample, or route live helper-fed JSON.</p></div>
               <div class="card"><h4>Range model</h4><p>Switch between automatic statistical normalization and manually supplied minimum and maximum values.</p></div>
               <div class="card"><h4>Bar wall size</h4><p>Choose the <code>N</code> in the final <code>N x N</code> bar grid.</p></div>
               <div class="card"><h4>Render presentation</h4><p>Toggle multisample anti-aliasing and choose between <code>standard</code>, <code>neon</code>, and <code>heatmap</code> shader styles.</p></div>
               <div class="card"><h4>Geometry shape</h4><p>Change floor height and peak height so the bars can feel flatter, denser, taller, or more dramatic.</p></div>
-              <div class="card"><h4>External audio bridge</h4><p>Let the control panel follow live JSON arriving from the dedicated spectrograph audio-source panel while preserving the same preview, validate, apply, and live-stream workflow.</p></div>
+              <div class="card"><h4>External helper feed</h4><p>Let the router or Bars Studio follow live JSON arriving from Audio Sender while preserving the same preview, validate, apply, and live-stream workflow.</p></div>
               <div class="card"><h4>Live operation</h4><p>Preview, validate, apply once, or continuously live-stream at a chosen cadence.</p></div>
             </div>
             <p>
-              If you want one shared live source to drive both the classic renderer and this
-              spectrograph renderer, use the
-              <a href="multi-renderer-data-source-panel.html">Shared Data Source Panel</a>.
+              If you want one shared live source to drive both the scene renderer and the
+              bar-wall renderer, use the
+              <a href="multi-renderer-data-source-panel.html">Signal Router</a>.
             </p>
             <p>
               If you want a helper app focused only on live audio capture for this renderer family,
               study the
-              <a href="spectrograph-audio-source-panel.html">Spectrograph Audio Source Panel</a>.
+              <a href="spectrograph-audio-source-panel.html">Audio Sender</a>.
             </p>
           </section>
 
           <section class="panel">
             <h3>Useful API and scene details</h3>
             <p>
-              The native spectrograph renderer exposes the same core API routes as the main app and adds a built-in example route:
+              The bar-wall mode exposes the same core API routes as the main app and adds a built-in example route:
             </p>
             <pre><code>GET /api/v1/examples/spectrograph</code></pre>
             <p>
@@ -124,14 +125,14 @@
           <section class="panel">
             <h3>Recommended learning order</h3>
             <ol>
-              <li>Either launch the suite manually or start with <code>.\scripts\launch-spectrograph-audio-workbench.ps1</code>.</li>
-              <li>Confirm the spectrograph renderer window appears and shows its startup scene.</li>
-              <li>Open the desktop spectrograph control panel and load one built-in example.</li>
-              <li>Then use the spectrograph audio-source panel, start output or input capture, and watch the bridge feed live JSON into the control panel.</li>
+              <li>Either launch the workflow manually or start with <code>.\scripts\launch-bars-workbench.ps1</code>.</li>
+              <li>Confirm the Visualizer window appears and shows its startup bar wall.</li>
+              <li>Open Signal Router and load one built-in example or switch to <code>External feed</code>.</li>
+              <li>Then use Audio Sender, start output or input capture, and watch the bridge feed live JSON into Signal Router.</li>
               <li>Switch between automatic and manual range modes and watch how the bars respond.</li>
               <li>Change the bar-grid size to see how grouping changes the final scene.</li>
               <li>Open the generated scene JSON window and compare the source data to the final renderer payload.</li>
-              <li>Then try the Shared Data Source Panel so the same live source can feed both renderer families.</li>
+              <li>Then open Bars Studio if you want more specialized bar-wall-only tuning.</li>
             </ol>
           </section>
 
@@ -140,6 +141,8 @@
             <ul>
               <li><a href="https://docs.python.org/3/library/tkinter.html">Tkinter overview</a></li>
               <li><a href="https://docs.python.org/3/library/tkinter.ttk.html">Tk themed widgets (`ttk`)</a></li>
+              <li><a href="https://docs.python.org/3/library/http.server.html">Python <code>http.server</code> module</a></li>
+              <li><a href="https://docs.python.org/3/library/urllib.request.html">Python <code>urllib.request</code> module</a></li>
               <li><a href="https://docs.python.org/3/library/json.html">Python <code>json</code> module</a></li>
               <li><a href="https://docs.python.org/3/library/statistics.html">Python statistics module concepts</a></li>
               <li><a href="https://docs.python.org/3/library/stdtypes.html#str.encode">UTF-8 encoding with <code>str.encode</code></a></li>
@@ -148,7 +151,12 @@
 
           <section class="panel">
             <h3>Testing and quality gates</h3>
-            <pre><code>.\scripts\lint-desktop-spectrograph-control-panel.ps1
+            <pre><code>.\scripts\launch-bars-workbench.ps1
+.\scripts\launch-signal-router.ps1
+.\scripts\launch-bars-studio.ps1
+.\scripts\launch-audio-sender.ps1
+.\scripts\launch-activity-monitor.ps1
+.\scripts\lint-desktop-spectrograph-control-panel.ps1
 .\scripts\typecheck-desktop-spectrograph-control-panel.ps1
 .\scripts\test-desktop-spectrograph-control-panel.ps1
 .\scripts\measure-desktop-spectrograph-control-panel-coverage.ps1
@@ -162,7 +170,7 @@
             </p>
             <p>
               For the shared-source cross-renderer workflow, study the
-              <a href="multi-renderer-data-source-panel.html">Shared Data Source Panel</a>.
+              <a href="multi-renderer-data-source-panel.html">Signal Router</a>.
             </p>
           </section>
         </main>

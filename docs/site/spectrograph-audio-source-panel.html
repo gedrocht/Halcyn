@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Halcyn Spectrograph Audio Source Panel</title>
+    <title>Halcyn Audio Sender Guide</title>
     <link rel="stylesheet" href="assets/styles.css">
     <script defer src="assets/app.js"></script>
   </head>
@@ -13,13 +13,13 @@
         <div class="brand">
           <div class="brand-mark" aria-hidden="true"></div>
           <div class="brand-copy">
-            <h1>Spectrograph Audio Source Panel</h1>
-            <p>A beginner-friendly desktop app that captures live audio and feeds the spectrograph suite.</p>
+            <h1>Audio Sender Guide</h1>
+            <p>A beginner-friendly desktop app that captures live audio and feeds Signal Router or Bars Studio.</p>
           </div>
         </div>
         <div class="topbar-actions">
           <button class="button" data-theme-toggle>Toggle theme</button>
-          <a class="button" href="https://github.com/gedrocht/Halcyn/blob/main/scripts/launch-desktop-spectrograph-audio-source-panel.ps1">View audio-source launcher</a>
+          <a class="button" href="https://github.com/gedrocht/Halcyn/blob/main/scripts/launch-audio-sender.ps1">View audio-source launcher</a>
         </div>
       </header>
 
@@ -37,9 +37,9 @@
             <li><a href="control-center.html" data-nav-link="control-center">Control Center</a></li>
             <li><a href="scene-studio.html" data-nav-link="scene-studio">Scene Studio</a></li>
             <li><a href="desktop-control-panel.html" data-nav-link="desktop-control-panel">Desktop Control Panel</a></li>
-            <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Spectrograph Suite</a></li>
-            <li><a href="spectrograph-audio-source-panel.html" data-nav-link="spectrograph-audio-source-panel">Spectrograph Audio Source Panel</a></li>
-            <li><a href="multi-renderer-data-source-panel.html" data-nav-link="multi-renderer-data-source-panel">Shared Data Source Panel</a></li>
+            <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Bar-Wall Workflow</a></li>
+            <li><a href="spectrograph-audio-source-panel.html" data-nav-link="spectrograph-audio-source-panel">Audio Sender</a></li>
+            <li><a href="multi-renderer-data-source-panel.html" data-nav-link="multi-renderer-data-source-panel">Signal Router</a></li>
           </ul>
         </nav>
 
@@ -49,12 +49,12 @@
             <p>
               This desktop app solves one focused problem: it listens to a real local audio
               source, turns the recent activity into a readable JSON document, and sends that JSON
-              into the Desktop Spectrograph Control Panel.
+              into Signal Router or Bars Studio.
             </p>
             <div class="callout">
-              Think of the spectrograph control panel as the place that decides
-              <em>how the bars should look</em>, while this audio-source panel decides
-              <em>what live audio data should feed those bars</em>.
+              Think of Signal Router and Bars Studio as the places that decide
+              <em>how the visuals should behave</em>, while Audio Sender decides
+              <em>what live audio data should feed those visuals</em>.
             </div>
           </section>
 
@@ -70,17 +70,18 @@
           <section class="panel">
             <h3>Two-app workflow</h3>
             <p>
-              If you want the whole spectrograph audio path opened for you, run
-              <code>.\scripts\launch-spectrograph-audio-workbench.ps1</code>.
-              That helper opens the renderer, the spectrograph control panel,
-              and this audio-source panel in separate windows.
+              If you want the whole bar-wall audio path opened for you, run
+              <code>.\scripts\launch-bars-workbench.ps1</code>.
+              That helper opens the Visualizer, Signal Router, and this Audio Sender
+              in separate windows.
             </p>
             <ol>
-              <li>Start the dedicated renderer with <code>.\scripts\launch-halcyn-spectrograph-app.ps1</code>.</li>
-              <li>Start the operator console with <code>.\scripts\launch-desktop-spectrograph-control-panel.ps1</code>.</li>
-              <li>In that control panel, leave the external audio bridge enabled so it listens for helper-app input.</li>
-              <li>Start this app with <code>.\scripts\launch-desktop-spectrograph-audio-source-panel.ps1</code>.</li>
+              <li>Start the bar-wall renderer with <code>.\scripts\launch-visualizer.ps1 -Sample spectrograph -Port 8090</code>, or simply use <code>.\scripts\launch-bars-workbench.ps1</code>.</li>
+              <li>Start Signal Router with <code>.\scripts\launch-signal-router.ps1</code> if it is not already open.</li>
+              <li>Switch Signal Router to <strong>External feed</strong> if you want it to follow helper-app input directly.</li>
+              <li>Start this app with <code>.\scripts\launch-audio-sender.ps1</code>.</li>
               <li>Choose <strong>Output sources</strong> if you want desktop loopback audio, or <strong>Input sources</strong> if you want a microphone-style source.</li>
+              <li>Pick the quick bridge target for <strong>Signal Router</strong> or <strong>Bars Studio</strong>.</li>
               <li>Pick a device, click <strong>Start capture</strong>, and watch the volume bar move.</li>
               <li>Use <strong>Send once</strong> to test the bridge, or <strong>Start live</strong> for continuous updates.</li>
             </ol>
@@ -101,12 +102,12 @@
           <section class="panel">
             <h3>What the generated JSON contains</h3>
             <p>
-              The output intentionally stays generic. That means the spectrograph control panel can
+              The output intentionally stays generic. That means Signal Router or Bars Studio can
               keep using its existing JSON flattening pipeline instead of learning a new binary or
               specialized audio protocol.
             </p>
             <pre><code>{
-  "sourceType": "spectrograph-audio-source-panel",
+  "sourceType": "audio-sender",
   "device": {
     "name": "Desktop speakers",
     "identifier": "speaker-1",
@@ -136,14 +137,18 @@
           <section class="panel">
             <h3>How the bridge works</h3>
             <p>
-              The spectrograph control panel starts a tiny local HTTP server at
-              <code>/external-data</code>. This app posts JSON to that route. The control panel
+              Signal Router and Bars Studio each expose a tiny local HTTP server at
+              <code>/external-data</code>. This app posts JSON to that route. The receiving tool
               then treats that incoming text as its newest external JSON source and can use it
               during preview, validate, apply, or live-stream operations.
             </p>
             <p>
               That design keeps the boundary simple: one app is responsible for capture, and the
-              other remains responsible for translating generic JSON into the final bar scene.
+              other remains responsible for translating generic JSON into the final scene or bar wall.
+            </p>
+            <p>
+              If you want to inspect successful deliveries, skipped unchanged sends, or bridge
+              failures, open <code>.\scripts\launch-activity-monitor.ps1</code>.
             </p>
           </section>
 
@@ -162,7 +167,9 @@
 
           <section class="panel">
             <h3>Testing and quality gates</h3>
-            <pre><code>.\scripts\lint-desktop-spectrograph-audio-source-panel.ps1
+            <pre><code>.\scripts\launch-audio-sender.ps1
+.\scripts\launch-activity-monitor.ps1
+.\scripts\lint-desktop-spectrograph-audio-source-panel.ps1
 .\scripts\typecheck-desktop-spectrograph-audio-source-panel.ps1
 .\scripts\test-desktop-spectrograph-audio-source-panel.ps1
 .\scripts\measure-desktop-spectrograph-audio-source-panel-coverage.ps1</code></pre>

@@ -63,12 +63,15 @@ DEFAULT_RANDOM_SEED = 7
 DEFAULT_RANDOM_MINIMUM = 0.0
 DEFAULT_RANDOM_MAXIMUM = 255.0
 DEFAULT_SHARED_LIVE_CADENCE_MS = 125
+DEFAULT_EXTERNAL_JSON_BRIDGE_HOST = "127.0.0.1"
+DEFAULT_EXTERNAL_JSON_BRIDGE_PORT = 8092
 SUPPORTED_SOURCE_MODES = (
     "json_document",
     "plain_text",
     "random_values",
     "audio_device",
     "pointer_pad",
+    "external_json_bridge",
 )
 
 
@@ -144,6 +147,14 @@ def build_catalog_payload() -> dict[str, Any]:
                 "name": "Pointer pad",
                 "summary": "Use pointer position and speed from the desktop UI.",
             },
+            {
+                "id": "external_json_bridge",
+                "name": "External feed",
+                "summary": (
+                    "Use the newest JSON document delivered by another local desktop helper "
+                    "tool such as the audio sender."
+                ),
+            },
         ],
         "classicPresets": classic_catalog_payload["presets"],
         "spectrographShaderStyles": spectrograph_catalog_payload["shaderStyles"],
@@ -151,6 +162,8 @@ def build_catalog_payload() -> dict[str, Any]:
         "defaults": {
             "sourceMode": DEFAULT_SOURCE_MODE,
             "liveCadenceMs": DEFAULT_SHARED_LIVE_CADENCE_MS,
+            "externalJsonBridgeHost": DEFAULT_EXTERNAL_JSON_BRIDGE_HOST,
+            "externalJsonBridgePort": DEFAULT_EXTERNAL_JSON_BRIDGE_PORT,
         },
         "packageSummary": (_package_docstring or "").strip(),
     }
@@ -200,6 +213,10 @@ def build_default_request_payload() -> dict[str, Any]:
                 "port": default_spectrograph_request_payload["target"]["port"],
             },
         },
+        "externalJsonBridge": {
+            "host": DEFAULT_EXTERNAL_JSON_BRIDGE_HOST,
+            "port": DEFAULT_EXTERNAL_JSON_BRIDGE_PORT,
+        },
         "classicRender": {
             "presetId": DEFAULT_DESKTOP_PRESET_ID,
             "useEpoch": True,
@@ -217,6 +234,7 @@ def build_multi_renderer_preview_bundle(
     request_payload: dict[str, Any],
     audio_signal_snapshot: AudioSignalSnapshot | None = None,
     spectrograph_rolling_history_values: list[float] | None = None,
+    latest_external_json_text: str = "",
 ) -> MultiRendererPreviewBundle:
     """Build preview-ready classic and spectrograph scenes from one data source."""
 
@@ -224,6 +242,7 @@ def build_multi_renderer_preview_bundle(
     collected_source_data = collect_source_data(
         normalized_request_payload,
         audio_signal_snapshot=audio_signal_snapshot,
+        latest_external_json_text=latest_external_json_text,
     )
 
     classic_scene_bundle = None
@@ -252,6 +271,7 @@ def build_multi_renderer_preview_bundle(
 def collect_source_data(
     normalized_request_payload: dict[str, Any],
     audio_signal_snapshot: AudioSignalSnapshot | None = None,
+    latest_external_json_text: str = "",
 ) -> CollectedSourceData:
     """Collect one normalized source snapshot from the chosen input mode."""
 
@@ -314,6 +334,18 @@ def collect_source_data(
                 }
             }
         )
+    elif source_mode == "external_json_bridge":
+        spectrograph_source_json_text = latest_external_json_text.strip() or json.dumps(
+            {
+                "status": "waiting-for-external-data",
+                "message": (
+                    "This source mode follows the newest JSON document received through "
+                    "the local desktop bridge."
+                ),
+            }
+        )
+        parsed_json_value = _parse_json_document(spectrograph_source_json_text)
+        numeric_values = flatten_generic_json_value(parsed_json_value)
     else:
         json_text = str(source_payload["jsonText"]).strip()
         parsed_json_value = _parse_json_document(json_text)
@@ -444,6 +476,21 @@ def _normalize_request_payload(request_payload: dict[str, Any]) -> dict[str, Any
         40,
         2000,
     )
+    normalized_request_payload["externalJsonBridge"]["host"] = (
+        str(
+            normalized_request_payload["externalJsonBridge"].get(
+                "host",
+                DEFAULT_EXTERNAL_JSON_BRIDGE_HOST,
+            )
+        ).strip()
+        or DEFAULT_EXTERNAL_JSON_BRIDGE_HOST
+    )
+    normalized_request_payload["externalJsonBridge"]["port"] = _clamp_int(
+        normalized_request_payload["externalJsonBridge"].get("port"),
+        DEFAULT_EXTERNAL_JSON_BRIDGE_PORT,
+        1,
+        65535,
+    )
     return normalized_request_payload
 
 
@@ -501,6 +548,10 @@ def _build_source_analysis(
             f"Pointer x={float(pointer_payload['x']):.2f}, "
             f"y={float(pointer_payload['y']):.2f}, "
             f"speed={float(pointer_payload['speed']):.2f}"
+        )
+    elif source_mode == "external_json_bridge":
+        details = (
+            "Following the newest JSON document delivered through the local desktop bridge."
         )
     else:
         details = f"First values: {numeric_values[:8]}"

@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import json
 import tkinter as tk
+from functools import partial
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 from tkinter.scrolledtext import ScrolledText
 from typing import Any
 
+from desktop_shared_control_support.activity_log_window import DesktopActivityLogWindow
 from desktop_spectrograph_audio_source_panel.spectrograph_audio_source_builder import (
     SpectrographAudioSourcePreview,
 )
@@ -41,8 +43,9 @@ class DesktopSpectrographAudioSourceWindow:
         self._generated_audio_json_window: tk.Toplevel | None = None
         self._generated_audio_json_text_widget: ScrolledText | None = None
         self._latest_audio_source_preview: SpectrographAudioSourcePreview | None = None
+        self._activity_log_window: DesktopActivityLogWindow | None = None
 
-        self._root_window.title("Halcyn Spectrograph Audio Source Panel")
+        self._root_window.title("Halcyn Audio Sender")
         self._root_window.geometry("1380x900")
         self._root_window.minsize(1180, 760)
         self._root_window.configure(background=WINDOW_BACKGROUND)
@@ -60,11 +63,9 @@ class DesktopSpectrographAudioSourceWindow:
         """Create the Tk variables that back the visible widgets."""
 
         self._bridge_host_variable = tk.StringVar(value="127.0.0.1")
-        self._bridge_port_variable = tk.StringVar(value="8091")
+        self._bridge_port_variable = tk.StringVar(value="8092")
         self._bridge_path_variable = tk.StringVar(value="/external-data")
-        self._source_label_variable = tk.StringVar(
-            value="Desktop spectrograph audio source panel"
-        )
+        self._source_label_variable = tk.StringVar(value="Audio Sender")
         self._audio_device_flow_variable = tk.StringVar(value="output")
         self._audio_device_identifier_variable = tk.StringVar(value="")
         self._history_frame_count_variable = tk.IntVar(value=72)
@@ -76,7 +77,7 @@ class DesktopSpectrographAudioSourceWindow:
         self._bridge_summary_variable = tk.StringVar(
             value=(
                 "Choose a device, start capture, then send the generated JSON "
-                "to the spectrograph panel."
+                "to the Signal Router or Bars Studio."
             )
         )
         self._volume_meter_progress_variable = tk.DoubleVar(value=0.0)
@@ -156,14 +157,14 @@ class DesktopSpectrographAudioSourceWindow:
 
         ttk.Label(
             page_shell,
-            text="Desktop Spectrograph Audio Source Panel",
+            text="Audio Sender",
             style="Title.TLabel",
         ).grid(row=0, column=0, columnspan=2, sticky="w")
         ttk.Label(
             page_shell,
             text=(
                 "Capture a local audio source, build a rolling generic JSON document from it, "
-                "and send that document into the spectrograph control panel's external bridge."
+                "and send that document into another local Halcyn desktop bridge."
             ),
             style="Subheading.TLabel",
         ).grid(row=1, column=0, columnspan=2, sticky="w", pady=(6, 16))
@@ -309,46 +310,69 @@ class DesktopSpectrographAudioSourceWindow:
         ttk.Label(self._bridge_frame, text="Target bridge", style="Section.TLabel").grid(
             row=0, column=0, sticky="w"
         )
+        ttk.Label(
+            self._bridge_frame,
+            text="Quick targets",
+            style="Body.TLabel",
+        ).grid(row=1, column=0, sticky="w", pady=(12, 0))
+        quick_target_frame = ttk.Frame(self._bridge_frame, style="Section.TFrame")
+        quick_target_frame.grid(row=1, column=1, columnspan=3, sticky="ew", pady=(12, 0))
+        quick_target_frame.columnconfigure((0, 1), weight=1)
+        for button_index, bridge_target_entry in enumerate(self._catalog_payload["bridgeTargets"]):
+            ttk.Button(
+                quick_target_frame,
+                text=bridge_target_entry["name"],
+                style="Accent.TButton",
+                command=partial(
+                    self._apply_bridge_target_preset,
+                    bridge_target_entry,
+                ),
+            ).grid(
+                row=0,
+                column=button_index,
+                sticky="ew",
+                padx=(0, 8) if button_index == 0 else (0, 0),
+            )
 
         ttk.Label(self._bridge_frame, text="Host", style="Body.TLabel").grid(
-            row=1, column=0, sticky="w", pady=(12, 0)
+            row=2, column=0, sticky="w", pady=(12, 0)
         )
         ttk.Entry(
             self._bridge_frame,
             textvariable=self._bridge_host_variable,
             style="Dark.TEntry",
             width=20,
-        ).grid(row=1, column=1, sticky="w", padx=(10, 12), pady=(12, 0))
+        ).grid(row=2, column=1, sticky="w", padx=(10, 12), pady=(12, 0))
 
         ttk.Label(self._bridge_frame, text="Port", style="Body.TLabel").grid(
-            row=1, column=2, sticky="w", pady=(12, 0)
+            row=2, column=2, sticky="w", pady=(12, 0)
         )
         ttk.Entry(
             self._bridge_frame,
             textvariable=self._bridge_port_variable,
             style="Dark.TEntry",
             width=8,
-        ).grid(row=1, column=3, sticky="w", padx=(10, 0), pady=(12, 0))
+        ).grid(row=2, column=3, sticky="w", padx=(10, 0), pady=(12, 0))
 
         ttk.Label(self._bridge_frame, text="Path", style="Body.TLabel").grid(
-            row=2, column=0, sticky="w", pady=(12, 0)
+            row=3, column=0, sticky="w", pady=(12, 0)
         )
         ttk.Entry(
             self._bridge_frame,
             textvariable=self._bridge_path_variable,
             style="Dark.TEntry",
             width=20,
-        ).grid(row=2, column=1, sticky="w", padx=(10, 12), pady=(12, 0))
+        ).grid(row=3, column=1, sticky="w", padx=(10, 12), pady=(12, 0))
 
         ttk.Label(self._bridge_frame, text="Source label", style="Body.TLabel").grid(
-            row=3, column=0, sticky="w", pady=(12, 0)
+            row=4, column=0, sticky="w", pady=(12, 0)
         )
         ttk.Entry(
             self._bridge_frame,
             textvariable=self._source_label_variable,
             style="Dark.TEntry",
             width=40,
-        ).grid(row=3, column=1, columnspan=3, sticky="ew", padx=(10, 0), pady=(12, 0))
+        ).grid(row=4, column=1, columnspan=3, sticky="ew", padx=(10, 0), pady=(12, 0))
 
     def _build_session_frame(self) -> None:
         """Create the history and live-send widgets."""
@@ -406,6 +430,7 @@ class DesktopSpectrographAudioSourceWindow:
                 ("Start live", self._start_live_send),
                 ("Stop live", self._stop_live_send),
                 ("Open generated JSON", self._open_generated_audio_json_window),
+                ("Open activity monitor", self._open_activity_log_window),
                 ("Revert defaults", self._revert_defaults),
                 ("Load settings", self._load_settings_document),
                 ("Save settings", self._save_settings_document),
@@ -458,7 +483,7 @@ class DesktopSpectrographAudioSourceWindow:
         return {
             "bridge": {
                 "host": self._bridge_host_variable.get(),
-                "port": self._safe_int(self._bridge_port_variable.get(), 8091),
+                "port": self._safe_int(self._bridge_port_variable.get(), 8092),
                 "path": self._bridge_path_variable.get(),
                 "sourceLabel": self._source_label_variable.get(),
             },
@@ -587,7 +612,7 @@ class DesktopSpectrographAudioSourceWindow:
         else:
             self._bridge_summary_variable.set(
                 "Choose a device, start capture, then send the generated JSON "
-                "to the spectrograph panel."
+                "to the Signal Router or Bars Studio."
             )
         self._update_generated_audio_json_window()
 
@@ -635,7 +660,7 @@ class DesktopSpectrographAudioSourceWindow:
         """Save the current settings document to disk."""
 
         selected_path = filedialog.asksaveasfilename(
-            title="Save spectrograph audio source settings",
+            title="Save Audio Sender settings",
             defaultextension=".json",
             filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
         )
@@ -650,7 +675,7 @@ class DesktopSpectrographAudioSourceWindow:
         """Load a settings document from disk and refresh the UI."""
 
         selected_path = filedialog.askopenfilename(
-            title="Load spectrograph audio source settings",
+            title="Load Audio Sender settings",
             filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
         )
         if not selected_path:
@@ -676,7 +701,7 @@ class DesktopSpectrographAudioSourceWindow:
             return
 
         self._generated_audio_json_window = tk.Toplevel(self._root_window)
-        self._generated_audio_json_window.title("Generated Spectrograph Audio JSON")
+        self._generated_audio_json_window.title("Generated Audio Sender JSON")
         self._generated_audio_json_window.geometry("760x720")
         self._generated_audio_json_window.configure(background=WINDOW_BACKGROUND)
         self._generated_audio_json_window.protocol(
@@ -695,7 +720,7 @@ class DesktopSpectrographAudioSourceWindow:
 
         ttk.Label(
             preview_frame,
-            text="Generated audio JSON sent to the spectrograph control panel",
+            text="Generated Audio Sender JSON",
             style="Section.TLabel",
         ).grid(row=0, column=0, sticky="w")
         ttk.Button(
@@ -765,6 +790,27 @@ class DesktopSpectrographAudioSourceWindow:
         self._generated_audio_json_window = None
         self._generated_audio_json_text_widget = None
 
+    def _apply_bridge_target_preset(self, bridge_target_entry: dict[str, str | int]) -> None:
+        """Fill the bridge fields from one named target preset."""
+
+        self._bridge_host_variable.set(str(bridge_target_entry["host"]))
+        self._bridge_port_variable.set(str(bridge_target_entry["port"]))
+        self._bridge_path_variable.set(str(bridge_target_entry["path"]))
+        self._refresh_preview()
+
+    def _open_activity_log_window(self) -> None:
+        """Open the shared desktop activity monitor."""
+
+        if self._activity_log_window is not None:
+            try:
+                if self._activity_log_window.window_exists():
+                    self._activity_log_window.show()
+                    return
+            except tk.TclError:
+                self._activity_log_window = None
+
+        self._activity_log_window = DesktopActivityLogWindow(self._root_window)
+
     def _schedule_status_poll(self) -> None:
         """Keep audio and live-send status current while the window is open."""
 
@@ -815,7 +861,7 @@ class DesktopSpectrographAudioSourceWindow:
 
 
 def main() -> None:
-    """Launch the native desktop spectrograph audio-source panel."""
+    """Launch the native desktop Audio Sender helper."""
 
     root_window = tk.Tk()
     DesktopSpectrographAudioSourceWindow(root_window)

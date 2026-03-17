@@ -25,7 +25,7 @@ from typing import Any
 from desktop_shared_control_support.audio_input_service import AudioSignalSnapshot
 
 DEFAULT_BRIDGE_HOST = "127.0.0.1"
-DEFAULT_BRIDGE_PORT = 8091
+DEFAULT_BRIDGE_PORT = 8092
 DEFAULT_BRIDGE_PATH = "/external-data"
 DEFAULT_LIVE_CADENCE_MS = 125
 DEFAULT_AUDIO_HISTORY_FRAME_COUNT = 72
@@ -50,6 +50,22 @@ def build_catalog_payload() -> dict[str, Any]:
             {"id": "output", "name": "Output sources"},
             {"id": "input", "name": "Input sources"},
         ],
+        "bridgeTargets": [
+            {
+                "id": "signal_router",
+                "name": "Signal Router",
+                "host": DEFAULT_BRIDGE_HOST,
+                "port": 8092,
+                "path": DEFAULT_BRIDGE_PATH,
+            },
+            {
+                "id": "bars_studio",
+                "name": "Bars Studio",
+                "host": DEFAULT_BRIDGE_HOST,
+                "port": 8091,
+                "path": DEFAULT_BRIDGE_PATH,
+            },
+        ],
         "defaults": {
             "bridgeHost": DEFAULT_BRIDGE_HOST,
             "bridgePort": DEFAULT_BRIDGE_PORT,
@@ -68,7 +84,7 @@ def build_default_request_payload() -> dict[str, Any]:
             "host": DEFAULT_BRIDGE_HOST,
             "port": DEFAULT_BRIDGE_PORT,
             "path": DEFAULT_BRIDGE_PATH,
-            "sourceLabel": "Desktop spectrograph audio source panel",
+            "sourceLabel": "Audio Sender",
         },
         "audio": {
             "deviceFlow": "output",
@@ -146,10 +162,10 @@ def _normalize_request_payload(request_payload: dict[str, Any]) -> dict[str, Any
         str(
             normalized_request_payload["bridge"].get(
                 "sourceLabel",
-                "Desktop spectrograph audio source panel",
+                "Audio Sender",
             )
         ).strip()
-        or "Desktop spectrograph audio source panel"
+        or "Audio Sender"
     )
 
     normalized_device_flow = str(
@@ -206,7 +222,7 @@ def _build_generated_audio_json_document(
     peak_level = max(all_levels)
 
     return {
-        "sourceType": "spectrograph-audio-source-panel",
+        "sourceType": "audio-sender",
         "device": {
             "name": latest_audio_signal_snapshot.device_name,
             "identifier": latest_audio_signal_snapshot.device_identifier,

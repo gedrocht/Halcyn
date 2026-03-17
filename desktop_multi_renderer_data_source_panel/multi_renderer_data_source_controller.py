@@ -29,11 +29,13 @@ from desktop_multi_renderer_data_source_panel.multi_renderer_data_source_builder
     build_default_request_payload,
     build_multi_renderer_preview_bundle,
 )
+from desktop_shared_control_support.activity_log import DesktopActivityLogger
 from desktop_shared_control_support.audio_input_service import (
     AudioDeviceDescriptor,
     AudioSignalSnapshot,
     DesktopAudioInputService,
 )
+from desktop_shared_control_support.local_json_bridge import LocalJsonBridgeServer
 from desktop_shared_control_support.render_api_client import RenderApiClient, RenderApiResponse
 
 
@@ -62,6 +64,21 @@ class MultiRendererLiveStreamSnapshot:
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-ready copy of the live-stream status."""
+
+        return asdict(self)
+
+
+@dataclass
+class MultiRendererExternalSourceStatus:
+    """Describe the newest JSON document received through the local bridge."""
+
+    latest_source_label: str = ""
+    latest_received_at_utc: str = ""
+    latest_json_text: str = ""
+    last_error: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return a JSON-ready copy of the external-source state."""
 
         return asdict(self)
 
@@ -103,9 +120,13 @@ class MultiRendererDataSourceController:
         self,
         render_api_client: RenderApiClientProtocol | None = None,
         audio_input_service: AudioInputServiceProtocol | None = None,
+        activity_logger: DesktopActivityLogger | None = None,
     ) -> None:
         self._render_api_client = render_api_client or RenderApiClient()
         self._audio_input_service = audio_input_service or DesktopAudioInputService()
+        self._activity_logger = activity_logger or DesktopActivityLogger(
+            application_name="signal-router"
+        )
         self._lock = threading.Lock()
         self._current_request_payload = build_default_request_payload()
         self._live_stream_snapshot = MultiRendererLiveStreamSnapshot(
@@ -114,6 +135,9 @@ class MultiRendererDataSourceController:
         self._live_stream_thread: threading.Thread | None = None
         self._stop_live_stream_event = threading.Event()
         self._spectrograph_rolling_history_values: list[float] = []
+        self._external_source_status = MultiRendererExternalSourceStatus()
+        self._external_json_bridge_server = self._build_external_json_bridge_server()
+        self._external_json_bridge_status = self._start_external_json_bridge_server()
 
     def catalog_payload(self) -> dict[str, Any]:
         """Return metadata used to build the desktop window."""
@@ -135,7 +159,11 @@ class MultiRendererDataSourceController:
                 self._current_request_payload.get("session", {}).get("cadenceMs"),
                 125,
             )
-            return copy.deepcopy(self._current_request_payload)
+            should_restart_bridge = self._external_json_bridge_configuration_changed()
+            updated_payload = copy.deepcopy(self._current_request_payload)
+        if should_restart_bridge:
+            self._external_json_bridge_status = self._restart_external_json_bridge_server()
+        return updated_payload
 
     def replace_request_payload(self, request_payload: dict[str, Any]) -> dict[str, Any]:
         """Replace the current payload with a normalized saved document."""
@@ -147,7 +175,9 @@ class MultiRendererDataSourceController:
                 self._current_request_payload.get("session", {}).get("cadenceMs"),
                 125,
             )
-            return copy.deepcopy(self._current_request_payload)
+            updated_payload = copy.deepcopy(self._current_request_payload)
+        self._external_json_bridge_status = self._restart_external_json_bridge_server()
+        return updated_payload
 
     def reset_to_defaults(self) -> dict[str, Any]:
         """Restore the default payload and clear spectrograph history."""
@@ -155,10 +185,13 @@ class MultiRendererDataSourceController:
         with self._lock:
             self._current_request_payload = build_default_request_payload()
             self._spectrograph_rolling_history_values = []
+            self._external_source_status = MultiRendererExternalSourceStatus()
             self._live_stream_snapshot = MultiRendererLiveStreamSnapshot(
                 cadence_ms=int(self._current_request_payload["session"]["cadenceMs"])
             )
-            return copy.deepcopy(self._current_request_payload)
+            updated_payload = copy.deepcopy(self._current_request_payload)
+        self._external_json_bridge_status = self._restart_external_json_bridge_server()
+        return updated_payload
 
     def settings_document(self) -> dict[str, Any]:
         """Return a versioned settings document suitable for saving to disk."""
@@ -211,6 +244,15 @@ class MultiRendererDataSourceController:
             chosen_device_identifier,
             chosen_device_flow,
         )
+        self._activity_logger.log(
+            component_name="audio-capture",
+            level="INFO",
+            message="Started audio capture for the shared signal router.",
+            details={
+                "deviceIdentifier": chosen_device_identifier,
+                "deviceFlow": chosen_device_flow,
+            },
+        )
         self.update_request_payload(
             {
                 "source": {
@@ -226,7 +268,17 @@ class MultiRendererDataSourceController:
     def stop_audio_capture(self) -> AudioSignalSnapshot:
         """Stop audio capture and return the resulting idle snapshot."""
 
-        return self._audio_input_service.stop_capture()
+        stopped_snapshot = self._audio_input_service.stop_capture()
+        self._activity_logger.log(
+            component_name="audio-capture",
+            level="INFO",
+            message="Stopped audio capture for the shared signal router.",
+            details={
+                "deviceIdentifier": stopped_snapshot.device_identifier,
+                "deviceName": stopped_snapshot.device_name,
+            },
+        )
+        return stopped_snapshot
 
     def update_pointer_signal(self, normalized_x: float, normalized_y: float, speed: float) -> None:
         """Store the latest pointer-pad sample sent by the window."""
@@ -249,10 +301,12 @@ class MultiRendererDataSourceController:
         with self._lock:
             request_payload = copy.deepcopy(self._current_request_payload)
             spectrograph_rolling_history_values = list(self._spectrograph_rolling_history_values)
+            latest_external_json_text = self._external_source_status.latest_json_text
         return build_multi_renderer_preview_bundle(
             request_payload=request_payload,
             audio_signal_snapshot=self._audio_input_service.snapshot(),
             spectrograph_rolling_history_values=spectrograph_rolling_history_values,
+            latest_external_json_text=latest_external_json_text,
         )
 
     def health_selected_targets(self) -> dict[str, Any]:
@@ -330,6 +384,15 @@ class MultiRendererDataSourceController:
         with self._lock:
             return self._live_stream_snapshot.to_dict()
 
+    def external_source_status(self) -> dict[str, Any]:
+        """Return the latest external-source state together with bridge status."""
+
+        with self._lock:
+            external_source_status = self._external_source_status.to_dict()
+            bridge_status = copy.deepcopy(self._external_json_bridge_status)
+        external_source_status["bridge"] = bridge_status
+        return external_source_status
+
     def start_live_stream(self) -> dict[str, Any]:
         """Start repeatedly applying the selected targets at the chosen cadence."""
 
@@ -351,6 +414,12 @@ class MultiRendererDataSourceController:
                 daemon=True,
             )
             self._live_stream_thread.start()
+            self._activity_logger.log(
+                component_name="live-stream",
+                level="INFO",
+                message="Started the shared signal-router live stream.",
+                details={"cadenceMs": self._live_stream_snapshot.cadence_ms},
+            )
             return self._live_stream_snapshot.to_dict()
 
     def stop_live_stream(self) -> dict[str, Any]:
@@ -368,18 +437,123 @@ class MultiRendererDataSourceController:
             self._live_stream_thread = None
             self._live_stream_snapshot.status = "stopped"
             self._live_stream_snapshot.last_stopped_at_utc = _current_utc_timestamp_iso8601()
-            return self._live_stream_snapshot.to_dict()
+            stopped_snapshot = self._live_stream_snapshot.to_dict()
+        self._activity_logger.log(
+            component_name="live-stream",
+            level="INFO",
+            message="Stopped the shared signal-router live stream.",
+            details={
+                "cyclesAttempted": stopped_snapshot["cycles_attempted"],
+                "classicFramesApplied": stopped_snapshot["classic_frames_applied"],
+                "spectrographFramesApplied": stopped_snapshot["spectrograph_frames_applied"],
+            },
+        )
+        return stopped_snapshot
 
     def close(self) -> None:
         """Shut down background work and release audio resources on exit."""
 
         self.stop_live_stream()
+        self._external_json_bridge_status = self._stop_external_json_bridge_server()
         self._audio_input_service.close()
+
+    def _build_external_json_bridge_server(self) -> LocalJsonBridgeServer:
+        """Create the local bridge that lets helper apps send JSON into this studio."""
+
+        bridge_settings = self._current_request_payload["externalJsonBridge"]
+        return LocalJsonBridgeServer(
+            host=str(bridge_settings["host"]),
+            port=int(bridge_settings["port"]),
+            on_json_received=self._accept_external_json_from_bridge,
+        )
+
+    def _start_external_json_bridge_server(self) -> dict[str, Any]:
+        """Start the local bridge and convert startup failures into status data."""
+
+        try:
+            started_status = self._external_json_bridge_server.start()
+            self._activity_logger.log(
+                component_name="external-json-bridge",
+                level="INFO",
+                message="Started the shared signal-router external JSON bridge.",
+                details=started_status,
+            )
+            return started_status
+        except Exception as error:
+            error_message = str(error)
+            self._activity_logger.log(
+                component_name="external-json-bridge",
+                level="ERROR",
+                message="Could not start the shared signal-router external JSON bridge.",
+                details={"error": error_message},
+            )
+            return {
+                "host": str(self._current_request_payload["externalJsonBridge"]["host"]),
+                "port": int(self._current_request_payload["externalJsonBridge"]["port"]),
+                "listening": False,
+                "last_received_at_utc": "",
+                "last_source_label": "",
+                "last_payload_size_bytes": 0,
+                "last_error": error_message,
+            }
+
+    def _stop_external_json_bridge_server(self) -> dict[str, Any]:
+        """Stop the local bridge and return its final status snapshot."""
+
+        try:
+            return self._external_json_bridge_server.stop()
+        except Exception as error:
+            return {
+                "host": str(self._current_request_payload["externalJsonBridge"]["host"]),
+                "port": int(self._current_request_payload["externalJsonBridge"]["port"]),
+                "listening": False,
+                "last_received_at_utc": "",
+                "last_source_label": "",
+                "last_payload_size_bytes": 0,
+                "last_error": str(error),
+            }
+
+    def _restart_external_json_bridge_server(self) -> dict[str, Any]:
+        """Recreate the bridge server after its host or port settings change."""
+
+        self._stop_external_json_bridge_server()
+        self._external_json_bridge_server = self._build_external_json_bridge_server()
+        return self._start_external_json_bridge_server()
+
+    def _external_json_bridge_configuration_changed(self) -> bool:
+        """Return whether the payload no longer matches the active bridge server."""
+
+        configured_bridge = self._current_request_payload["externalJsonBridge"]
+        current_status = self._external_json_bridge_status
+        return (
+            str(configured_bridge["host"]) != str(current_status.get("host", ""))
+            or int(configured_bridge["port"]) != int(current_status.get("port", 0))
+        )
+
+    def _accept_external_json_from_bridge(self, json_text: str, source_label: str) -> None:
+        """Record the newest external JSON document sent into the signal router."""
+
+        with self._lock:
+            self._external_source_status.latest_json_text = json_text
+            self._external_source_status.latest_source_label = source_label
+            self._external_source_status.latest_received_at_utc = _current_utc_timestamp_iso8601()
+            self._external_source_status.last_error = ""
+
+        self._activity_logger.log(
+            component_name="external-json-bridge",
+            level="INFO",
+            message="Received external JSON for the shared signal router.",
+            details={
+                "sourceLabel": source_label,
+                "payloadSizeBytes": len(json_text.encode("utf-8")),
+            },
+        )
 
     def _submit_preview_bundle(
         self,
         preview_bundle: MultiRendererPreviewBundle,
         submission_kind: str,
+        unchanged_scene_json_by_target: dict[str, str] | None = None,
     ) -> dict[str, RenderApiResponse]:
         """Send preview scenes to the enabled targets for validation or apply."""
 
@@ -390,7 +564,19 @@ class MultiRendererDataSourceController:
                 preview_bundle.classic_scene_bundle["scene"],
                 separators=(",", ":"),
             )
-            if submission_kind == "validate":
+            if (
+                submission_kind == "apply"
+                and unchanged_scene_json_by_target is not None
+                and unchanged_scene_json_by_target.get("classic") == classic_scene_json
+            ):
+                responses["classic"] = RenderApiResponse(
+                    True,
+                    202,
+                    "Skipped",
+                    '{"status":"unchanged"}',
+                    {},
+                )
+            elif submission_kind == "validate":
                 responses["classic"] = self._render_api_client.validate_scene(
                     host=str(classic_target["host"]),
                     port=int(classic_target["port"]),
@@ -411,7 +597,19 @@ class MultiRendererDataSourceController:
                 preview_bundle.spectrograph_build_result.scene,
                 separators=(",", ":"),
             )
-            if submission_kind == "validate":
+            if (
+                submission_kind == "apply"
+                and unchanged_scene_json_by_target is not None
+                and unchanged_scene_json_by_target.get("spectrograph") == spectrograph_scene_json
+            ):
+                responses["spectrograph"] = RenderApiResponse(
+                    True,
+                    202,
+                    "Skipped",
+                    '{"status":"unchanged"}',
+                    {},
+                )
+            elif submission_kind == "validate":
                 responses["spectrograph"] = self._render_api_client.validate_scene(
                     host=str(spectrograph_target["host"]),
                     port=int(spectrograph_target["port"]),
@@ -428,11 +626,33 @@ class MultiRendererDataSourceController:
     def _run_live_stream_loop(self) -> None:
         """Continuously apply the selected targets until the caller requests a stop."""
 
+        last_submitted_scene_json_by_target: dict[str, str] = {}
         while not self._stop_live_stream_event.is_set():
             cycle_started_at = time.monotonic()
             try:
                 preview_bundle = self.preview_bundle()
-                responses = self._submit_preview_bundle(preview_bundle, submission_kind="apply")
+                current_scene_json_by_target: dict[str, str] = {}
+                if preview_bundle.classic_scene_bundle is not None:
+                    current_scene_json_by_target["classic"] = json.dumps(
+                        preview_bundle.classic_scene_bundle["scene"],
+                        separators=(",", ":"),
+                    )
+                if preview_bundle.spectrograph_build_result is not None:
+                    current_scene_json_by_target["spectrograph"] = json.dumps(
+                        preview_bundle.spectrograph_build_result.scene,
+                        separators=(",", ":"),
+                    )
+
+                responses = self._submit_preview_bundle(
+                    preview_bundle,
+                    submission_kind="apply",
+                    unchanged_scene_json_by_target=last_submitted_scene_json_by_target,
+                )
+                for target_name, response in responses.items():
+                    if response.reason in {"Accepted", "Skipped"}:
+                        last_submitted_scene_json_by_target[target_name] = (
+                            current_scene_json_by_target.get(target_name, "")
+                        )
                 with self._lock:
                     self._live_stream_snapshot.cycles_attempted += 1
                     self._live_stream_snapshot.last_source_analysis = (

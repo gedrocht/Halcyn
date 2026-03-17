@@ -53,16 +53,18 @@
               <dt>4.</dt>
               <dd>Run <code>.\scripts\post-example-2d-scene.ps1</code> or <code>.\scripts\post-example-3d-scene.ps1</code>.</dd>
               <dt>5.</dt>
-              <dd>Run <code>.\scripts\launch-halcyn-spectrograph-app.ps1</code> to start the dedicated 3D bar-wall renderer.</dd>
+              <dd>Run <code>.\scripts\launch-visualizer.ps1</code> to start the renderer with a friendlier desktop workflow name.</dd>
               <dt>6.</dt>
-              <dd>Run <code>.\scripts\launch-desktop-spectrograph-control-panel.ps1</code> to turn generic JSON into a rolling spectrograph scene.</dd>
+              <dd>Run <code>.\scripts\launch-bars-workbench.ps1</code> to open the fastest full bar-wall workflow: Visualizer, Signal Router, and Audio Sender.</dd>
               <dt>7.</dt>
-              <dd>Run <code>.\scripts\launch-desktop-spectrograph-audio-source-panel.ps1</code> if you want a dedicated live-audio helper for the spectrograph suite.</dd>
+              <dd>Run <code>.\scripts\launch-signal-router.ps1</code> to drive the scene renderer, the bar-wall renderer, or both from one live source.</dd>
               <dt>8.</dt>
-              <dd>Run <code>.\scripts\launch-spectrograph-audio-workbench.ps1</code> if you want the dedicated spectrograph renderer, the spectrograph control panel, and the audio helper opened together for you.</dd>
+              <dd>Run <code>.\scripts\launch-audio-sender.ps1</code> if you want a focused live-audio helper that can feed Signal Router or Bars Studio.</dd>
               <dt>9.</dt>
-              <dd>Run <code>.\scripts\launch-desktop-multi-renderer-data-source-panel.ps1</code> to drive the classic renderer, the spectrograph renderer, or both from one data source.</dd>
+              <dd>Run <code>.\scripts\launch-bars-studio.ps1</code> if you want a specialized deep-tuning console for the bar-wall renderer.</dd>
               <dt>10.</dt>
+              <dd>Run <code>.\scripts\launch-activity-monitor.ps1</code> if you want one place to inspect bridge traffic and desktop tool logs.</dd>
+              <dt>11.</dt>
               <dd>Read the tutorial page to learn how each layer works.</dd>
             </dl>
           </aside>
@@ -83,9 +85,9 @@
             <li><a href="control-center.html">Control Center</a></li>
             <li><a href="scene-studio.html">Scene Studio</a></li>
             <li><a href="desktop-control-panel.html">Desktop Control Panel</a></li>
-            <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Spectrograph Suite</a></li>
-            <li><a href="spectrograph-audio-source-panel.html" data-nav-link="spectrograph-audio-source-panel">Spectrograph Audio Source Panel</a></li>
-            <li><a href="multi-renderer-data-source-panel.html" data-nav-link="multi-renderer-data-source-panel">Shared Data Source Panel</a></li>
+            <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Bar-Wall Workflow</a></li>
+            <li><a href="spectrograph-audio-source-panel.html" data-nav-link="spectrograph-audio-source-panel">Audio Sender</a></li>
+            <li><a href="multi-renderer-data-source-panel.html" data-nav-link="multi-renderer-data-source-panel">Signal Router</a></li>
           </ul>
         </nav>
 
@@ -171,23 +173,23 @@
                   </tr>
                   <tr>
                     <td><code>desktop_spectrograph_control_panel</code></td>
-                    <td>A native operator console that turns generic JSON into a statistically normalized 3D bar-grid spectrograph scene.</td>
+                    <td>Bars Studio, a native operator console that turns generic JSON into a statistically normalized 3D bar-wall scene.</td>
                   </tr>
                   <tr>
                     <td><code>desktop_spectrograph_audio_source_panel</code></td>
-                    <td>A native helper app that captures live audio, builds readable JSON, and feeds the spectrograph control panel through a local bridge.</td>
+                    <td>Audio Sender, a native helper app that captures live audio, builds readable JSON, and feeds another local desktop bridge.</td>
                   </tr>
                   <tr>
                     <td><code>desktop_multi_renderer_data_source_panel</code></td>
-                    <td>A native routing console that captures one data source and sends translated scenes to the classic renderer, the spectrograph renderer, or both.</td>
+                    <td>Signal Router, a native routing console that captures one data source and sends translated scenes to the scene renderer, the bar-wall renderer, or both.</td>
                   </tr>
                   <tr>
                     <td><code>desktop_shared_control_support</code></td>
-                    <td>Shared desktop-side audio and renderer-client support surfaces used by multiple native tools.</td>
+                    <td>Shared desktop-side audio, bridge, logging, and renderer-client support surfaces used by multiple native tools.</td>
                   </tr>
                   <tr>
                     <td><code>src/spectrograph_main.cpp</code></td>
-                    <td>A dedicated executable entry point that gives the shared engine a spectrograph-oriented default personality.</td>
+                    <td>A compatibility entry point that gives the shared engine a bar-wall-oriented default personality.</td>
                   </tr>
                 </tbody>
               </table>
@@ -210,16 +212,20 @@
                 <p>Launch <code>.\scripts\launch-desktop-render-control-panel.ps1</code> to get a native operator console with local audio-device selection and instant 2D/3D switching.</p>
               </div>
               <div class="card">
-                <h4>Spectrograph Suite</h4>
-                <p>Launch <code>.\scripts\launch-spectrograph-audio-workbench.ps1</code> for the easiest full setup, or use <code>.\scripts\launch-halcyn-spectrograph-app.ps1</code> plus <code>.\scripts\launch-desktop-spectrograph-control-panel.ps1</code> if you want the manual step-by-step route.</p>
+                <h4>Bar-Wall Workflow</h4>
+                <p>Launch <code>.\scripts\launch-bars-workbench.ps1</code> for the easiest full setup, or use <code>.\scripts\launch-visualizer.ps1 -Sample spectrograph -Port 8090</code> plus <code>.\scripts\launch-signal-router.ps1</code> if you want the manual step-by-step route.</p>
               </div>
               <div class="card">
-                <h4>Spectrograph Audio Source Panel</h4>
-                <p>Launch <code>.\scripts\launch-desktop-spectrograph-audio-source-panel.ps1</code> to capture live output or input audio and feed it into the spectrograph control panel.</p>
+                <h4>Audio Sender</h4>
+                <p>Launch <code>.\scripts\launch-audio-sender.ps1</code> to capture live output or input audio and feed it into Signal Router or Bars Studio.</p>
               </div>
               <div class="card">
-                <h4>Shared Data Source Panel</h4>
-                <p>Launch <code>.\scripts\launch-desktop-multi-renderer-data-source-panel.ps1</code> to capture one data source and route it into either renderer family or both at once.</p>
+                <h4>Signal Router</h4>
+                <p>Launch <code>.\scripts\launch-signal-router.ps1</code> to capture one data source and route it into either renderer mode or both at once.</p>
+              </div>
+              <div class="card">
+                <h4>Activity Monitor</h4>
+                <p>Launch <code>.\scripts\launch-activity-monitor.ps1</code> to inspect shared desktop logs, bridge traffic, and live-stream events in one place.</p>
               </div>
               <div class="card">
                 <h4>Safer runtime behavior</h4>

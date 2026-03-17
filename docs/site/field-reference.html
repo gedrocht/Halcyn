@@ -37,9 +37,9 @@
             <li><a href="control-center.html" data-nav-link="control-center">Control Center</a></li>
             <li><a href="scene-studio.html" data-nav-link="scene-studio">Scene Studio</a></li>
             <li><a href="desktop-control-panel.html" data-nav-link="desktop-control-panel">Desktop Control Panel</a></li>
-            <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Spectrograph Suite</a></li>
-            <li><a href="spectrograph-audio-source-panel.html" data-nav-link="spectrograph-audio-source-panel">Spectrograph Audio Source Panel</a></li>
-            <li><a href="multi-renderer-data-source-panel.html" data-nav-link="multi-renderer-data-source-panel">Shared Data Source Panel</a></li>
+            <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Bar-Wall Workflow</a></li>
+            <li><a href="spectrograph-audio-source-panel.html" data-nav-link="spectrograph-audio-source-panel">Audio Sender</a></li>
+            <li><a href="multi-renderer-data-source-panel.html" data-nav-link="multi-renderer-data-source-panel">Signal Router</a></li>
           </ul>
         </nav>
 
@@ -101,7 +101,7 @@
           </section>
 
           <section class="panel">
-            <h3>Desktop spectrograph request fields</h3>
+            <h3>Bar-wall operator request fields</h3>
             <div class="table-wrap">
               <table>
                 <thead><tr><th>Field</th><th>Meaning</th></tr></thead>
@@ -114,7 +114,7 @@
                   <tr><td><code>range.manualMinimum</code> / <code>manualMaximum</code></td><td>The operator-defined normalization range when manual mode is selected.</td></tr>
                   <tr><td><code>range.rollingHistoryValueCount</code></td><td>How many recent source values should contribute to the rolling statistics.</td></tr>
                   <tr><td><code>range.standardDeviationMultiplier</code></td><td>How wide the automatic range should be relative to the rolling standard deviation.</td></tr>
-                  <tr><td><code>session.cadenceMs</code></td><td>The live-stream interval used by the spectrograph control panel.</td></tr>
+                  <tr><td><code>session.cadenceMs</code></td><td>The live-stream interval used by Bars Studio or Signal Router when they are driving the bar-wall mode.</td></tr>
                 </tbody>
               </table>
             </div>

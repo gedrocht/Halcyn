@@ -21,6 +21,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from typing import Any, Protocol
 
+from desktop_shared_control_support.activity_log import DesktopActivityLogger
 from desktop_shared_control_support.audio_input_service import (
     AudioDeviceDescriptor,
     AudioSignalSnapshot,
@@ -114,10 +115,14 @@ class DesktopSpectrographAudioSourceController:
         self,
         audio_input_service: AudioInputServiceProtocol | None = None,
         spectrograph_external_bridge_client: SpectrographExternalBridgeClientProtocol | None = None,
+        activity_logger: DesktopActivityLogger | None = None,
     ) -> None:
         self._audio_input_service = audio_input_service or DesktopAudioInputService()
         self._spectrograph_external_bridge_client = (
             spectrograph_external_bridge_client or SpectrographExternalBridgeClient()
+        )
+        self._activity_logger = activity_logger or DesktopActivityLogger(
+            application_name="audio-sender"
         )
         self._lock = threading.Lock()
         self._current_request_payload = build_default_request_payload()
@@ -225,6 +230,15 @@ class DesktopSpectrographAudioSourceController:
             chosen_device_identifier,
             chosen_device_flow,
         )
+        self._activity_logger.log(
+            component_name="audio-capture",
+            level="INFO",
+            message="Started capture in the Audio Sender helper.",
+            details={
+                "deviceIdentifier": chosen_device_identifier,
+                "deviceFlow": chosen_device_flow,
+            },
+        )
         self.update_request_payload(
             {
                 "audio": {
@@ -239,7 +253,17 @@ class DesktopSpectrographAudioSourceController:
     def stop_audio_capture(self) -> AudioSignalSnapshot:
         """Stop audio capture and return the idle snapshot."""
 
-        return self._audio_input_service.stop_capture()
+        stopped_snapshot = self._audio_input_service.stop_capture()
+        self._activity_logger.log(
+            component_name="audio-capture",
+            level="INFO",
+            message="Stopped capture in the Audio Sender helper.",
+            details={
+                "deviceIdentifier": stopped_snapshot.device_identifier,
+                "deviceName": stopped_snapshot.device_name,
+            },
+        )
+        return stopped_snapshot
 
     def preview_payload(self) -> SpectrographAudioSourcePreview:
         """Build the outgoing bridge payload without delivering it."""
@@ -278,6 +302,20 @@ class DesktopSpectrographAudioSourceController:
             else:
                 self._live_send_snapshot.deliveries_failed += 1
                 self._live_send_snapshot.last_error = response.body or response.reason
+        self._activity_logger.log(
+            component_name="bridge-delivery",
+            level="INFO" if response.ok else "ERROR",
+            message="Delivered one Audio Sender JSON document to a local bridge."
+            if response.ok
+            else "Audio Sender bridge delivery failed.",
+            details={
+                "host": bridge_settings["host"],
+                "port": bridge_settings["port"],
+                "path": bridge_settings["path"],
+                "status": response.status,
+                "reason": response.reason,
+            },
+        )
 
         return {
             "status": "delivered" if response.ok else "delivery-failed",
@@ -312,6 +350,12 @@ class DesktopSpectrographAudioSourceController:
                 daemon=True,
             )
             self._live_send_thread.start()
+            self._activity_logger.log(
+                component_name="live-send",
+                level="INFO",
+                message="Started the Audio Sender live bridge loop.",
+                details={"cadenceMs": self._live_send_snapshot.cadence_ms},
+            )
             return self._live_send_snapshot.to_dict()
 
     def stop_live_send(self) -> dict[str, Any]:
@@ -329,7 +373,17 @@ class DesktopSpectrographAudioSourceController:
             self._live_send_thread = None
             self._live_send_snapshot.status = "stopped"
             self._live_send_snapshot.last_stopped_at_utc = _current_utc_timestamp_iso8601()
-            return self._live_send_snapshot.to_dict()
+            stopped_snapshot = self._live_send_snapshot.to_dict()
+        self._activity_logger.log(
+            component_name="live-send",
+            level="INFO",
+            message="Stopped the Audio Sender live bridge loop.",
+            details={
+                "deliveriesSucceeded": stopped_snapshot["deliveries_succeeded"],
+                "deliveriesFailed": stopped_snapshot["deliveries_failed"],
+            },
+        )
+        return stopped_snapshot
 
     def close(self) -> None:
         """Shut down capture and worker threads during application exit."""
@@ -340,10 +394,22 @@ class DesktopSpectrographAudioSourceController:
     def _run_live_send_loop(self) -> None:
         """Deliver the current preview repeatedly until the caller requests a stop."""
 
+        last_delivered_json_text = ""
         while not self._stop_live_send_event.is_set():
             cycle_started_at = time.monotonic()
             try:
-                self.deliver_once()
+                preview = self.preview_payload()
+                if preview.generated_json_text == last_delivered_json_text:
+                    with self._lock:
+                        self._live_send_snapshot.deliveries_attempted += 1
+                        self._live_send_snapshot.last_status_code = 202
+                        self._live_send_snapshot.last_reason = "skipped-unchanged"
+                    cycle_response_was_sent = False
+                else:
+                    delivery_result = self.deliver_once()
+                    if delivery_result["response"].ok:
+                        last_delivered_json_text = preview.generated_json_text
+                    cycle_response_was_sent = True
             except Exception as error:  # pragma: no cover - thread timing varies by environment.
                 with self._lock:
                     self._live_send_snapshot.status = "error"
@@ -353,6 +419,8 @@ class DesktopSpectrographAudioSourceController:
 
             with self._lock:
                 cadence_ms = self._live_send_snapshot.cadence_ms
+                if not cycle_response_was_sent:
+                    self._live_send_snapshot.last_sent_at_utc = _current_utc_timestamp_iso8601()
 
             elapsed_seconds = time.monotonic() - cycle_started_at
             remaining_seconds = max(0.0, (cadence_ms / 1000.0) - elapsed_seconds)

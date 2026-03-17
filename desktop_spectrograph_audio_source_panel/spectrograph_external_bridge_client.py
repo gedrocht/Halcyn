@@ -1,25 +1,28 @@
-"""Small HTTP client for the spectrograph control panel's local external-data bridge."""
+"""Compatibility bridge client for the Audio Sender desktop tool.
+
+The project now has a shared local JSON bridge client, but the audio sender has
+older tests and calling code that still refer to the spectrograph-specific
+module and patch its local ``urllib`` import path.  Keeping that familiar
+surface lets the codebase move to the shared implementation gradually without
+making the beginner-facing tests harder to follow.
+"""
 
 from __future__ import annotations
 
 import json
 import urllib.error
 import urllib.request
-from dataclasses import dataclass
 
-
-@dataclass(frozen=True)
-class SpectrographExternalBridgeResponse:
-    """Describe one bridge-delivery attempt."""
-
-    ok: bool
-    status: int
-    reason: str
-    body: str
+from desktop_shared_control_support.local_json_bridge import (
+    LocalJsonBridgeResponse as SpectrographExternalBridgeResponse,
+)
+from desktop_shared_control_support.local_json_bridge import (
+    normalize_local_json_bridge_path as _normalize_bridge_path,
+)
 
 
 class SpectrographExternalBridgeClient:
-    """Send generated JSON documents to the spectrograph control panel bridge."""
+    """POST generated JSON documents to another local Halcyn desktop tool."""
 
     def deliver_json_text(
         self,
@@ -30,12 +33,11 @@ class SpectrographExternalBridgeClient:
         source_label: str,
         json_text: str,
     ) -> SpectrographExternalBridgeResponse:
-        """POST one generated JSON document to the local bridge endpoint.
+        """Send one JSON document to the selected bridge endpoint.
 
-        The bridge lives on the same machine as the desktop tools, so this
-        intentionally uses plain loopback HTTP instead of HTTPS. That keeps the
-        beginner workflow simple: there are no certificates to configure, and
-        the traffic never leaves the local computer.
+        This implementation intentionally mirrors the shared bridge client
+        rather than aliasing it directly so that tests can still patch
+        ``urllib.request.urlopen`` at this module path.
         """
 
         request_body = json.dumps(
@@ -45,9 +47,8 @@ class SpectrographExternalBridgeClient:
             },
             separators=(",", ":"),
         ).encode("utf-8")
-        normalized_bridge_path = _normalize_bridge_path(path)
         request = urllib.request.Request(
-            url=f"http://{host}:{port}{normalized_bridge_path}",
+            url=f"http://{host}:{port}{_normalize_bridge_path(path)}",
             data=request_body,
             method="POST",
             headers={"Content-Type": "application/json"},
@@ -70,7 +71,7 @@ class SpectrographExternalBridgeClient:
                 reason=str(error.reason),
                 body=error_body,
             )
-        except Exception as error:
+        except Exception as error:  # pragma: no cover - environment detail varies.
             return SpectrographExternalBridgeResponse(
                 ok=False,
                 status=0,
@@ -79,18 +80,8 @@ class SpectrographExternalBridgeClient:
             )
 
 
-def _normalize_bridge_path(path: str) -> str:
-    """Return one safe bridge path with exactly one leading slash.
-
-    The desktop UI tries to keep the path field beginner-friendly, which means a
-    person may type either `/external-data` or `external-data`. The bridge
-    protocol expects the former, so the client normalizes both into the same
-    wire format before sending the request.
-    """
-
-    normalized_path = str(path).strip()
-    if not normalized_path:
-        return "/external-data"
-    if not normalized_path.startswith("/"):
-        normalized_path = f"/{normalized_path}"
-    return normalized_path
+__all__ = [
+    "SpectrographExternalBridgeClient",
+    "SpectrographExternalBridgeResponse",
+    "_normalize_bridge_path",
+]

@@ -24,6 +24,7 @@ from desktop_multi_renderer_data_source_panel.multi_renderer_data_source_builder
 from desktop_multi_renderer_data_source_panel.multi_renderer_data_source_controller import (
     MultiRendererDataSourceController,
 )
+from desktop_shared_control_support.activity_log_window import DesktopActivityLogWindow
 
 WINDOW_BACKGROUND = "#08111b"
 PANEL_BACKGROUND = "#102033"
@@ -40,7 +41,7 @@ POINTER_PAD_BACKGROUND = "#091520"
 POINTER_PAD_GRID = "#28445f"
 POINTER_PAD_MARKER = "#ffd166"
 METER_COLOR = "#56c8ff"
-DEFAULT_SETTINGS_FILE_NAME = "halcyn-multi-renderer-data-source-settings.json"
+DEFAULT_SETTINGS_FILE_NAME = "halcyn-signal-router-settings.json"
 
 
 class MultiRendererDataSourceWindow:
@@ -69,11 +70,12 @@ class MultiRendererDataSourceWindow:
         self._json_preview_text_widgets: dict[str, ScrolledText] = {}
         self._settings_file_path: Path | None = None
         self._latest_preview_bundle: MultiRendererPreviewBundle | None = None
+        self._activity_log_window: DesktopActivityLogWindow | None = None
         self._last_pointer_x = 0.5
         self._last_pointer_y = 0.5
         self._pointer_marker_identifier: int | None = None
 
-        self._root_window.title("Halcyn Multi-Renderer Data Source Panel")
+        self._root_window.title("Halcyn Signal Router")
         self._root_window.geometry("1500x920")
         self._root_window.minsize(1260, 780)
         self._root_window.configure(background=WINDOW_BACKGROUND)
@@ -118,6 +120,9 @@ class MultiRendererDataSourceWindow:
         self._health_status_variable = tk.StringVar(value="Health check not run yet.")
         self._live_status_variable = tk.StringVar(value="Live stream idle.")
         self._audio_status_variable = tk.StringVar(value="Audio capture not started.")
+        self._external_source_status_variable = tk.StringVar(
+            value="External feed bridge not checked yet."
+        )
         self._source_summary_variable = tk.StringVar(
             value="Choose a source mode to see how values will be collected."
         )
@@ -213,7 +218,7 @@ class MultiRendererDataSourceWindow:
 
         heading = ttk.Label(
             page_shell,
-            text="Multi-Renderer Data Source Panel",
+            text="Signal Router",
             style="Title.TLabel",
         )
         heading.grid(row=0, column=0, columnspan=2, sticky="w")
@@ -221,7 +226,7 @@ class MultiRendererDataSourceWindow:
             page_shell,
             text=(
                 "Capture or generate one live data stream, then route it into the classic "
-                "renderer, the spectrograph renderer, or both."
+                "scene renderer, the bar-wall renderer, or both."
             ),
             style="Subheading.TLabel",
         )
@@ -243,15 +248,15 @@ class MultiRendererDataSourceWindow:
         notebook.grid(row=0, column=0, sticky="nsew", padx=(0, 12))
 
         source_tab = ttk.Frame(notebook, style="Panel.TFrame", padding=12)
-        classic_tab = ttk.Frame(notebook, style="Panel.TFrame", padding=12)
-        spectrograph_tab = ttk.Frame(notebook, style="Panel.TFrame", padding=12)
+        scene_target_tab = ttk.Frame(notebook, style="Panel.TFrame", padding=12)
+        bar_wall_target_tab = ttk.Frame(notebook, style="Panel.TFrame", padding=12)
         notebook.add(source_tab, text="Source")
-        notebook.add(classic_tab, text="Classic Target")
-        notebook.add(spectrograph_tab, text="Spectrograph Target")
+        notebook.add(scene_target_tab, text="Scene Target")
+        notebook.add(bar_wall_target_tab, text="Bar-Wall Target")
 
         self._build_source_tab(source_tab)
-        self._build_classic_target_tab(classic_tab)
-        self._build_spectrograph_target_tab(spectrograph_tab)
+        self._build_classic_target_tab(scene_target_tab)
+        self._build_spectrograph_target_tab(bar_wall_target_tab)
 
     def _build_source_tab(self, parent: ttk.Frame) -> None:
         """Create source-mode controls, audio controls, and pointer controls."""
@@ -264,14 +269,15 @@ class MultiRendererDataSourceWindow:
         ttk.Label(source_mode_frame, text="Source mode", style="Section.TLabel").grid(
             row=0, column=0, sticky="w"
         )
+        source_mode_column_count = len(self._catalog_payload["sourceModes"])
         ttk.Label(
             source_mode_frame,
             text=(
                 "Pick one input family. The app will translate that live data into one "
-                "classic scene and/or one spectrograph scene."
+                "scene-renderer scene and/or one bar-wall scene."
             ),
             style="Body.TLabel",
-        ).grid(row=1, column=0, columnspan=5, sticky="w", pady=(6, 10))
+        ).grid(row=1, column=0, columnspan=source_mode_column_count, sticky="w", pady=(6, 10))
 
         for button_index, source_mode_entry in enumerate(self._catalog_payload["sourceModes"]):
             source_mode_identifier = source_mode_entry["id"]
@@ -300,6 +306,9 @@ class MultiRendererDataSourceWindow:
 
         self._source_specific_frames["json_document"] = self._build_json_source_frame(
             self._source_specific_container
+        )
+        self._source_specific_frames["external_json_bridge"] = (
+            self._build_external_json_bridge_source_frame(self._source_specific_container)
         )
         self._source_specific_frames["plain_text"] = self._build_plain_text_source_frame(
             self._source_specific_container
@@ -355,6 +364,41 @@ class MultiRendererDataSourceWindow:
             relief="flat",
         )
         self._json_text_widget.grid(row=2, column=0, sticky="nsew")
+        return frame
+
+    def _build_external_json_bridge_source_frame(self, parent: ttk.Frame) -> ttk.Frame:
+        """Create the read-only source frame for helper-delivered external JSON."""
+
+        frame = ttk.Frame(parent, style="Section.TFrame", padding=12)
+        frame.grid(row=0, column=0, sticky="nsew")
+        frame.columnconfigure(0, weight=1)
+        ttk.Label(frame, text="External feed source", style="Section.TLabel").grid(
+            row=0, column=0, sticky="w"
+        )
+        ttk.Label(
+            frame,
+            text=(
+                "This mode follows the newest JSON document sent by another local helper "
+                "app, such as the Audio Sender. The Signal Router keeps listening on its "
+                "own bridge even when you are editing another source mode."
+            ),
+            style="Body.TLabel",
+            wraplength=760,
+            justify="left",
+        ).grid(row=1, column=0, sticky="w", pady=(6, 10))
+        ttk.Label(
+            frame,
+            textvariable=self._external_source_status_variable,
+            style="Body.TLabel",
+            wraplength=760,
+            justify="left",
+        ).grid(row=2, column=0, sticky="ew", pady=(0, 12))
+        ttk.Button(
+            frame,
+            text="Open activity monitor",
+            style="Accent.TButton",
+            command=self._open_activity_log_window,
+        ).grid(row=3, column=0, sticky="w")
         return frame
 
     def _build_plain_text_source_frame(self, parent: ttk.Frame) -> ttk.Frame:
@@ -533,6 +577,7 @@ class MultiRendererDataSourceWindow:
             text="Send to classic renderer",
             variable=self._classic_enabled_variable,
             style="Dark.TCheckbutton",
+            command=self._refresh_preview,
         ).grid(row=1, column=0, columnspan=2, sticky="w", pady=(8, 10))
         self._build_labeled_entry(parent, "Host", self._classic_host_variable, 2, 0)
         self._build_labeled_entry(parent, "Port", self._classic_port_variable, 2, 1)
@@ -545,17 +590,23 @@ class MultiRendererDataSourceWindow:
             style="Dark.TCombobox",
         )
         self._classic_preset_combobox.grid(row=4, column=1, sticky="ew")
+        self._classic_preset_combobox.bind(
+            "<<ComboboxSelected>>",
+            lambda _event: self._refresh_preview(),
+        )
         ttk.Checkbutton(
             parent,
             text="Include epoch motion",
             variable=self._classic_use_epoch_variable,
             style="Dark.TCheckbutton",
+            command=self._refresh_preview,
         ).grid(row=5, column=0, sticky="w", pady=(10, 0))
         ttk.Checkbutton(
             parent,
             text="Include noise modulation",
             variable=self._classic_use_noise_variable,
             style="Dark.TCheckbutton",
+            command=self._refresh_preview,
         ).grid(row=5, column=1, sticky="w", pady=(10, 0))
 
     def _build_spectrograph_target_tab(self, parent: ttk.Frame) -> None:
@@ -570,6 +621,7 @@ class MultiRendererDataSourceWindow:
             text="Send to spectrograph renderer",
             variable=self._spectrograph_enabled_variable,
             style="Dark.TCheckbutton",
+            command=self._refresh_preview,
         ).grid(row=1, column=0, columnspan=2, sticky="w", pady=(8, 10))
         self._build_labeled_entry(parent, "Host", self._spectrograph_host_variable, 2, 0)
         self._build_labeled_entry(parent, "Port", self._spectrograph_port_variable, 2, 1)
@@ -593,18 +645,24 @@ class MultiRendererDataSourceWindow:
         ttk.Label(parent, text="Shader style", style="Section.TLabel").grid(
             row=6, column=0, sticky="w"
         )
-        ttk.Combobox(
+        spectrograph_shader_style_combobox = ttk.Combobox(
             parent,
             textvariable=self._spectrograph_shader_style_variable,
             values=self._catalog_payload["spectrographShaderStyles"],
             state="readonly",
             style="Dark.TCombobox",
-        ).grid(row=6, column=1, sticky="ew")
+        )
+        spectrograph_shader_style_combobox.grid(row=6, column=1, sticky="ew")
+        spectrograph_shader_style_combobox.bind(
+            "<<ComboboxSelected>>",
+            lambda _event: self._refresh_preview(),
+        )
         ttk.Checkbutton(
             parent,
             text="Enable anti-aliasing",
             variable=self._spectrograph_anti_aliasing_variable,
             style="Dark.TCheckbutton",
+            command=self._refresh_preview,
         ).grid(row=7, column=0, columnspan=2, sticky="w", pady=(10, 0))
         ttk.Radiobutton(
             parent,
@@ -612,6 +670,7 @@ class MultiRendererDataSourceWindow:
             value="automatic",
             variable=self._spectrograph_range_mode_variable,
             style="Dark.TRadiobutton",
+            command=self._refresh_preview,
         ).grid(row=8, column=0, sticky="w", pady=(12, 0))
         ttk.Radiobutton(
             parent,
@@ -619,6 +678,7 @@ class MultiRendererDataSourceWindow:
             value="manual",
             variable=self._spectrograph_range_mode_variable,
             style="Dark.TRadiobutton",
+            command=self._refresh_preview,
         ).grid(row=8, column=1, sticky="w", pady=(12, 0))
         self._build_labeled_entry(
             parent,
@@ -666,6 +726,7 @@ class MultiRendererDataSourceWindow:
             ("Load settings", self._load_settings_file),
             ("Save settings", self._save_settings_file),
             ("Open preview JSON", self._open_preview_json_window),
+            ("Open activity monitor", self._open_activity_log_window),
         ]
         for button_index, (button_text, button_command) in enumerate(actions):
             ttk.Button(
@@ -752,6 +813,16 @@ class MultiRendererDataSourceWindow:
             wraplength=360,
             justify="left",
         ).grid(row=9, column=0, sticky="w", pady=(6, 0))
+        ttk.Label(summary_frame, text="External feed", style="Section.TLabel").grid(
+            row=10, column=0, sticky="w", pady=(10, 0)
+        )
+        ttk.Label(
+            summary_frame,
+            textvariable=self._external_source_status_variable,
+            style="Body.TLabel",
+            wraplength=360,
+            justify="left",
+        ).grid(row=11, column=0, sticky="w", pady=(6, 0))
 
     def _build_labeled_entry(
         self,
@@ -808,6 +879,7 @@ class MultiRendererDataSourceWindow:
         self._source_mode_variable.set(source_mode_identifier)
         self._sync_source_mode_buttons()
         self._sync_source_mode_visibility()
+        self._refresh_preview()
 
     def _set_audio_device_flow(self, device_flow: str) -> None:
         """Switch between input and output audio-device lists."""
@@ -815,6 +887,7 @@ class MultiRendererDataSourceWindow:
         self._audio_device_flow_variable.set(device_flow)
         self._sync_audio_flow_buttons()
         self._refresh_audio_devices()
+        self._refresh_preview()
 
     def _refresh_audio_devices(self) -> None:
         """Refresh the combobox list for the current audio flow."""
@@ -955,6 +1028,10 @@ class MultiRendererDataSourceWindow:
                     "deviceIdentifier": self._audio_device_variable.get().split("|", 1)[0].strip(),
                 },
             },
+            "externalJsonBridge": {
+                "host": current_request_payload["externalJsonBridge"]["host"],
+                "port": current_request_payload["externalJsonBridge"]["port"],
+            },
             "targets": {
                 "classic": {
                     "enabled": self._classic_enabled_variable.get(),
@@ -1045,6 +1122,7 @@ class MultiRendererDataSourceWindow:
         self._sync_audio_flow_buttons()
         self._sync_source_mode_visibility()
         self._refresh_audio_devices()
+        self._refresh_external_source_status()
 
     def _sync_source_mode_buttons(self) -> None:
         """Update the visual selected state of the source-mode buttons."""
@@ -1082,6 +1160,7 @@ class MultiRendererDataSourceWindow:
         current_grid_size = int(round(self._spectrograph_bar_grid_size_variable.get()))
         self._spectrograph_bar_grid_size_variable.set(current_grid_size)
         self._spectrograph_bar_grid_label_variable.set(f"{current_grid_size} x {current_grid_size}")
+        self._refresh_preview()
 
     def _on_live_cadence_changed(self, _: str) -> None:
         """Keep the visible live-cadence label in sync with the slider."""
@@ -1111,15 +1190,16 @@ class MultiRendererDataSourceWindow:
         )
         available_target_names = []
         if self._latest_preview_bundle.classic_scene_bundle is not None:
-            available_target_names.append("classic renderer")
+            available_target_names.append("scene renderer")
         if self._latest_preview_bundle.spectrograph_build_result is not None:
-            available_target_names.append("spectrograph renderer")
+            available_target_names.append("bar-wall renderer")
         if available_target_names:
             self._result_status_variable.set(
                 "Preview ready for " + " and ".join(available_target_names) + "."
             )
         else:
             self._result_status_variable.set("Preview built, but no targets are enabled.")
+        self._refresh_external_source_status()
         self._refresh_preview_json_window_contents()
 
     def _run_health_check(self) -> None:
@@ -1276,7 +1356,7 @@ class MultiRendererDataSourceWindow:
             return
 
         self._json_preview_window = tk.Toplevel(self._root_window)
-        self._json_preview_window.title("Multi-renderer preview JSON")
+        self._json_preview_window.title("Signal Router preview JSON")
         self._json_preview_window.geometry("1100x820")
         self._json_preview_window.configure(background=WINDOW_BACKGROUND)
 
@@ -1284,8 +1364,8 @@ class MultiRendererDataSourceWindow:
         notebook.pack(fill="both", expand=True, padx=12, pady=12)
 
         for tab_identifier, tab_title in (
-            ("classic", "Classic Scene"),
-            ("spectrograph", "Spectrograph Scene"),
+            ("classic", "Scene Target"),
+            ("spectrograph", "Bar-Wall Target"),
             ("analysis", "Source Analysis"),
         ):
             frame = ttk.Frame(notebook, style="Panel.TFrame", padding=12)
@@ -1341,6 +1421,19 @@ class MultiRendererDataSourceWindow:
             text_widget.insert("1.0", preview_text)
             text_widget.configure(state="disabled")
 
+    def _open_activity_log_window(self) -> None:
+        """Open the shared desktop activity monitor."""
+
+        if self._activity_log_window is not None:
+            try:
+                if self._activity_log_window.window_exists():
+                    self._activity_log_window.show()
+                    return
+            except tk.TclError:
+                self._activity_log_window = None
+
+        self._activity_log_window = DesktopActivityLogWindow(self._root_window)
+
     def _schedule_status_refresh(self) -> None:
         """Refresh audio and live-stream status periodically."""
 
@@ -1366,6 +1459,39 @@ class MultiRendererDataSourceWindow:
             f"{live_stream_snapshot['status']}; cycles={live_stream_snapshot['cycles_attempted']}; "
             f"classic={live_stream_snapshot['classic_frames_applied']}; "
             f"spectrograph={live_stream_snapshot['spectrograph_frames_applied']}"
+        )
+        self._refresh_external_source_status()
+
+    def _refresh_external_source_status(self) -> None:
+        """Refresh the external-feed summary shown in the window."""
+
+        external_source_status = self._controller.external_source_status()
+        bridge_status = external_source_status["bridge"]
+
+        if bridge_status["last_error"]:
+            self._external_source_status_variable.set(
+                f"Bridge error on {bridge_status['host']}:{bridge_status['port']}: "
+                f"{bridge_status['last_error']}"
+            )
+            return
+
+        if not bridge_status["listening"]:
+            self._external_source_status_variable.set(
+                "The external feed bridge is not listening right now."
+            )
+            return
+
+        if external_source_status["latest_received_at_utc"]:
+            self._external_source_status_variable.set(
+                f"Listening on {bridge_status['host']}:{bridge_status['port']}. "
+                f"Latest source: {external_source_status['latest_source_label']} at "
+                f"{external_source_status['latest_received_at_utc']}."
+            )
+            return
+
+        self._external_source_status_variable.set(
+            f"Listening on {bridge_status['host']}:{bridge_status['port']}. "
+            "No helper tool has sent external JSON yet."
         )
 
     def _on_close_requested(self) -> None:

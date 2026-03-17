@@ -101,14 +101,19 @@ class RepositoryContractTests(unittest.TestCase):
             self.assertIn("$projectRoot = Get-ProjectRoot", script_text)
             self.assertIn("'--project-root'", script_text)
 
-    def test_spectrograph_audio_workbench_launcher_stays_wired_to_the_three_app_flow(self) -> None:
-        """The convenience launcher should keep opening the full spectrograph audio workflow."""
+    def test_bar_wall_workbench_launchers_stay_wired_to_the_unified_workflow(self) -> None:
+        """The bar-wall helpers should keep teaching the unified desktop workflow."""
 
-        launcher_text = self._read_text("scripts/launch-spectrograph-audio-workbench.ps1")
-        self.assertIn("launch-halcyn-spectrograph-app.ps1", launcher_text)
-        self.assertIn("launch-desktop-spectrograph-control-panel.ps1", launcher_text)
-        self.assertIn("launch-desktop-spectrograph-audio-source-panel.ps1", launcher_text)
-        self.assertIn("Start-HalcynScriptInNewWindow", launcher_text)
+        compatibility_launcher_text = self._read_text(
+            "scripts/launch-spectrograph-audio-workbench.ps1"
+        )
+        workbench_launcher_text = self._read_text("scripts/launch-bars-workbench.ps1")
+
+        self.assertIn("launch-bars-workbench.ps1", compatibility_launcher_text)
+        self.assertIn("launch-visualizer.ps1", workbench_launcher_text)
+        self.assertIn("launch-signal-router.ps1", workbench_launcher_text)
+        self.assertIn("launch-audio-sender.ps1", workbench_launcher_text)
+        self.assertIn("Start-HalcynScriptInNewWindow", workbench_launcher_text)
 
     def test_scripts_do_not_reintroduce_provider_style_project_root_resolution(self) -> None:
         """Repository scripts should avoid the old provider-prefixed Resolve-Path pattern."""
@@ -145,7 +150,13 @@ class RepositoryContractTests(unittest.TestCase):
             "client-studio.html",
         ]:
             self.assertNotIn(retired_name, readme_text)
-        self.assertIn(r".\scripts\launch-spectrograph-audio-workbench.ps1", readme_text)
+        for current_launcher_name in [
+            r".\scripts\launch-visualizer.ps1",
+            r".\scripts\launch-signal-router.ps1",
+            r".\scripts\launch-audio-sender.ps1",
+            r".\scripts\launch-bars-workbench.ps1",
+        ]:
+            self.assertIn(current_launcher_name, readme_text)
 
     def test_docs_site_uses_current_directory_and_script_names(self) -> None:
         """The docs site should stay aligned with the renamed repository layout."""
@@ -189,9 +200,9 @@ class RepositoryContractTests(unittest.TestCase):
             "docs/site/spectrograph-audio-source-panel.html"
         )
 
-        self.assertIn(r".\scripts\launch-spectrograph-audio-workbench.ps1", spectrograph_suite_text)
+        self.assertIn(r".\scripts\launch-bars-workbench.ps1", spectrograph_suite_text)
         self.assertIn(
-            r".\scripts\launch-spectrograph-audio-workbench.ps1",
+            r".\scripts\launch-bars-workbench.ps1",
             spectrograph_audio_source_text,
         )
 

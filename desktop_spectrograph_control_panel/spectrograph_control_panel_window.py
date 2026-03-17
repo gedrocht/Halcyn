@@ -20,6 +20,7 @@ from tkinter import filedialog, messagebox, ttk
 from tkinter.scrolledtext import ScrolledText
 from typing import Any
 
+from desktop_shared_control_support.activity_log_window import DesktopActivityLogWindow
 from desktop_spectrograph_control_panel.spectrograph_control_panel_controller import (
     DesktopSpectrographControlPanelController,
 )
@@ -51,10 +52,11 @@ class DesktopSpectrographControlPanelWindow:
         self._scene_preview_window: tk.Toplevel | None = None
         self._scene_preview_text_widget: ScrolledText | None = None
         self._latest_preview_result: SpectrographBuildResult | None = None
+        self._activity_log_window: DesktopActivityLogWindow | None = None
         self._external_audio_bridge_host = "127.0.0.1"
         self._external_audio_bridge_port = 8091
 
-        self._root_window.title("Halcyn Spectrograph Control Panel")
+        self._root_window.title("Halcyn Bars Studio")
         self._root_window.geometry("1600x940")
         self._root_window.minsize(1320, 820)
         self._root_window.configure(background=WINDOW_BACKGROUND)
@@ -177,14 +179,14 @@ class DesktopSpectrographControlPanelWindow:
 
         ttk.Label(
             header_frame,
-            text="Desktop Spectrograph Control Panel",
+            text="Bars Studio",
             style="Title.TLabel",
         ).grid(row=0, column=0, sticky="w")
         ttk.Label(
             header_frame,
             text=(
                 "Paste generic JSON, normalize it through a rolling statistical range, "
-                "and drive a 3D bar wall in the native renderer."
+                "and drive the 3D bar-wall mode in the Visualizer."
             ),
             style="Body.TLabel",
         ).grid(row=1, column=0, sticky="w", pady=(6, 0))
@@ -384,12 +386,14 @@ class DesktopSpectrographControlPanelWindow:
             width=18,
         )
         shader_style_combobox.grid(row=2, column=1, sticky="w", padx=(12, 0), pady=(12, 0))
+        shader_style_combobox.bind("<<ComboboxSelected>>", lambda _event: self._refresh_preview())
 
         ttk.Checkbutton(
             render_frame,
             text="Enable anti-aliasing",
             variable=self._anti_aliasing_variable,
             style="Dark.TCheckbutton",
+            command=self._refresh_preview,
         ).grid(row=3, column=0, columnspan=2, sticky="w", pady=(12, 0))
 
         ttk.Label(render_frame, text="Bar floor height", style="Body.TLabel").grid(
@@ -548,6 +552,7 @@ class DesktopSpectrographControlPanelWindow:
             ("Apply", self._apply_current_scene),
             ("Start live", self._start_live_stream),
             ("Stop live", self._stop_live_stream),
+            ("Activity", self._open_activity_log_window),
             ("Revert defaults", self._revert_defaults),
             ("Load settings", self._load_settings_document),
             ("Save settings", self._save_settings_document),
@@ -853,7 +858,7 @@ class DesktopSpectrographControlPanelWindow:
         """Save the current settings document to disk."""
 
         selected_path = filedialog.asksaveasfilename(
-            title="Save spectrograph settings",
+            title="Save Bars Studio settings",
             defaultextension=".json",
             filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
         )
@@ -868,7 +873,7 @@ class DesktopSpectrographControlPanelWindow:
         """Load a settings document from disk and refresh the UI."""
 
         selected_path = filedialog.askopenfilename(
-            title="Load spectrograph settings",
+            title="Load Bars Studio settings",
             filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
         )
         if not selected_path:
@@ -890,7 +895,7 @@ class DesktopSpectrographControlPanelWindow:
             return
 
         self._scene_preview_window = tk.Toplevel(self._root_window)
-        self._scene_preview_window.title("Current Spectrograph Scene JSON")
+        self._scene_preview_window.title("Current Bar-Wall Scene JSON")
         self._scene_preview_window.geometry("780x760")
         self._scene_preview_window.configure(background=WINDOW_BACKGROUND)
         self._scene_preview_window.protocol(
@@ -905,7 +910,7 @@ class DesktopSpectrographControlPanelWindow:
 
         ttk.Label(
             preview_frame,
-            text="Current spectrograph scene JSON",
+            text="Current Bar-Wall scene JSON",
             style="Section.TLabel",
         ).grid(row=0, column=0, sticky="w")
         ttk.Button(
@@ -964,6 +969,19 @@ class DesktopSpectrographControlPanelWindow:
         self._root_window.clipboard_clear()
         self._root_window.clipboard_append(json.dumps(self._latest_preview_result.scene, indent=2))
         self._result_status_variable.set("Copied the current scene JSON to the clipboard.")
+
+    def _open_activity_log_window(self) -> None:
+        """Open the shared desktop activity monitor."""
+
+        if self._activity_log_window is not None:
+            try:
+                if self._activity_log_window.window_exists():
+                    self._activity_log_window.show()
+                    return
+            except tk.TclError:
+                self._activity_log_window = None
+
+        self._activity_log_window = DesktopActivityLogWindow(self._root_window)
 
     def _on_scene_preview_window_closed(self) -> None:
         """Forget the detached preview window after it closes."""
@@ -1049,7 +1067,7 @@ class DesktopSpectrographControlPanelWindow:
 
 
 def main() -> None:
-    """Launch the native desktop spectrograph control panel.
+    """Launch the native desktop Bars Studio window.
 
     This small wrapper keeps process startup easy to discover from the command
     line while leaving the interesting UI behavior inside the window class

@@ -25,6 +25,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Protocol
 
+from desktop_shared_control_support.activity_log import DesktopActivityLogger
 from desktop_shared_control_support.render_api_client import RenderApiClient, RenderApiResponse
 from desktop_spectrograph_control_panel.external_data_bridge_server import (
     SpectrographExternalDataBridgeServer,
@@ -98,8 +99,15 @@ class RenderApiClientProtocol(Protocol):
 class DesktopSpectrographControlPanelController:
     """Own the non-visual behavior behind the desktop spectrograph panel."""
 
-    def __init__(self, render_api_client: RenderApiClientProtocol | None = None) -> None:
+    def __init__(
+        self,
+        render_api_client: RenderApiClientProtocol | None = None,
+        activity_logger: DesktopActivityLogger | None = None,
+    ) -> None:
         self._render_api_client = render_api_client or RenderApiClient()
+        self._activity_logger = activity_logger or DesktopActivityLogger(
+            application_name="bars-studio"
+        )
         self._lock = threading.Lock()
         self._current_request_payload = build_default_request_payload()
         self._rolling_history_values: list[float] = []
@@ -293,6 +301,12 @@ class DesktopSpectrographControlPanelController:
                 daemon=True,
             )
             self._live_stream_thread.start()
+            self._activity_logger.log(
+                component_name="live-stream",
+                level="INFO",
+                message="Started the Bars Studio live stream.",
+                details={"cadenceMs": self._live_stream_snapshot.cadence_ms},
+            )
             return self._live_stream_snapshot.to_dict()
 
     def stop_live_stream(self) -> dict[str, Any]:
@@ -310,7 +324,18 @@ class DesktopSpectrographControlPanelController:
             self._live_stream_thread = None
             self._live_stream_snapshot.status = "stopped"
             self._live_stream_snapshot.last_stopped_at_utc = _current_utc_timestamp_iso8601()
-            return self._live_stream_snapshot.to_dict()
+            stopped_snapshot = self._live_stream_snapshot.to_dict()
+        self._activity_logger.log(
+            component_name="live-stream",
+            level="INFO",
+            message="Stopped the Bars Studio live stream.",
+            details={
+                "framesAttempted": stopped_snapshot["frames_attempted"],
+                "framesApplied": stopped_snapshot["frames_applied"],
+                "framesFailed": stopped_snapshot["frames_failed"],
+            },
+        )
+        return stopped_snapshot
 
     def close(self) -> None:
         """Shut down the live-stream worker and local bridge during application exit."""
@@ -321,21 +346,27 @@ class DesktopSpectrographControlPanelController:
     def _run_live_stream_loop(self) -> None:
         """Apply frames in a loop until the caller requests a stop."""
 
+        last_applied_scene_json = ""
         while not self._stop_live_stream_event.is_set():
             frame_started_at = time.monotonic()
             try:
                 preview_result = self.preview_scene_result()
-                response = self._render_api_client.apply_scene(
-                    host=str(preview_result.target["host"]),
-                    port=int(preview_result.target["port"]),
-                    scene_json=json.dumps(preview_result.scene, separators=(",", ":")),
-                )
+                scene_json = json.dumps(preview_result.scene, separators=(",", ":"))
+                if scene_json == last_applied_scene_json:
+                    response = RenderApiResponse(True, 202, "Skipped", '{"status":"unchanged"}', {})
+                else:
+                    response = self._render_api_client.apply_scene(
+                        host=str(preview_result.target["host"]),
+                        port=int(preview_result.target["port"]),
+                        scene_json=scene_json,
+                    )
                 with self._lock:
                     self._live_stream_snapshot.frames_attempted += 1
                     self._live_stream_snapshot.last_submission_status = response.status
                     self._live_stream_snapshot.last_submission_reason = response.reason
                     self._live_stream_snapshot.last_analysis = preview_result.analysis
                     if response.status == 202:
+                        last_applied_scene_json = scene_json
                         self._rolling_history_values = list(
                             preview_result.next_rolling_history_values
                         )
@@ -376,11 +407,24 @@ class DesktopSpectrographControlPanelController:
         """Start the local bridge server and convert startup failures into status."""
 
         try:
-            return self._external_data_bridge_server.start()
+            started_status = self._external_data_bridge_server.start()
+            self._activity_logger.log(
+                component_name="external-json-bridge",
+                level="INFO",
+                message="Started the Bars Studio external JSON bridge.",
+                details=started_status,
+            )
+            return started_status
         except Exception as error:
             error_message = str(error)
             with self._lock:
                 self._external_source_status.last_error = error_message
+            self._activity_logger.log(
+                component_name="external-json-bridge",
+                level="ERROR",
+                message="Could not start the Bars Studio external JSON bridge.",
+                details={"error": error_message},
+            )
             return {
                 "host": str(self._current_request_payload["externalAudioBridge"]["host"]),
                 "port": int(self._current_request_payload["externalAudioBridge"]["port"]),
@@ -439,6 +483,15 @@ class DesktopSpectrographControlPanelController:
             self._external_source_status.latest_source_label = source_label
             self._external_source_status.latest_received_at_utc = _current_utc_timestamp_iso8601()
             self._external_source_status.last_error = ""
+        self._activity_logger.log(
+            component_name="external-json-bridge",
+            level="INFO",
+            message="Received external JSON for Bars Studio.",
+            details={
+                "sourceLabel": source_label,
+                "payloadSizeBytes": len(json_text.encode("utf-8")),
+            },
+        )
 
 
 def _safe_int(value: Any, fallback: int) -> int:

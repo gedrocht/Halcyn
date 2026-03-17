@@ -27,8 +27,10 @@ venv/
 .coverage
 .coverage-browser-control-center*
 .coverage-control-plane*
+.coverage-desktop-*
 coverage-browser-control-center.xml
 coverage-control-plane.xml
+coverage-desktop-*.xml
 coverage/
 htmlcov/
 TestResults/

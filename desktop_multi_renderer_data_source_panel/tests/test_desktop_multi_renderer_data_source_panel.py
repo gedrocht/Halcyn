@@ -196,6 +196,19 @@ class MultiRendererDataSourceBuilderTests(unittest.TestCase):
         self.assertGreater(preview_bundle.collected_source_data.numeric_values[0], 0.0)
         self.assertIsNotNone(preview_bundle.spectrograph_build_result)
 
+    def test_external_feed_source_uses_the_latest_bridge_json_document(self) -> None:
+        preview_bundle = build_multi_renderer_preview_bundle(
+            {
+                "source": {"mode": "external_json_bridge"},
+                "targets": {"spectrograph": {"enabled": True}},
+            },
+            latest_external_json_text=json.dumps({"values": [9, 8, 7, 6]}),
+        )
+
+        self.assertEqual(preview_bundle.collected_source_data.source_mode, "external_json_bridge")
+        self.assertIn(9.0, preview_bundle.collected_source_data.numeric_values)
+        self.assertIsNotNone(preview_bundle.spectrograph_build_result)
+
 
 class MultiRendererDataSourceControllerTests(unittest.TestCase):
     """Exercise the non-visual orchestration behind the shared data-source panel."""
@@ -277,6 +290,41 @@ class MultiRendererDataSourceControllerTests(unittest.TestCase):
 
         self.assertEqual(running_snapshot["status"], "running")
         self.assertGreater(latest_snapshot["classic_frames_applied"], 0)
+        self.assertEqual(stopped_snapshot["status"], "stopped")
+
+    def test_external_feed_mode_accepts_bridge_json_and_skips_unchanged_live_cycles(self) -> None:
+        self.controller.replace_request_payload(
+            {
+                "source": {"mode": "external_json_bridge"},
+                "targets": {
+                    "classic": {"enabled": False},
+                    "spectrograph": {"enabled": True},
+                },
+                "session": {"cadenceMs": 40},
+            }
+        )
+
+        self.controller._accept_external_json_from_bridge(  # noqa: SLF001 - bridge hook test.
+            json.dumps({"values": [12, 24, 36, 48]}),
+            "audio-sender",
+        )
+        self.controller.start_live_stream()
+
+        deadline = time.time() + 1.0
+        latest_snapshot = self.controller.live_stream_snapshot()
+        while time.time() < deadline:
+            latest_snapshot = self.controller.live_stream_snapshot()
+            if latest_snapshot["cycles_attempted"] >= 2:
+                break
+            time.sleep(0.02)
+
+        stopped_snapshot = self.controller.stop_live_stream()
+        external_source_status = self.controller.external_source_status()
+
+        self.assertGreaterEqual(latest_snapshot["cycles_attempted"], 2)
+        self.assertEqual(len(self.fake_render_api_client.apply_requests), 1)
+        self.assertEqual(external_source_status["latest_source_label"], "audio-sender")
+        self.assertIn("bridge", external_source_status)
         self.assertEqual(stopped_snapshot["status"], "stopped")
 
     def test_helper_functions_keep_controller_updates_simple(self) -> None:

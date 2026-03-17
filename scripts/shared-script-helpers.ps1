@@ -137,11 +137,16 @@ function Start-HalcynScriptInNewWindow {
   $powerShellExecutable = Get-PreferredPowerShellExecutable
   $projectRoot = Get-ProjectRoot
 
-  Start-Process -FilePath $powerShellExecutable -ArgumentList @(
+  $launchArgumentList = @(
     '-ExecutionPolicy', 'Bypass',
     '-NoExit',
     '-File', $ScriptPath
-  ) + $ArgumentList -WorkingDirectory $projectRoot
+  ) + $ArgumentList
+
+  # Build the final argument list first, then pass it as one array value.
+  # Without this extra variable PowerShell can misread the `+` token as a
+  # separate positional argument instead of normal array concatenation.
+  Start-Process -FilePath $powerShellExecutable -ArgumentList $launchArgumentList -WorkingDirectory $projectRoot
 }
 
 function Get-ProjectRoot {

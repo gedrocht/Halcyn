@@ -37,9 +37,9 @@
             <li><a href="control-center.html">Control Center</a></li>
             <li><a href="scene-studio.html">Scene Studio</a></li>
             <li><a href="desktop-control-panel.html">Desktop Control Panel</a></li>
-            <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Spectrograph Suite</a></li>
-            <li><a href="spectrograph-audio-source-panel.html" data-nav-link="spectrograph-audio-source-panel">Spectrograph Audio Source Panel</a></li>
-            <li><a href="multi-renderer-data-source-panel.html" data-nav-link="multi-renderer-data-source-panel">Shared Data Source Panel</a></li>
+            <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Bar-Wall Workflow</a></li>
+            <li><a href="spectrograph-audio-source-panel.html" data-nav-link="spectrograph-audio-source-panel">Audio Sender</a></li>
+            <li><a href="multi-renderer-data-source-panel.html" data-nav-link="multi-renderer-data-source-panel">Signal Router</a></li>
           </ul>
         </nav>
 
@@ -112,12 +112,13 @@
           </section>
 
           <section class="panel">
-            <h3>Spectrograph example and presentation fields</h3>
+            <h3>Bar-wall example and presentation fields</h3>
             <p>
-              The dedicated spectrograph renderer and its desktop operator panel still use the same
-              scene API. The difference is that the operator-side tooling now generates a 3D
-              bar-grid scene and often sets <code>renderStyle.shader</code> to
-              <code>heatmap</code> or <code>neon</code>.
+              The Visualizer uses one shared scene API for both its ordinary scene mode and its
+              bar-wall mode. The difference is on the operator side: tools such as
+              <strong>Signal Router</strong> and <strong>Bars Studio</strong> generate a 3D bar-grid
+              scene and often set <code>renderStyle.shader</code> to <code>heatmap</code> or
+              <code>neon</code>.
             </p>
             <pre><code>GET /api/v1/examples/spectrograph</code></pre>
           </section>
@@ -148,14 +149,15 @@
           </section>
 
           <section class="panel">
-            <h3>Desktop control panel usage</h3>
+            <h3>Desktop operator usage</h3>
             <p>
-              The native desktop control panel talks to the same health, validation, and apply
-              endpoints. Its difference is not a separate API contract, but a different operator
+              The native desktop tools all talk to the same health, validation, and apply
+              endpoints. Their difference is not a separate API contract, but a different operator
               experience layered on top of the same HTTP routes.
             </p>
             <pre><code>.\scripts\launch-desktop-render-control-panel.ps1</code></pre>
-            <pre><code>.\scripts\launch-desktop-spectrograph-control-panel.ps1</code></pre>
+            <pre><code>.\scripts\launch-signal-router.ps1</code></pre>
+            <pre><code>.\scripts\launch-bars-studio.ps1</code></pre>
           </section>
 
           <section class="panel">

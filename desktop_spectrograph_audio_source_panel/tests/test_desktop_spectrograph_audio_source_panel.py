@@ -178,7 +178,7 @@ class SpectrographAudioSourceBuilderTests(unittest.TestCase):
         default_request_payload = build_default_request_payload()
 
         self.assertEqual(catalog_payload["status"], "ok")
-        self.assertEqual(catalog_payload["defaults"]["bridgePort"], 8091)
+        self.assertEqual(catalog_payload["defaults"]["bridgePort"], 8092)
         self.assertEqual(default_request_payload["audio"]["deviceFlow"], "output")
         self.assertEqual(default_request_payload["audio"]["historyFrameCount"], 72)
 
@@ -336,7 +336,7 @@ class SpectrographAudioSourceControllerTests(unittest.TestCase):
         self.controller.replace_request_payload(
             {
                 "audio": {"deviceFlow": "output", "deviceIdentifier": "speaker-1"},
-                "bridge": {"host": "127.0.0.1", "port": 8091},
+                "bridge": {"host": "127.0.0.1", "port": 8092},
             }
         )
 
@@ -344,7 +344,7 @@ class SpectrographAudioSourceControllerTests(unittest.TestCase):
         delivery_result = self.controller.deliver_once()
 
         self.assertEqual(delivery_result["status"], "delivered")
-        self.assertEqual(self.fake_bridge_client.requests[0]["port"], 8091)
+        self.assertEqual(self.fake_bridge_client.requests[0]["port"], 8092)
         generated_document = json.loads(str(self.fake_bridge_client.requests[0]["jsonText"]))
         self.assertEqual(generated_document["device"]["identifier"], "speaker-1")
 

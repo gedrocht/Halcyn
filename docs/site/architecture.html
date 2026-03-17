@@ -37,9 +37,9 @@
             <li><a href="control-center.html" data-nav-link="control-center">Control Center</a></li>
             <li><a href="scene-studio.html" data-nav-link="scene-studio">Scene Studio</a></li>
             <li><a href="desktop-control-panel.html" data-nav-link="desktop-control-panel">Desktop Control Panel</a></li>
-            <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Spectrograph Suite</a></li>
-            <li><a href="spectrograph-audio-source-panel.html" data-nav-link="spectrograph-audio-source-panel">Spectrograph Audio Source Panel</a></li>
-            <li><a href="multi-renderer-data-source-panel.html" data-nav-link="multi-renderer-data-source-panel">Shared Data Source Panel</a></li>
+            <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Bar-Wall Workflow</a></li>
+            <li><a href="spectrograph-audio-source-panel.html" data-nav-link="spectrograph-audio-source-panel">Audio Sender</a></li>
+            <li><a href="multi-renderer-data-source-panel.html" data-nav-link="multi-renderer-data-source-panel">Signal Router</a></li>
           </ul>
         </nav>
 
@@ -102,7 +102,7 @@
                     </p>
                   </div>
                   <div class="architecture-node">
-                    <strong>Spectrograph Suite</strong>
+                    <strong>Bar-Wall Workflow</strong>
                     <p>
                       A dedicated renderer executable plus a native desktop operator panel transform
                       generic JSON into an adaptive 3D bar wall before submitting ordinary scene
@@ -110,19 +110,19 @@
                     </p>
                   </div>
                   <div class="architecture-node">
-                    <strong>Spectrograph Audio Source Panel</strong>
+                    <strong>Audio Sender</strong>
                     <p>
                       A companion desktop helper captures live output or input audio, builds a
-                      rolling JSON document from that activity, and posts it to the spectrograph
-                      control panel's local external-data bridge.
+                      rolling JSON document from that activity, and posts it to the local
+                      external-data bridge exposed by Signal Router or Bars Studio.
                     </p>
                   </div>
                   <div class="architecture-node">
-                    <strong>Shared Data Source Panel</strong>
+                    <strong>Signal Router</strong>
                     <p>
                       A native routing console captures or generates one source stream, translates it
-                      into classic-scene signals and spectrograph data, and can send the results to
-                      either renderer family or both.
+                      into scene-renderer signals and bar-wall data, and can send the results to
+                      either Visualizer mode or both.
                     </p>
                   </div>
                   <div class="architecture-node">
@@ -252,17 +252,17 @@
             <ol class="architecture-sequence">
               <li>
                 A person, script, Control Center action, Scene Studio control, desktop render
-                control-panel action, spectrograph control-panel action, spectrograph audio-source
-                action, or shared data-source action emits a request or startup instruction.
+                control-panel action, Bars Studio action, Audio Sender action, or Signal Router
+                action emits a request or startup instruction.
               </li>
               <li>
                 The desktop app or embedded HTTP API receives that input and turns it into a scene
-                loading or scene submission attempt. In the spectrograph workflow, the desktop panel
-                first converts generic JSON into a full 3D bar scene. In the spectrograph
-                audio-source workflow, one helper app first captures live audio and posts a rolling
-                JSON document into the control panel's local bridge. In the shared data-source
-                workflow, one source stream can be translated into both classic and spectrograph
-                scenes before submission.
+                loading or scene submission attempt. In the bar-wall workflow, the desktop tool
+                first converts generic JSON into a full 3D bar scene. In the Audio Sender
+                workflow, one helper app first captures live audio and posts a rolling JSON
+                document into a local bridge. In the Signal Router workflow, one source stream can
+                be translated into both ordinary scene output and bar-wall scenes before
+                submission.
               </li>
               <li>
                 The JSON codec converts raw text into typed scene objects and preserves readable
@@ -341,16 +341,16 @@
           <section class="panel">
             <h3>Why there are multiple control surfaces</h3>
             <p>
-              The Control Center, Scene Studio, Desktop Render Control Panel, Spectrograph Suite,
-              Spectrograph Audio Source Panel, and Shared Data Source Panel serve different jobs.
+              The Control Center, Scene Studio, Desktop Render Control Panel, Bar-Wall Workflow,
+              Audio Sender, and Signal Router serve different jobs.
               The Control Center is about orchestration: builds, tests, logs, docs, and API
               experiments. The Scene Studio is about browser-native live scene authoring. The
               desktop panel is about a native operator experience with local hardware awareness. The
-              spectrograph suite is about generic-data-to-bar-wall transformation. The spectrograph
-              audio-source panel is about capturing live audio and handing it to that suite through
-              a simple bridge. The shared data-source panel is about capturing one input stream and
-              routing it into one or both renderer families. Keeping them separate avoids one
-              overloaded UI that tries to be every tool at once.
+              bar-wall workflow is about generic-data-to-bar-wall transformation. Audio Sender is
+              about capturing live audio and handing it to another tool through a simple bridge.
+              Signal Router is about capturing one input stream and routing it into one or both
+              Visualizer modes. Keeping them separate avoids one overloaded UI that tries to be
+              every tool at once.
             </p>
           </section>
         </main>
