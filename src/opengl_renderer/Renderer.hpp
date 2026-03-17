@@ -31,7 +31,7 @@ struct RendererConfig {
   int targetFramesPerSecond = 60;
 
   /** Sets the text shown in the window title bar. */
-  std::string windowTitle = "Halcyn";
+  std::string windowTitle = "Halcyn Visualizer";
 };
 
 /**

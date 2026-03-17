@@ -31,39 +31,12 @@ else {
 }
 
 Write-Host ''
-Write-Host 'Running desktop render control panel lint...'
+Write-Host 'Running Visualizer Studio lint...'
 if (Test-PythonCommand -Arguments @('-m', 'ruff', '--version')) {
-  & (Join-Path $PSScriptRoot 'lint-desktop-render-control-panel.ps1')
+  & (Join-Path $PSScriptRoot 'lint-visualizer-studio.ps1')
 }
 else {
-  Write-Host 'Skipping desktop render control panel lint because ruff is not yet available.'
-}
-
-Write-Host ''
-Write-Host 'Running desktop spectrograph control panel lint...'
-if (Test-PythonCommand -Arguments @('-m', 'ruff', '--version')) {
-  & (Join-Path $PSScriptRoot 'lint-desktop-spectrograph-control-panel.ps1')
-}
-else {
-  Write-Host 'Skipping desktop spectrograph control panel lint because ruff is not yet available.'
-}
-
-Write-Host ''
-Write-Host 'Running desktop spectrograph audio source panel lint...'
-if (Test-PythonCommand -Arguments @('-m', 'ruff', '--version')) {
-  & (Join-Path $PSScriptRoot 'lint-desktop-spectrograph-audio-source-panel.ps1')
-}
-else {
-  Write-Host 'Skipping desktop spectrograph audio source panel lint because ruff is not yet available.'
-}
-
-Write-Host ''
-Write-Host 'Running desktop multi-renderer data source panel lint...'
-if (Test-PythonCommand -Arguments @('-m', 'ruff', '--version')) {
-  & (Join-Path $PSScriptRoot 'lint-desktop-multi-renderer-data-source-panel.ps1')
-}
-else {
-  Write-Host 'Skipping desktop multi-renderer data source panel lint because ruff is not yet available.'
+  Write-Host 'Skipping Visualizer Studio lint because ruff is not yet available.'
 }
 
 Write-Host ''
@@ -76,39 +49,12 @@ else {
 }
 
 Write-Host ''
-Write-Host 'Running desktop render control panel type checks...'
+Write-Host 'Running Visualizer Studio type checks...'
 if (Test-PythonCommand -Arguments @('-m', 'mypy', '--version')) {
-  & (Join-Path $PSScriptRoot 'typecheck-desktop-render-control-panel.ps1')
+  & (Join-Path $PSScriptRoot 'typecheck-visualizer-studio.ps1')
 }
 else {
-  Write-Host 'Skipping desktop render control panel type checks because mypy is not yet available.'
-}
-
-Write-Host ''
-Write-Host 'Running desktop spectrograph control panel type checks...'
-if (Test-PythonCommand -Arguments @('-m', 'mypy', '--version')) {
-  & (Join-Path $PSScriptRoot 'typecheck-desktop-spectrograph-control-panel.ps1')
-}
-else {
-  Write-Host 'Skipping desktop spectrograph control panel type checks because mypy is not yet available.'
-}
-
-Write-Host ''
-Write-Host 'Running desktop spectrograph audio source panel type checks...'
-if (Test-PythonCommand -Arguments @('-m', 'mypy', '--version')) {
-  & (Join-Path $PSScriptRoot 'typecheck-desktop-spectrograph-audio-source-panel.ps1')
-}
-else {
-  Write-Host 'Skipping desktop spectrograph audio source panel type checks because mypy is not yet available.'
-}
-
-Write-Host ''
-Write-Host 'Running desktop multi-renderer data source panel type checks...'
-if (Test-PythonCommand -Arguments @('-m', 'mypy', '--version')) {
-  & (Join-Path $PSScriptRoot 'typecheck-desktop-multi-renderer-data-source-panel.ps1')
-}
-else {
-  Write-Host 'Skipping desktop multi-renderer data source panel type checks because mypy is not yet available.'
+  Write-Host 'Skipping Visualizer Studio type checks because mypy is not yet available.'
 }
 
 Write-Host ''
@@ -122,43 +68,13 @@ else {
 }
 
 Write-Host ''
-Write-Host 'Running desktop render control panel quality checks...'
+Write-Host 'Running Visualizer Studio quality checks...'
 if (Test-PythonCommand -Arguments @('-m', 'coverage', '--version')) {
-  & (Join-Path $PSScriptRoot 'measure-desktop-render-control-panel-coverage.ps1')
+  & (Join-Path $PSScriptRoot 'measure-visualizer-studio-coverage.ps1')
 }
 else {
-  Write-Host 'Falling back to plain desktop render control panel tests because coverage is not yet available.'
-  & (Join-Path $PSScriptRoot 'test-desktop-render-control-panel.ps1')
-}
-
-Write-Host ''
-Write-Host 'Running desktop spectrograph control panel quality checks...'
-if (Test-PythonCommand -Arguments @('-m', 'coverage', '--version')) {
-  & (Join-Path $PSScriptRoot 'measure-desktop-spectrograph-control-panel-coverage.ps1')
-}
-else {
-  Write-Host 'Falling back to plain desktop spectrograph control panel tests because coverage is not yet available.'
-  & (Join-Path $PSScriptRoot 'test-desktop-spectrograph-control-panel.ps1')
-}
-
-Write-Host ''
-Write-Host 'Running desktop spectrograph audio source panel quality checks...'
-if (Test-PythonCommand -Arguments @('-m', 'coverage', '--version')) {
-  & (Join-Path $PSScriptRoot 'measure-desktop-spectrograph-audio-source-panel-coverage.ps1')
-}
-else {
-  Write-Host 'Falling back to plain desktop spectrograph audio source panel tests because coverage is not yet available.'
-  & (Join-Path $PSScriptRoot 'test-desktop-spectrograph-audio-source-panel.ps1')
-}
-
-Write-Host ''
-Write-Host 'Running desktop multi-renderer data source panel quality checks...'
-if (Test-PythonCommand -Arguments @('-m', 'coverage', '--version')) {
-  & (Join-Path $PSScriptRoot 'measure-desktop-multi-renderer-data-source-panel-coverage.ps1')
-}
-else {
-  Write-Host 'Falling back to plain desktop multi-renderer data source panel tests because coverage is not yet available.'
-  & (Join-Path $PSScriptRoot 'test-desktop-multi-renderer-data-source-panel.ps1')
+  Write-Host 'Falling back to plain Visualizer Studio tests because coverage is not yet available.'
+  & (Join-Path $PSScriptRoot 'test-visualizer-studio.ps1')
 }
 
 Write-Host ''

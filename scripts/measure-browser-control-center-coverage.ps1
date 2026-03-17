@@ -24,7 +24,7 @@ try {
     throw "coverage erase failed with exit code $LASTEXITCODE."
   }
 
-  & $python.Source -m coverage run -m unittest discover -s browser_control_center/tests -p "test_*.py"
+  & $python.Source -m coverage run --branch --source=browser_control_center -m unittest discover -s browser_control_center/tests -p "test_*.py"
   if ($LASTEXITCODE -ne 0) {
     throw "coverage run failed with exit code $LASTEXITCODE."
   }

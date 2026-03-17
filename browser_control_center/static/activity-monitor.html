@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Halcyn Activity Monitor</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <script defer src="/static/activity-monitor.js"></script>
+  </head>
+  <body data-theme="dark">
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark"></div>
+          <div>
+            <h1>Halcyn</h1>
+            <p>Activity Monitor</p>
+          </div>
+        </div>
+
+        <nav class="nav">
+          <a class="nav-link active" href="/activity-monitor/">Activity timeline</a>
+          <a class="nav-link" href="/" target="_blank" rel="noreferrer">Open Control Center</a>
+          <a class="nav-link" href="/scene-studio/" target="_blank" rel="noreferrer">Open Scene Studio</a>
+        </nav>
+
+        <div class="sidebar-footer">
+          <button class="ghost-button" id="theme-toggle">Toggle theme</button>
+          <button class="ghost-button" id="refresh-button">Refresh now</button>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="hero">
+          <div>
+            <p class="eyebrow">Shared operations journal</p>
+            <h2>Sortable, filterable cross-app activity for the Visualizer, Control Center, and Visualizer Studio.</h2>
+            <p class="hero-copy">
+              Every participating app writes structured events into one shared JSON-lines journal.
+              This page reads that journal and lets you narrow the view by source app, level, or free-text search.
+            </p>
+          </div>
+          <div class="hero-status">
+            <div class="hero-card">
+              <span class="label">Last refresh</span>
+              <strong id="activity-last-refresh">Never</strong>
+            </div>
+            <div class="hero-card">
+              <span class="label">Visible entries</span>
+              <strong id="activity-entry-count">0</strong>
+            </div>
+            <div class="hero-card">
+              <span class="label">Current sort</span>
+              <strong id="activity-sort-label">Newest first</strong>
+            </div>
+          </div>
+        </header>
+
+        <section class="section active" data-section="activity-monitor">
+          <div class="panel">
+            <div class="panel-header">
+              <h3>Filter controls</h3>
+              <p>Narrow the shared activity stream before you sort it.</p>
+            </div>
+            <form id="activity-filter-form" class="form-grid compact">
+              <label>
+                Source app
+                <input id="activity-source-filter" placeholder="control-center, visualizer, operator-console">
+              </label>
+              <label>
+                Level
+                <select id="activity-level-filter">
+                  <option value="">All</option>
+                  <option value="DEBUG">DEBUG</option>
+                  <option value="INFO">INFO</option>
+                  <option value="WARNING">WARNING</option>
+                  <option value="ERROR">ERROR</option>
+                </select>
+              </label>
+              <label>
+                Search text
+                <input id="activity-search-filter" placeholder="message, component, or source">
+              </label>
+              <label>
+                Entry limit
+                <input id="activity-limit-filter" type="number" min="25" max="1000" value="300">
+              </label>
+            </form>
+            <div class="button-row">
+              <button class="action-button" id="activity-apply-filters" type="button">Apply filters</button>
+              <button class="secondary-button" id="activity-clear-filters" type="button">Clear filters</button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <h3>Activity timeline</h3>
+              <p>Click a column heading to re-sort the shared journal view.</p>
+            </div>
+            <div class="activity-table-shell">
+              <table class="activity-table">
+                <thead>
+                  <tr>
+                    <th><button type="button" class="table-sort-button" data-sort-key="timestamp_utc">Timestamp</button></th>
+                    <th><button type="button" class="table-sort-button" data-sort-key="source_app">Source</button></th>
+                    <th><button type="button" class="table-sort-button" data-sort-key="level">Level</button></th>
+                    <th><button type="button" class="table-sort-button" data-sort-key="component">Component</button></th>
+                    <th><button type="button" class="table-sort-button" data-sort-key="message">Message</button></th>
+                  </tr>
+                </thead>
+                <tbody id="activity-table-body">
+                  <tr>
+                    <td colspan="5" class="activity-empty-state">Loading activity entries...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

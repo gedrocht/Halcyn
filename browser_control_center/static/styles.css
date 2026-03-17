@@ -403,6 +403,55 @@ select {
   border-color: rgba(105, 215, 197, 0.36);
 }
 
+.activity-table-shell {
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.activity-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.activity-table th,
+.activity-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.activity-table td {
+  font-family: "Cascadia Code", "Consolas", monospace;
+  font-size: 0.92rem;
+  white-space: pre-wrap;
+}
+
+.activity-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.table-sort-button {
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  padding: 0;
+}
+
+.table-sort-button:hover {
+  color: var(--accent);
+}
+
+.activity-empty-state {
+  color: var(--muted);
+  text-align: center;
+}
+
 @media (max-width: 1080px) {
   .shell {
     grid-template-columns: 1fr;

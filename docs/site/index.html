@@ -14,7 +14,7 @@
           <div class="brand-mark" aria-hidden="true"></div>
           <div class="brand-copy">
             <h1>Halcyn Documentation</h1>
-            <p>Beginner-friendly docs for a JSON-driven GPU renderer.</p>
+            <p>Beginner-friendly docs for the unified Visualizer workflow.</p>
           </div>
         </div>
         <div class="topbar-actions">
@@ -27,43 +27,37 @@
         <div class="hero-grid">
           <div>
             <p class="eyebrow">Overview</p>
-            <h2>Send JSON in. See 2D or 3D graphics on the GPU.</h2>
+            <h2>One renderer. One desktop studio. One browser dashboard. One shared activity timeline.</h2>
             <p>
-              Halcyn is a C++20 application with an embedded HTTP API and an OpenGL renderer. One thread accepts JSON
-              requests. Another thread-safe layer stores the latest validated scene. The main thread renders that scene
-              in a real window at a 60 FPS target using the GPU.
+              Halcyn is a C++20 OpenGL renderer with an embedded HTTP API. It accepts JSON scene
+              descriptions, validates them, stores the latest valid scene, and renders that scene on
+              the GPU. Around that renderer sits one browser Control Center, one browser Activity
+              Monitor, one browser Scene Studio, and one unified native desktop operator app called
+              Visualizer Studio.
             </p>
             <div class="pill-row">
               <span class="pill">C++20</span>
               <span class="pill">OpenGL 3.3</span>
-              <span class="pill">2D + 3D JSON</span>
-              <span class="pill">Unit tested</span>
-              <span class="pill">Beginner docs</span>
+              <span class="pill">2D + 3D scenes</span>
+              <span class="pill">Bar-wall scenes</span>
+              <span class="pill">Shared activity log</span>
             </div>
           </div>
           <aside class="hero-card">
             <h3>Start here</h3>
             <dl>
               <dt>1.</dt>
-              <dd>Run <code>.\scripts\report-prerequisites.ps1</code> to inspect prerequisites.</dd>
+              <dd>Run <code>.\scripts\report-prerequisites.ps1</code>.</dd>
               <dt>2.</dt>
-              <dd>Run <code>.\scripts\launch-halcyn-app.ps1</code> to build and launch the app.</dd>
+              <dd>Run <code>.\scripts\launch-visualizer-workbench.ps1</code> for the easiest full setup.</dd>
               <dt>3.</dt>
-              <dd>Run <code>.\scripts\launch-desktop-render-control-panel.ps1</code> if you want a native operator console with local audio devices.</dd>
+              <dd>Use <code>.\scripts\launch-visualizer-studio.ps1</code> when you want the unified native desktop operator workflow by itself.</dd>
               <dt>4.</dt>
-              <dd>Run <code>.\scripts\post-example-2d-scene.ps1</code> or <code>.\scripts\post-example-3d-scene.ps1</code>.</dd>
+              <dd>Use <code>.\scripts\launch-browser-control-center.ps1</code> when you want builds, tests, docs, and API orchestration in a browser.</dd>
               <dt>5.</dt>
-              <dd>Run <code>.\scripts\launch-halcyn-spectrograph-app.ps1</code> to start the dedicated 3D bar-wall renderer.</dd>
+              <dd>Use <code>.\scripts\launch-activity-monitor.ps1</code> when you want sortable and filterable logs from every participating app.</dd>
               <dt>6.</dt>
-              <dd>Run <code>.\scripts\launch-desktop-spectrograph-control-panel.ps1</code> to turn generic JSON into a rolling spectrograph scene.</dd>
-              <dt>7.</dt>
-              <dd>Run <code>.\scripts\launch-desktop-spectrograph-audio-source-panel.ps1</code> if you want a dedicated live-audio helper for the spectrograph suite.</dd>
-              <dt>8.</dt>
-              <dd>Run <code>.\scripts\launch-spectrograph-audio-workbench.ps1</code> if you want the dedicated spectrograph renderer, the spectrograph control panel, and the audio helper opened together for you.</dd>
-              <dt>9.</dt>
-              <dd>Run <code>.\scripts\launch-desktop-multi-renderer-data-source-panel.ps1</code> to drive the classic renderer, the spectrograph renderer, or both from one data source.</dd>
-              <dt>10.</dt>
-              <dd>Read the tutorial page to learn how each layer works.</dd>
+              <dd>Read the tutorial if you want the slow, step-by-step explanation of how all the pieces cooperate.</dd>
             </dl>
           </aside>
         </div>
@@ -82,47 +76,53 @@
             <li><a href="field-reference.html">Field Reference</a></li>
             <li><a href="control-center.html">Control Center</a></li>
             <li><a href="scene-studio.html">Scene Studio</a></li>
-            <li><a href="desktop-control-panel.html">Desktop Control Panel</a></li>
-            <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Spectrograph Suite</a></li>
-            <li><a href="spectrograph-audio-source-panel.html" data-nav-link="spectrograph-audio-source-panel">Spectrograph Audio Source Panel</a></li>
-            <li><a href="multi-renderer-data-source-panel.html" data-nav-link="multi-renderer-data-source-panel">Shared Data Source Panel</a></li>
+            <li><a href="desktop-control-panel.html">Visualizer Studio</a></li>
+            <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Bar-Wall Scenes</a></li>
+            <li><a href="spectrograph-audio-source-panel.html" data-nav-link="spectrograph-audio-source-panel">Legacy Audio Helper</a></li>
+            <li><a href="multi-renderer-data-source-panel.html" data-nav-link="multi-renderer-data-source-panel">Legacy Data Router</a></li>
           </ul>
         </nav>
 
         <main>
           <section class="panel">
-            <h3>What problem Halcyn solves</h3>
-            <p>
-              Many graphics demos focus only on rendering. Many API demos focus only on receiving JSON. Halcyn combines
-              both: it gives you a small but complete system that accepts structured JSON scenes and turns them into a
-              visible GPU-rendered result. That makes it a good teaching project for learning how application layers
-              cooperate in a real codebase.
-            </p>
+            <h3>The current supported workflow</h3>
             <div class="cards">
               <div class="card">
-                <h4>API layer</h4>
-                <p>Receives JSON over HTTP, validates it, and returns readable error messages when a request is invalid.</p>
+                <h4>Visualizer</h4>
+                <p>The native C++ app that renders either preset scenes or bar-wall scenes.</p>
               </div>
               <div class="card">
-                <h4>Scene description layer</h4>
-                <p>Defines what a valid 2D scene and a valid 3D scene actually are.</p>
+                <h4>Visualizer Studio</h4>
+                <p>The unified native desktop operator app for sources, previews, validation, apply, and live streaming.</p>
               </div>
               <div class="card">
-                <h4>OpenGL renderer layer</h4>
-                <p>Uploads vertices to OpenGL buffers and asks the GPU to draw the latest scene.</p>
+                <h4>Control Center</h4>
+                <p>The browser dashboard for setup, build, test, docs, managed-app launching, and API experiments.</p>
+              </div>
+              <div class="card">
+                <h4>Activity Monitor</h4>
+                <p>The sortable, filterable browser log viewer for the shared activity journal written by all running tools.</p>
+              </div>
+              <div class="card">
+                <h4>Scene Studio</h4>
+                <p>The browser-side creative surface for preset-driven scene generation and browser-only live control.</p>
               </div>
             </div>
           </section>
 
           <section class="panel">
-            <h3>Important beginner idea: CPU vs GPU</h3>
+            <h3>What changed in the unified workflow</h3>
             <p>
-              The CPU still opens the window, accepts requests, parses JSON, validates data, and tells the GPU what to
-              draw. The GPU is the part that transforms vertices, rasterizes primitives, blends colors, and fills the
-              screen with pixels. That division of labor is exactly what modern graphics software is supposed to do.
+              Earlier iterations split desktop responsibilities across several specialized apps. That
+              made the code interesting, but it also made the workflow harder to learn. The current
+              repo now treats bar-wall rendering as one more scene family inside the same Visualizer
+              instead of as a separate renderer executable, and it treats Visualizer Studio as the
+              single supported native desktop control surface.
             </p>
             <div class="callout">
-              If you are new to graphics, think of the CPU as the planner and the GPU as the specialist drawing team.
+              The older split desktop launchers still exist as compatibility wrappers, but the
+              supported beginner story is now: Visualizer + Visualizer Studio + Control Center +
+              Activity Monitor.
             </div>
           </section>
 
@@ -139,55 +139,43 @@
                 <tbody>
                   <tr>
                     <td><code>src/scene_description</code></td>
-                    <td>Scene types, validation, JSON codec, and scene factory helpers.</td>
+                    <td>Scene types, validation, JSON codec, and built-in example scenes.</td>
                   </tr>
                   <tr>
                     <td><code>src/shared_runtime</code></td>
-                    <td>Thread-safe storage for the latest scene snapshot and shared runtime logs.</td>
+                    <td>Thread-safe scene storage plus the native runtime log that now also feeds the shared activity journal.</td>
                   </tr>
                   <tr>
                     <td><code>src/http_api</code></td>
-                    <td>Embedded HTTP routes for health, scene retrieval, and scene submission.</td>
+                    <td>The embedded HTTP API that exposes health, examples, validation, submission, and runtime logs.</td>
                   </tr>
                   <tr>
                     <td><code>src/opengl_renderer</code></td>
-                    <td>Window creation, shader setup, GPU uploads, and frame loop.</td>
+                    <td>Window creation, shaders, GPU uploads, and the real rendering loop.</td>
                   </tr>
                   <tr>
                     <td><code>src/desktop_app</code></td>
-                    <td>Application startup, command-line parsing, and the glue that wires the runtime together.</td>
+                    <td>The top-level application glue that wires the Visualizer together.</td>
                   </tr>
                   <tr>
-                    <td><code>tests</code></td>
-                    <td>Unit tests for parsing, validation, and scene store behavior.</td>
+                    <td><code>browser_control_center</code></td>
+                    <td>The browser dashboard and Activity Monitor server.</td>
                   </tr>
                   <tr>
-                    <td><code>scripts</code></td>
-                    <td>Easy entry points for building, running, testing, posting sample JSON, and serving docs.</td>
+                    <td><code>browser_scene_studio</code></td>
+                    <td>The separate browser-side preset authoring surface.</td>
                   </tr>
                   <tr>
-                    <td><code>desktop_render_control_panel</code></td>
-                    <td>A native Tk-based operator console for local audio-device control, 2D/3D switching, preview, validate, and live streaming.</td>
-                  </tr>
-                  <tr>
-                    <td><code>desktop_spectrograph_control_panel</code></td>
-                    <td>A native operator console that turns generic JSON into a statistically normalized 3D bar-grid spectrograph scene.</td>
-                  </tr>
-                  <tr>
-                    <td><code>desktop_spectrograph_audio_source_panel</code></td>
-                    <td>A native helper app that captures live audio, builds readable JSON, and feeds the spectrograph control panel through a local bridge.</td>
-                  </tr>
-                  <tr>
-                    <td><code>desktop_multi_renderer_data_source_panel</code></td>
-                    <td>A native routing console that captures one data source and sends translated scenes to the classic renderer, the spectrograph renderer, or both.</td>
+                    <td><code>desktop_visualizer_operator_console</code></td>
+                    <td>The unified native Visualizer Studio package.</td>
                   </tr>
                   <tr>
                     <td><code>desktop_shared_control_support</code></td>
-                    <td>Shared desktop-side audio and renderer-client support surfaces used by multiple native tools.</td>
+                    <td>Shared support code for activity logging, audio capture, and renderer API calls.</td>
                   </tr>
                   <tr>
-                    <td><code>src/spectrograph_main.cpp</code></td>
-                    <td>A dedicated executable entry point that gives the shared engine a spectrograph-oriented default personality.</td>
+                    <td><code>scripts</code></td>
+                    <td>Build, launch, test, docs, and workbench entry points.</td>
                   </tr>
                 </tbody>
               </table>
@@ -195,37 +183,15 @@
           </section>
 
           <section class="panel">
-            <h3>New in the second iteration</h3>
-            <div class="cards">
-              <div class="card">
-                <h4>Browser Control Center</h4>
-                <p>Launch <code>.\scripts\launch-browser-control-center.ps1</code> to get a web dashboard for builds, tests, logs, docs, and API requests.</p>
-              </div>
-              <div class="card">
-                <h4>Browser Scene Studio</h4>
-                <p>Launch <code>.\scripts\launch-browser-scene-studio.ps1</code> to get a separate live scene authoring surface for presets, signal inputs, and streaming control.</p>
-              </div>
-              <div class="card">
-                <h4>Desktop Render Control Panel</h4>
-                <p>Launch <code>.\scripts\launch-desktop-render-control-panel.ps1</code> to get a native operator console with local audio-device selection and instant 2D/3D switching.</p>
-              </div>
-              <div class="card">
-                <h4>Spectrograph Suite</h4>
-                <p>Launch <code>.\scripts\launch-spectrograph-audio-workbench.ps1</code> for the easiest full setup, or use <code>.\scripts\launch-halcyn-spectrograph-app.ps1</code> plus <code>.\scripts\launch-desktop-spectrograph-control-panel.ps1</code> if you want the manual step-by-step route.</p>
-              </div>
-              <div class="card">
-                <h4>Spectrograph Audio Source Panel</h4>
-                <p>Launch <code>.\scripts\launch-desktop-spectrograph-audio-source-panel.ps1</code> to capture live output or input audio and feed it into the spectrograph control panel.</p>
-              </div>
-              <div class="card">
-                <h4>Shared Data Source Panel</h4>
-                <p>Launch <code>.\scripts\launch-desktop-multi-renderer-data-source-panel.ps1</code> to capture one data source and route it into either renderer family or both at once.</p>
-              </div>
-              <div class="card">
-                <h4>Safer runtime behavior</h4>
-                <p>The API now has startup readiness checks, payload size limits, and stronger 3D camera validation.</p>
-              </div>
-            </div>
+            <h3>Recommended learning order</h3>
+            <ol>
+              <li>Read <a href="tutorial.html">Tutorial</a>.</li>
+              <li>Read <a href="architecture.html">Architecture</a>.</li>
+              <li>Run <code>.\scripts\launch-visualizer-workbench.ps1</code>.</li>
+              <li>Use Visualizer Studio to preview and apply both a preset scene and a bar-wall scene.</li>
+              <li>Open the Activity Monitor and watch the shared log stream update while you do that.</li>
+              <li>Use the Control Center API Lab to inspect the same renderer over HTTP.</li>
+            </ol>
           </section>
         </main>
       </div>

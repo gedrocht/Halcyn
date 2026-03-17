@@ -208,15 +208,17 @@ void ApiServer::ConfigureRoutes() {
         response.set_content(sceneJsonCodec_->Serialize(exampleSnapshot), "application/json");
       });
 
-  httpServer_.Get("/api/v1/examples/spectrograph", [this](const httplib::Request&,
-                                                          httplib::Response& response) {
-    const auto exampleSceneDocument = scene_description::CreateSampleSpectrographSceneDocument();
+  auto serveBarWallExample = [this](const httplib::Request&, httplib::Response& response) {
+    const auto exampleSceneDocument = scene_description::CreateSampleBarWallSceneDocument();
     auto exampleSnapshot = scene_description::SceneSnapshot{};
     exampleSnapshot.version = 0;
     exampleSnapshot.document = exampleSceneDocument;
     exampleSnapshot.sourceLabel = "built-in-example";
     response.set_content(sceneJsonCodec_->Serialize(exampleSnapshot), "application/json");
-  });
+  };
+
+  httpServer_.Get("/api/v1/examples/bar-wall", serveBarWallExample);
+  httpServer_.Get("/api/v1/examples/spectrograph", serveBarWallExample);
 
   httpServer_.Post("/api/v1/scene/validate", [this](const httplib::Request& request,
                                                     httplib::Response& response) {

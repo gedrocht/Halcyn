@@ -99,9 +99,9 @@ function Get-PreferredPowerShellExecutable {
 
     .DESCRIPTION
     Some workflow helpers open multiple scripts in separate console windows so a
-    beginner can see "renderer", "control panel", and "audio helper" as distinct
-    moving parts. This helper prefers PowerShell 7 when it is available, then
-    falls back to Windows PowerShell.
+    beginner can see "renderer", "browser dashboard", and "Visualizer Studio"
+    as distinct moving parts. This helper prefers PowerShell 7 when it is
+    available, then falls back to Windows PowerShell.
   #>
 
   $powerShellSevenCommand = Get-Command pwsh -ErrorAction SilentlyContinue
@@ -137,11 +137,13 @@ function Start-HalcynScriptInNewWindow {
   $powerShellExecutable = Get-PreferredPowerShellExecutable
   $projectRoot = Get-ProjectRoot
 
-  Start-Process -FilePath $powerShellExecutable -ArgumentList @(
-    '-ExecutionPolicy', 'Bypass',
-    '-NoExit',
-    '-File', $ScriptPath
-  ) + $ArgumentList -WorkingDirectory $projectRoot
+  Start-Process -FilePath $powerShellExecutable -ArgumentList (
+    @(
+      '-ExecutionPolicy', 'Bypass',
+      '-NoExit',
+      '-File', $ScriptPath
+    ) + $ArgumentList
+  ) -WorkingDirectory $projectRoot
 }
 
 function Get-ProjectRoot {
@@ -150,6 +152,34 @@ function Get-ProjectRoot {
     Returns the absolute path to the repository root.
   #>
   return Resolve-FilesystemPath -Path (Join-Path $PSScriptRoot '..')
+}
+
+function Get-HalcynActivityLogPath {
+  <#
+    .SYNOPSIS
+    Returns the shared cross-process activity journal path.
+  #>
+
+  return Join-Path (Get-ProjectRoot) 'artifacts\runtime-activity\halcyn-activity.jsonl'
+}
+
+function Initialize-HalcynActivityLogEnvironment {
+  <#
+    .SYNOPSIS
+    Ensures every launched Halcyn process points at the same shared activity journal.
+
+    .DESCRIPTION
+    The browser Activity Monitor reads one append-only JSON-lines file. Every
+    app launcher calls this helper before starting Python or C++ processes so
+    the Visualizer, Control Center, and Visualizer Studio all write to
+    that same file.
+  #>
+
+  $activityLogPath = Get-HalcynActivityLogPath
+  $activityLogDirectory = Split-Path -Parent $activityLogPath
+  New-Item -ItemType Directory -Force -Path $activityLogDirectory | Out-Null
+  $env:HALCYN_ACTIVITY_LOG_PATH = $activityLogPath
+  return $activityLogPath
 }
 
 function Resolve-FilesystemPath {
@@ -307,7 +337,8 @@ function Get-HalcynCppFiles {
         return @(
           $trackedFiles |
             Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
-            ForEach-Object { Join-Path $projectRoot $_ }
+            ForEach-Object { Join-Path $projectRoot $_ } |
+            Where-Object { Test-Path $_ }
         )
       }
     }
@@ -552,7 +583,13 @@ function Get-HalcynExecutablePath {
 function Get-HalcynSpectrographExecutablePath {
   <#
     .SYNOPSIS
-    Returns the expected path to the built spectrograph-oriented Halcyn executable.
+    Backward-compatible alias for the older spectrograph executable helper.
+
+    .DESCRIPTION
+    Halcyn now ships one unified Visualizer executable that can start with
+    either the classic preset scenes or the bar-wall scene family. The older
+    helper name remains available so legacy scripts do not break, but it now
+    resolves to the singular Visualizer executable path.
   #>
   param(
     [Parameter(Mandatory = $true)]
@@ -560,13 +597,7 @@ function Get-HalcynSpectrographExecutablePath {
     [string]$Configuration
   )
 
-  $buildDirectory = Get-BuildDirectory -Configuration $Configuration
-  $generator = Get-PreferredGenerator
-  if ($generator -eq 'Visual Studio 17 2022') {
-    return Join-Path $buildDirectory "$Configuration/halcyn_spectrograph_app.exe"
-  }
-
-  return Join-Path $buildDirectory 'halcyn_spectrograph_app.exe'
+  return Get-HalcynExecutablePath -Configuration $Configuration
 }
 
 function Invoke-HalcynCtest {

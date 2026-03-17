@@ -14,7 +14,7 @@
           <div class="brand-mark" aria-hidden="true"></div>
           <div class="brand-copy">
             <h1>Control Center Guide</h1>
-            <p>How to use the browser-based build, test, docs, and API dashboard.</p>
+            <p>The browser dashboard for orchestration, docs, API experiments, and shared monitoring.</p>
           </div>
         </div>
         <div class="topbar-actions">
@@ -36,10 +36,10 @@
             <li><a href="field-reference.html" data-nav-link="field-reference">Field Reference</a></li>
             <li><a href="control-center.html" data-nav-link="control-center">Control Center</a></li>
             <li><a href="scene-studio.html" data-nav-link="scene-studio">Scene Studio</a></li>
-            <li><a href="desktop-control-panel.html" data-nav-link="desktop-control-panel">Desktop Control Panel</a></li>
-            <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Spectrograph Suite</a></li>
-            <li><a href="spectrograph-audio-source-panel.html" data-nav-link="spectrograph-audio-source-panel">Spectrograph Audio Source Panel</a></li>
-            <li><a href="multi-renderer-data-source-panel.html" data-nav-link="multi-renderer-data-source-panel">Shared Data Source Panel</a></li>
+            <li><a href="desktop-control-panel.html" data-nav-link="desktop-control-panel">Visualizer Studio</a></li>
+            <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Bar-Wall Scenes</a></li>
+            <li><a href="spectrograph-audio-source-panel.html" data-nav-link="spectrograph-audio-source-panel">Legacy Audio Helper</a></li>
+            <li><a href="multi-renderer-data-source-panel.html" data-nav-link="multi-renderer-data-source-panel">Legacy Data Router</a></li>
           </ul>
         </nav>
 
@@ -47,39 +47,43 @@
           <section class="panel">
             <h3>What the Control Center does</h3>
             <p>
-              The Control Center is a separate Python server that can run before the C++ application exists. That means
-              it can help with first-time setup, build orchestration, test execution, docs access, API experiments, and
-              log viewing from one browser tab.
+              The Control Center is a separate Python web server that can run even before the native
+              Visualizer has been built. That separation is intentional: it lets the browser
+              dashboard bootstrap the project, launch the renderer, inspect docs, and probe the API
+              without depending on the renderer already existing.
             </p>
-            <div class="callout">
-              This documentation page is static study material. The live Control Center itself runs locally on your
-              machine after you launch it with the script below.
-            </div>
             <pre><code>.\scripts\launch-browser-control-center.ps1</code></pre>
-            <div class="callout">
-              GitHub Pages can document this tool, but it cannot launch the live local Control
-              Center for you. Use the PowerShell launcher on your machine when you actually want to
-              open it.
-            </div>
           </section>
 
           <section class="panel">
-            <h3>Main areas in the UI</h3>
+            <h3>Main jobs in the UI</h3>
             <div class="cards">
-              <div class="card"><h4>Dashboard</h4><p>Shows tool availability, app state, recent jobs, and Control Center logs.</p></div>
-              <div class="card"><h4>Build & Run</h4><p>Starts bootstrap, build, format, docs generation, and the managed app process.</p></div>
-              <div class="card"><h4>Testing</h4><p>Runs smoke checks against the live API and summarizes the results.</p></div>
-              <div class="card"><h4>API Lab</h4><p>Sends browser-originated requests through the Control Center into the live Halcyn API.</p></div>
-              <div class="card"><h4>Scene Studio</h4><p>Opens the separate preset-driven scene authoring surface for live visual manipulation.</p></div>
-              <div class="card"><h4>Desktop Control Panel</h4><p>Pairs well with the native desktop operator app when you want local audio-device control beside the browser dashboard.</p></div>
+              <div class="card"><h4>Dashboard</h4><p>Shows tool availability, renderer status, recent jobs, logs, and documentation links.</p></div>
+              <div class="card"><h4>Build and run</h4><p>Starts prerequisite checks, build/test/docs jobs, and the managed native Visualizer process.</p></div>
+              <div class="card"><h4>API lab</h4><p>Lets you send manual requests through the browser into the live Visualizer API.</p></div>
+              <div class="card"><h4>Scene Studio</h4><p>Links into the browser-only preset authoring surface.</p></div>
+              <div class="card"><h4>Visualizer Studio guide</h4><p>Links to the unified native desktop workflow documentation.</p></div>
+              <div class="card"><h4>Activity Monitor</h4><p>Opens the shared, sortable, filterable log viewer for all participating apps.</p></div>
             </div>
           </section>
 
           <section class="panel">
-            <h3>Why this server is separate from the C++ app</h3>
+            <h3>Why the Activity Monitor lives here</h3>
             <p>
-              A build-orchestration dashboard is most useful before the C++ app has been built. Keeping it separate lets
-              it bootstrap the rest of the project instead of depending on it.
+              The shared activity journal is meant to be viewed in a browser because that gives you
+              easy sorting, filtering, and cross-app visibility. The Control Center already owns the
+              local browser-facing server, so it is the natural place to host the Activity Monitor
+              route.
+            </p>
+            <pre><code>.\scripts\launch-activity-monitor.ps1</code></pre>
+          </section>
+
+          <section class="panel">
+            <h3>How it fits with the rest of the repo</h3>
+            <p>
+              The Control Center is not the renderer and it is not the native operator app. It is
+              the orchestration layer around them. The renderer draws. Visualizer Studio generates
+              and sends scenes. The Control Center helps you launch, inspect, and test both.
             </p>
           </section>
         </main>

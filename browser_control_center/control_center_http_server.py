@@ -176,6 +176,11 @@ class ControlCenterRequestHandler(BaseHTTPRequestHandler):
                 self.project_root / "browser_scene_studio" / "static" / "index.html"
             )
 
+        if path in {"/activity-monitor", "/activity-monitor/"}:
+            return self._serve_file(
+                self.project_root / "browser_control_center" / "static" / "activity-monitor.html"
+            )
+
         if path.startswith("/static/"):
             relative_path = path.removeprefix("/static/")
             file_path = self._safe_relative_file(
@@ -224,6 +229,24 @@ class ControlCenterRequestHandler(BaseHTTPRequestHandler):
 
         if path == "/api/logs":
             return self._send_json({"status": "ok", "entries": self.state.log_buffer.recent()})
+
+        if path == "/api/activity-log":
+            query_values = urllib.parse.parse_qs(parsed.query)
+            limit = int(query_values.get("limit", ["300"])[0])
+            level_filter = query_values.get("level", [""])[0]
+            source_filter = query_values.get("source", [""])[0]
+            search_text = query_values.get("search", [""])[0]
+            return self._send_json(
+                {
+                    "status": "ok",
+                    "entries": self.state.recent_activity_entries(
+                        limit=limit,
+                        level_filter=level_filter,
+                        source_filter=source_filter,
+                        search_text=search_text,
+                    ),
+                }
+            )
 
         if path == "/api/app/status":
             return self._send_json({"status": "ok", "app": self.state.app_status()})
@@ -368,7 +391,7 @@ class ControlCenterRequestHandler(BaseHTTPRequestHandler):
                 HTTPStatus.CONFLICT,
             )
         except Exception as error:  # pragma: no cover - this protects the Control Center itself.
-            self.state.log_buffer.add(
+            self.state._record_log(
                 "ERROR",
                 "control-center",
                 f"Unhandled Control Center error: {error}",

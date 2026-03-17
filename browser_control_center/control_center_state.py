@@ -23,6 +23,10 @@ from browser_control_center.scene_studio_scene_builder import (
     build_catalog_payload,
     build_scene_bundle,
 )
+from desktop_shared_control_support.activity_journal import (
+    ActivityJournal,
+    read_recent_activity_entries,
+)
 
 
 def utc_now_iso() -> str:
@@ -165,6 +169,10 @@ class ControlCenterState:
     def __init__(self, project_root: Path) -> None:
         self.project_root = project_root
         self.log_buffer = LogBuffer()
+        self.activity_journal = ActivityJournal(
+            source_app="control-center",
+            project_root=project_root,
+        )
         self._job_records: dict[str, JobRecord] = {}
         self._next_job_number = 1
         self._job_records_lock = threading.Lock()
@@ -180,9 +188,15 @@ class ControlCenterState:
         self._managed_application_process: subprocess.Popen[str] | None = None
         self._scene_studio_session = SceneStudioLiveSession(
             apply_callback=self._submit_scene_studio_scene,
-            log_callback=self.log_buffer.add,
+            log_callback=self._record_log,
         )
-        self.log_buffer.add("INFO", "control-center", "Control Center state initialized.")
+        self._record_log("INFO", "control-center", "Control Center state initialized.")
+
+    def _record_log(self, level: str, component: str, message: str) -> None:
+        """Write one event into both the in-memory buffer and the shared journal."""
+
+        self.log_buffer.add(level, component, message)
+        self.activity_journal.write(component=component, level=level, message=message)
 
     def _refresh_app_process_state_locked(self) -> None:
         """Synchronize the managed-app record with the live subprocess state."""
@@ -256,14 +270,14 @@ class ControlCenterState:
         with self._job_records_lock:
             self._job_records[job_record.job_identifier] = job_record
 
-        self.log_buffer.add("INFO", "jobs", f"Queued {kind} job {job_record.job_identifier}.")
+        self._record_log("INFO", "jobs", f"Queued {kind} job {job_record.job_identifier}.")
 
         def runner() -> None:
             """Run the subprocess, capture output, and update job status fields."""
 
             job_record.status = "running"
             job_record.started_at_utc = utc_now_iso()
-            self.log_buffer.add("INFO", "jobs", f"Started {kind} job {job_record.job_identifier}.")
+            self._record_log("INFO", "jobs", f"Started {kind} job {job_record.job_identifier}.")
 
             try:
                 # Jobs are intentionally launched with stdout and stderr merged so the
@@ -281,7 +295,7 @@ class ControlCenterState:
                 job_record.finished_at_utc = utc_now_iso()
                 job_record.exit_code = -1
                 self._append_job_output(job_record, f"Failed to start process: {error}")
-                self.log_buffer.add(
+                self._record_log(
                     "ERROR",
                     "jobs",
                     f"{kind} job {job_record.job_identifier} failed to start: {error}",
@@ -291,13 +305,13 @@ class ControlCenterState:
             assert launched_process.stdout is not None
             for line in launched_process.stdout:
                 self._append_job_output(job_record, line)
-                self.log_buffer.add("INFO", kind, line.rstrip())
+                self._record_log("INFO", kind, line.rstrip())
 
             launched_process.wait()
             job_record.exit_code = launched_process.returncode
             job_record.finished_at_utc = utc_now_iso()
             job_record.status = "succeeded" if launched_process.returncode == 0 else "failed"
-            self.log_buffer.add(
+            self._record_log(
                 "INFO" if launched_process.returncode == 0 else "ERROR",
                 "jobs",
                 f"{kind} job {job_record.job_identifier} finished with exit code "
@@ -422,7 +436,7 @@ class ControlCenterState:
             )
             self._managed_application_process = managed_application_process
             self._managed_application_record.process_identifier = managed_application_process.pid
-            self.log_buffer.add(
+            self._record_log(
                 "INFO",
                 "app",
                 f"Started Halcyn app process tree via PID {managed_application_process.pid}.",
@@ -439,14 +453,14 @@ class ControlCenterState:
                     if line.startswith("Starting "):
                         self._managed_application_record.status = "running"
                     self._append_process_output(self._managed_application_record, line)
-                    self.log_buffer.add("INFO", "app", line.rstrip())
+                    self._record_log("INFO", "app", line.rstrip())
 
                 managed_application_process.wait()
                 self._managed_application_record.status = "stopped"
                 self._managed_application_record.stopped_at_utc = utc_now_iso()
                 with self._managed_application_lock:
                     self._managed_application_process = None
-                self.log_buffer.add(
+                self._record_log(
                     "INFO" if managed_application_process.returncode == 0 else "ERROR",
                     "app",
                     "Halcyn app process exited with code "
@@ -480,7 +494,7 @@ class ControlCenterState:
             )
             self._managed_application_record.status = "stopping"
             self._managed_application_record.stopped_at_utc = utc_now_iso()
-            self.log_buffer.add(
+            self._record_log(
                 "INFO",
                 "app",
                 "Requested stop for app process tree rooted at PID "
@@ -628,6 +642,9 @@ class ControlCenterState:
             return {"available": bool(visual_studio_path), "path": visual_studio_path}
 
         python_jinja2_available = False
+        python_ttkbootstrap_available = False
+        python_sounddevice_available = False
+        python_soundcard_available = False
         python_path = known_tool_path("python")
         if python_path:
             # report-prerequisites.ps1 depends on Jinja2 for code generation, so we test the
@@ -639,6 +656,33 @@ class ControlCenterState:
                 check=False,
             )
             python_jinja2_available = result.returncode == 0
+            python_ttkbootstrap_available = (
+                subprocess.run(
+                    [python_path, "-c", "import ttkbootstrap"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                ).returncode
+                == 0
+            )
+            python_sounddevice_available = (
+                subprocess.run(
+                    [python_path, "-c", "import sounddevice"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                ).returncode
+                == 0
+            )
+            python_soundcard_available = (
+                subprocess.run(
+                    [python_path, "-c", "import soundcard"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                ).returncode
+                == 0
+            )
 
         return {
             "cmake": command_status("cmake"),
@@ -651,6 +695,9 @@ class ControlCenterState:
             "doxygen": command_status("doxygen"),
             "clang_format": command_status("clang-format"),
             "python_jinja2": {"available": python_jinja2_available, "path": ""},
+            "python_ttkbootstrap": {"available": python_ttkbootstrap_available, "path": ""},
+            "python_sounddevice": {"available": python_sounddevice_available, "path": ""},
+            "python_soundcard": {"available": python_soundcard_available, "path": ""},
             "visual_studio_2022": visual_studio_status(),
         }
 
@@ -710,7 +757,7 @@ class ControlCenterState:
         # Preview generation lets the browser inspect what would be sent without
         # mutating the live scene currently shown by the renderer.
         scene_bundle = build_scene_bundle(payload)
-        self.log_buffer.add(
+        self._record_log(
             "INFO",
             "scene-studio",
             f"Generated preview for preset {scene_bundle['preset']['id']}.",
@@ -733,7 +780,7 @@ class ControlCenterState:
             content_type="application/json",
         )
         if submission["status"] == 0:
-            self.log_buffer.add(
+            self._record_log(
                 "ERROR",
                 "scene-studio",
                 "Could not reach the live Halcyn API while applying a scene-studio scene.",
@@ -748,7 +795,7 @@ class ControlCenterState:
             }
 
         if submission["status"] == 400:
-            self.log_buffer.add(
+            self._record_log(
                 "WARNING",
                 "scene-studio",
                 "Rejected scene-studio scene "
@@ -766,7 +813,7 @@ class ControlCenterState:
 
         applied = submission["status"] in (200, 202)
         if not applied:
-            self.log_buffer.add(
+            self._record_log(
                 "ERROR",
                 "scene-studio",
                 f"Failed to apply preset {scene_bundle['preset']['id']} to the live renderer.",
@@ -781,7 +828,7 @@ class ControlCenterState:
                 "networkBytes": len(scene_json.encode("utf-8")),
             }
 
-        self.log_buffer.add(
+        self._record_log(
             "INFO",
             "scene-studio",
             f"Applied preset {scene_bundle['preset']['id']} to "
@@ -843,7 +890,7 @@ class ControlCenterState:
         if effective_request_body:
             http_request.add_header("Content-Type", content_type or "application/json")
 
-        self.log_buffer.add(
+        self._record_log(
             "INFO",
             "playground",
             f"Forwarding {method.upper()} {normalized_path} to the Halcyn API.",
@@ -930,6 +977,7 @@ class ControlCenterState:
             "app": self.app_status(),
             "jobs": self.recent_jobs(),
             "logs": self.log_buffer.recent(),
+            "activityJournalPath": str(self.activity_journal.journal_path),
             "docs": {
                 "overview": "/docs/index.html",
                 "tutorial": "/docs/tutorial.html",
@@ -939,8 +987,51 @@ class ControlCenterState:
                 "codeDocsGuide": "/docs/code-docs.html",
                 "fieldReference": "/docs/field-reference.html",
                 "controlCenter": "/docs/control-center.html",
+                "activityMonitor": "/activity-monitor/",
+                "visualizerStudioGuide": "/docs/desktop-control-panel.html",
+                "barWallScenesGuide": "/docs/spectrograph-suite.html",
                 "sceneStudioGuide": "/docs/scene-studio.html",
                 "generatedCodeDocs": "/generated-code-docs/index.html",
                 "sceneStudio": "/scene-studio/",
             },
         }
+
+    def recent_activity_entries(
+        self,
+        *,
+        limit: int = 300,
+        level_filter: str = "",
+        source_filter: str = "",
+        search_text: str = "",
+    ) -> list[dict[str, Any]]:
+        """Return recent shared-journal entries filtered for the web monitor."""
+
+        recent_entries = read_recent_activity_entries(
+            project_root=self.project_root,
+            journal_path=self.activity_journal.journal_path,
+            limit=limit,
+        )
+        normalized_level_filter = level_filter.strip().upper()
+        normalized_source_filter = source_filter.strip().lower()
+        normalized_search_text = search_text.strip().lower()
+        filtered_entries: list[dict[str, Any]] = []
+        for entry in recent_entries:
+            entry_level = str(entry.get("level", "")).upper()
+            entry_source_app = str(entry.get("source_app", "")).lower()
+            entry_component = str(entry.get("component", "")).lower()
+            entry_message = str(entry.get("message", "")).lower()
+
+            if normalized_level_filter and entry_level != normalized_level_filter:
+                continue
+            if normalized_source_filter and normalized_source_filter not in entry_source_app:
+                continue
+            if normalized_search_text and (
+                normalized_search_text not in entry_source_app
+                and normalized_search_text not in entry_component
+                and normalized_search_text not in entry_message
+            ):
+                continue
+
+            filtered_entries.append(entry)
+
+        return filtered_entries

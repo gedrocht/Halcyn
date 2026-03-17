@@ -230,11 +230,6 @@ halcyn_configure_target(halcyn_desktop_app)
 target_link_libraries(halcyn_desktop_app PRIVATE Halcyn::DesktopAppSupport)
 set_target_properties(halcyn_desktop_app PROPERTIES OUTPUT_NAME halcyn_app)
 
-add_executable(halcyn_spectrograph_app src/spectrograph_main.cpp)
-halcyn_configure_target(halcyn_spectrograph_app)
-target_link_libraries(halcyn_spectrograph_app PRIVATE Halcyn::DesktopAppSupport)
-set_target_properties(halcyn_spectrograph_app PROPERTIES OUTPUT_NAME halcyn_spectrograph_app)
-
 if(HALCYN_ENABLE_TESTS)
   add_executable(
     halcyn_tests

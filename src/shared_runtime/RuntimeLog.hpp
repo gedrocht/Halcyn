@@ -5,6 +5,7 @@
 #include <chrono>
 #include <cstdint>
 #include <deque>
+#include <filesystem>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -111,6 +112,17 @@ private:
   [[nodiscard]] std::string
   FormatTimestampUtc(std::chrono::system_clock::time_point timestamp) const;
 
+  /**
+   * @brief Appends one JSON-lines record to the shared cross-process activity journal.
+   *
+   * @details
+   * The regular in-memory log is enough for the renderer API and unit tests, but
+   * the browser Activity Monitor needs one file that every process can see. This
+   * helper writes the current entry into that shared append-only journal when the
+   * environment provides a journal path.
+   */
+  void AppendActivityJournalEntry(const RuntimeLogEntry& entry) const;
+
   /** Protects the deque of log entries and the sequence counter. */
   mutable std::mutex mutex_;
 
@@ -122,6 +134,9 @@ private:
 
   /** Caps how many entries remain in memory. */
   std::size_t maxEntries_ = scene_description::SceneLimits::kMaxRuntimeLogEntries;
+
+  /** Optional cross-process activity journal path discovered from the environment. */
+  std::filesystem::path activityJournalPath_;
 };
 
 /**

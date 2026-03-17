@@ -6,15 +6,58 @@
 #include "shared_runtime/RuntimeLog.hpp"
 
 #include <algorithm>
+#include <cstdlib>
 #include <ctime>
+#include <filesystem>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
+#include <thread>
 #include <utility>
 
+#include <nlohmann/json.hpp>
+
+#if defined(_WIN32)
+#include <process.h>
+#else
+#include <unistd.h>
+#endif
+
 namespace halcyn::shared_runtime {
+namespace {
+std::filesystem::path ResolveActivityJournalPathFromEnvironment() {
+#if defined(_WIN32)
+  char* configuredPathText = nullptr;
+  std::size_t configuredPathLength = 0;
+  const errno_t resolveError =
+      _dupenv_s(&configuredPathText, &configuredPathLength, "HALCYN_ACTIVITY_LOG_PATH");
+  if (resolveError != 0 || configuredPathText == nullptr || configuredPathLength == 0) {
+    std::free(configuredPathText);
+    return {};
+  }
+
+  const std::string configuredPathString(configuredPathText);
+  std::free(configuredPathText);
+  if (configuredPathString.empty()) {
+    return {};
+  }
+
+  return std::filesystem::path(configuredPathString);
+#else
+  const char* configuredPathText = std::getenv("HALCYN_ACTIVITY_LOG_PATH");
+  if (configuredPathText == nullptr || std::string(configuredPathText).empty()) {
+    return {};
+  }
+
+  return std::filesystem::path(configuredPathText);
+#endif
+}
+} // namespace
+
 RuntimeLog::RuntimeLog(std::size_t maxEntries)
-    : maxEntries_(std::max<std::size_t>(1, maxEntries)) {}
+    : maxEntries_(std::max<std::size_t>(1, maxEntries)),
+      activityJournalPath_(ResolveActivityJournalPathFromEnvironment()) {}
 
 void RuntimeLog::Write(LogLevel level, std::string component, std::string message) {
   RuntimeLogEntry entry;
@@ -39,6 +82,7 @@ void RuntimeLog::Write(LogLevel level, std::string component, std::string messag
   // plane can both observe the same events without separate logging systems.
   std::cout << '[' << FormatTimestampUtc(entry.timestampUtc) << "] [" << ToString(entry.level)
             << "] [" << entry.component << "] " << entry.message << '\n';
+  AppendActivityJournalEntry(entry);
 }
 
 std::vector<RuntimeLogEntry> RuntimeLog::GetRecent(std::size_t limit) const {
@@ -76,6 +120,43 @@ std::string RuntimeLog::FormatTimestampUtc(std::chrono::system_clock::time_point
   std::ostringstream builder;
   builder << std::put_time(&utcTime, "%Y-%m-%d %H:%M:%S UTC");
   return builder.str();
+}
+
+void RuntimeLog::AppendActivityJournalEntry(const RuntimeLogEntry& entry) const {
+  if (activityJournalPath_.empty()) {
+    return;
+  }
+
+  try {
+    std::filesystem::create_directories(activityJournalPath_.parent_path());
+    std::ofstream journalFile(activityJournalPath_, std::ios::app);
+    if (!journalFile.is_open()) {
+      return;
+    }
+
+    // The activity journal is shared with Python tools and the browser monitor, so
+    // we store one explicit JSON object per line instead of a renderer-specific format.
+    std::ostringstream threadIdentifierBuilder;
+    threadIdentifierBuilder << std::this_thread::get_id();
+    const nlohmann::json journalEntry = {
+        {"timestamp_utc", FormatTimestampUtc(entry.timestampUtc)},
+        {"source_app", "visualizer"},
+        {"component", entry.component},
+        {"level", ToString(entry.level)},
+        {"message", entry.message},
+        {"process_id",
+#if defined(_WIN32)
+         static_cast<int>(::_getpid())
+#else
+         static_cast<int>(::getpid())
+#endif
+        },
+        {"extra", {{"sequence", entry.sequence}, {"thread_id", threadIdentifierBuilder.str()}}},
+    };
+    journalFile << journalEntry.dump() << '\n';
+  } catch (...) {
+    // Activity-journal writing is helpful, but it must never crash the renderer.
+  }
 }
 
 std::string ToString(LogLevel level) {

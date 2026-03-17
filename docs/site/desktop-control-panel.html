@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Halcyn Desktop Control Panel</title>
+    <title>Halcyn Visualizer Studio</title>
     <link rel="stylesheet" href="assets/styles.css">
     <script defer src="assets/app.js"></script>
   </head>
@@ -13,13 +13,13 @@
         <div class="brand">
           <div class="brand-mark" aria-hidden="true"></div>
           <div class="brand-copy">
-            <h1>Desktop Control Panel Guide</h1>
-            <p>How the native operator console drives live 2D and 3D scene control.</p>
+            <h1>Visualizer Studio Guide</h1>
+            <p>The unified native desktop operator app for the singular Halcyn Visualizer.</p>
           </div>
         </div>
         <div class="topbar-actions">
           <button class="button" data-theme-toggle>Toggle theme</button>
-          <a class="button" href="https://github.com/gedrocht/Halcyn/blob/main/scripts/launch-desktop-render-control-panel.ps1">View launcher script</a>
+          <a class="button" href="https://github.com/gedrocht/Halcyn/blob/main/scripts/launch-visualizer-studio.ps1">View launcher script</a>
         </div>
       </header>
 
@@ -36,128 +36,130 @@
             <li><a href="field-reference.html" data-nav-link="field-reference">Field Reference</a></li>
             <li><a href="control-center.html" data-nav-link="control-center">Control Center</a></li>
             <li><a href="scene-studio.html" data-nav-link="scene-studio">Scene Studio</a></li>
-            <li><a href="desktop-control-panel.html" data-nav-link="desktop-control-panel">Desktop Control Panel</a></li>
-            <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Spectrograph Suite</a></li>
-            <li><a href="spectrograph-audio-source-panel.html" data-nav-link="spectrograph-audio-source-panel">Spectrograph Audio Source Panel</a></li>
-            <li><a href="multi-renderer-data-source-panel.html" data-nav-link="multi-renderer-data-source-panel">Shared Data Source Panel</a></li>
+            <li><a href="desktop-control-panel.html" data-nav-link="desktop-control-panel">Visualizer Studio</a></li>
+            <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Bar-Wall Scenes</a></li>
+            <li><a href="spectrograph-audio-source-panel.html" data-nav-link="spectrograph-audio-source-panel">Legacy Audio Helper</a></li>
+            <li><a href="multi-renderer-data-source-panel.html" data-nav-link="multi-renderer-data-source-panel">Legacy Data Router</a></li>
           </ul>
         </nav>
 
         <main>
           <section class="panel">
-            <h3>What it is</h3>
+            <h3>What Visualizer Studio is</h3>
             <p>
-              The Desktop Render Control Panel is a native Tkinter application that talks to the
-              same Halcyn HTTP API as the browser tools, but presents the controls in a desktop
-              window that can live beside the renderer itself.
+              Visualizer Studio is the one supported native desktop control surface for Halcyn. It
+              replaces the earlier split desktop control panels and gives you one place to choose
+              live sources, choose a scene family, preview JSON, validate the generated scene,
+              apply it once, or live-stream it into the running Visualizer.
             </p>
-            <pre><code>.\scripts\launch-desktop-render-control-panel.ps1</code></pre>
+            <pre><code>.\scripts\launch-visualizer-studio.ps1</code></pre>
             <div class="callout">
-              GitHub Pages can document this tool, but the real control panel runs locally on your
-              machine because it needs direct access to your desktop environment and optional audio
-              hardware.
+              This page is static study material on GitHub Pages. The real app runs locally on your
+              machine because it needs direct access to your desktop UI and optional audio devices.
             </div>
           </section>
 
           <section class="panel">
-            <h3>What it can do</h3>
+            <h3>What it can control</h3>
             <div class="cards">
-              <div class="card"><h4>Instant 2D and 3D switching</h4><p>One native panel can move between desktop-only 2D presets and the shared 3D preset catalog immediately.</p></div>
-              <div class="card"><h4>Local audio-device selection</h4><p>Unlike a browser-only surface, the desktop panel can default to output sources for desktop loopback capture, switch over to microphone inputs when needed, and explain which optional package is responsible for each path: <code>soundcard</code> for output loopback and <code>sounddevice</code> for microphones.</p></div>
-              <div class="card"><h4>Preview, validate, apply, and save</h4><p>You can open the generated JSON in its own window when you need it, validate it against the live API, apply it immediately, or save the whole setup to a reusable JSON file.</p></div>
-              <div class="card"><h4>Continuous live streaming</h4><p>The panel can keep submitting scenes on a controlled cadence while you adjust colors, density, motion, and signals.</p></div>
+              <div class="card"><h4>Sources</h4><p>Choose JSON, plain text, random values, audio devices, or a live pointer pad.</p></div>
+              <div class="card"><h4>Scene families</h4><p>Switch between the classic preset scene family and the data-driven bar-wall scene family.</p></div>
+              <div class="card"><h4>Transport</h4><p>Preview, validate, apply once, or continuously live-stream to the Visualizer API.</p></div>
+              <div class="card"><h4>Settings</h4><p>Revert to defaults, save operator settings, and load them back later.</p></div>
+              <div class="card"><h4>JSON inspection</h4><p>Open the current generated scene JSON in a separate preview window and copy it to the clipboard.</p></div>
+              <div class="card"><h4>Audio capture</h4><p>Choose output or input sources, start or stop capture, and watch one live volume meter update.</p></div>
             </div>
           </section>
 
           <section class="panel">
-            <h3>Main areas in the window</h3>
+            <h3>How the two scene families differ</h3>
             <div class="cards">
-              <div class="card"><h4>Renderer connection</h4><p>Choose the API host, port, and live cadence, then see the exact cadence value in milliseconds beside the slider before you run health, validate, apply, start, or stop actions.</p></div>
-              <div class="card"><h4>Scene controls</h4><p>Choose scene type and preset with stay-selected buttons, then tune geometry density, motion speed, gain, manual drive, and live color swatches.</p></div>
-              <div class="card"><h4>Audio input</h4><p>The roomier diagnostics column now holds audio controls, including a toggle between output sources and input sources plus one easy-to-read live volume meter. Output sources are selected by default, and the panel can explain when <code>soundcard</code> is needed for loopback capture or when <code>sounddevice</code> is needed for microphones.</p></div>
-              <div class="card"><h4>Pointer pad, settings, and preview</h4><p>Drive pointer-based motion on a larger pad, revert to preset defaults, save or load settings, and open the exact JSON scene in a dedicated window with a <code>Copy JSON</code> button instead of stretching the main panel.</p></div>
+              <div class="card">
+                <h4>Preset scene family</h4>
+                <p>
+                  This is the classic Halcyn workflow. The source data is summarized into smaller
+                  control signals and then fed into a chosen preset scene.
+                </p>
+              </div>
+              <div class="card">
+                <h4>Bar-wall scene family</h4>
+                <p>
+                  This is the old spectrograph-style workflow, now treated as just another scene
+                  family inside the same Visualizer. Generic JSON is flattened into numeric values,
+                  normalized against a rolling range, grouped into buckets, and turned into 3D bars.
+                </p>
+              </div>
             </div>
           </section>
 
           <section class="panel">
-            <h3>Dark mode and control feel</h3>
+            <h3>Why the desktop app is unified now</h3>
             <p>
-              The polished desktop panel now ships in a dark-mode-first style so it feels more at
-              home beside the renderer window. Integer sliders snap to whole values, floating-point
-              sliders snap to practical increments, the currently selected 2D or 3D mode stays
-              visibly pressed with high-contrast text, and the heavier pointer/audio controls now
-              live in the right-hand column so the scene controls stay reachable on 1080p displays.
+              The older workflow asked you to decide among several desktop tools before you even
+              knew what kind of work you wanted to do. Visualizer Studio simplifies that:
+            </p>
+            <ul>
+              <li>one place to choose the source</li>
+              <li>one place to choose the scene family</li>
+              <li>one place to control cadence, validation, apply, and streaming</li>
+              <li>one place to inspect the generated scene JSON</li>
+            </ul>
+            <p>
+              The older launchers still exist as compatibility wrappers, but they now forward into
+              this same app.
             </p>
           </section>
 
           <section class="panel">
-            <h3>How it fits with the browser tools</h3>
+            <h3>Shared logging and diagnostics</h3>
             <p>
-              The browser Control Center is still the orchestration dashboard for builds, tests,
-              logs, docs, and API experiments. The browser Scene Studio is still a browser-native
-              creative surface for live authoring. The Desktop Render Control Panel is the native
-              operator console for the situations where local hardware awareness and a desktop
-              companion window matter more than staying in a browser tab.
+              Visualizer Studio writes structured events into the shared activity journal. The
+              browser Activity Monitor reads that journal and lets you sort and filter events from:
             </p>
+            <ul>
+              <li>the native Visualizer</li>
+              <li>the browser Control Center</li>
+              <li>Visualizer Studio itself</li>
+            </ul>
             <p>
-              If your goal is not general scene authoring but generic-data-to-bar-wall conversion,
-              the dedicated <a href="spectrograph-suite.html">Spectrograph Suite</a> is the more
-              specialized tool.
+              That means the desktop app no longer has to be its own log island. It participates in
+              one cross-app timeline instead.
             </p>
+          </section>
+
+          <section class="panel">
+            <h3>Optional Python dependencies</h3>
             <p>
-              If your goal is to capture one live source and feed the classic renderer, the
-              spectrograph renderer, or both, the
-              <a href="multi-renderer-data-source-panel.html">Shared Data Source Panel</a> is the
-              clearest tool for that job.
+              The unified desktop app uses <code>ttkbootstrap</code> for its modern themed UI. Real
+              audio capture uses <code>sounddevice</code> for microphone-style input capture and
+              <code>soundcard</code> for output-loopback capture.
             </p>
+            <pre><code>python -m pip install ttkbootstrap sounddevice soundcard</code></pre>
           </section>
 
           <section class="panel">
             <h3>Testing and quality gates</h3>
+            <pre><code>.\scripts\lint-visualizer-studio.ps1
+.\scripts\typecheck-visualizer-studio.ps1
+.\scripts\test-visualizer-studio.ps1
+.\scripts\measure-visualizer-studio-coverage.ps1</code></pre>
             <p>
-              The desktop panel is treated like the rest of the repo's maintained code, not like an
-              experimental extra. It has linting, type checks, unit tests, and a 90% coverage gate.
+              The full repo-wide pass still lives at
+              <code>.\scripts\run-all-quality-checks.ps1 -Configuration Debug</code>.
             </p>
-            <pre><code>.\scripts\lint-desktop-render-control-panel.ps1
-.\scripts\typecheck-desktop-render-control-panel.ps1
-.\scripts\test-desktop-render-control-panel.ps1
-.\scripts\measure-desktop-render-control-panel-coverage.ps1</code></pre>
           </section>
 
           <section class="panel">
-            <h3>Optional audio dependency</h3>
-            <p>
-              Real device capture depends on two optional Python packages. The desktop panel uses
-              <code>sounddevice</code> for microphone and line-input capture, and <code>soundcard</code>
-              for desktop output-loopback capture. If either package is missing, the panel still
-              opens and the rest of the controls still work; only that capture path is disabled. On
-              Windows, the panel still tries to list available input devices through the built-in
-              waveIn API so the operator can see what hardware exists before installing
-              <code>sounddevice</code>.
-            </p>
-            <pre><code>python -m pip install sounddevice soundcard</code></pre>
-          </section>
-
-          <section class="panel">
-            <h3>External library references</h3>
-            <p>
-              The desktop panel is intentionally built on small, well-documented
-              standard-library pieces plus one optional audio package. These are
-              the most relevant references if you want to study how the code
-              works line by line.
-            </p>
+            <h3>External references</h3>
             <ul>
+              <li><a href="https://ttkbootstrap.readthedocs.io/">ttkbootstrap</a></li>
               <li><a href="https://docs.python.org/3/library/tkinter.html">Tkinter overview</a></li>
-              <li><a href="https://docs.python.org/3/library/tkinter.ttk.html">Tk themed widgets (`ttk`)</a></li>
               <li><a href="https://docs.python.org/3/library/tkinter.scrolledtext.html">ScrolledText widget</a></li>
               <li><a href="https://docs.python.org/3/library/dialog.html#tkinter.filedialog">tkinter.filedialog</a></li>
-              <li><a href="https://docs.python.org/3/library/urllib.request.html">urllib.request</a></li>
-              <li><a href="https://docs.python.org/3/library/ctypes.html">ctypes</a></li>
-              <li><a href="https://learn.microsoft.com/windows/win32/api/mmeapi/nf-mmeapi-waveingetnumdevs">waveInGetNumDevs</a></li>
-              <li><a href="https://learn.microsoft.com/windows/win32/api/mmeapi/nf-mmeapi-waveingetdevcapsw">waveInGetDevCapsW</a></li>
-              <li><a href="https://docs.python.org/3/library/threading.html">threading</a></li>
               <li><a href="https://python-sounddevice.readthedocs.io/">sounddevice</a></li>
               <li><a href="https://soundcard.readthedocs.io/">soundcard</a></li>
+              <li><a href="https://docs.python.org/3/library/threading.html">threading</a></li>
+              <li><a href="https://docs.python.org/3/library/json.html">Python json module</a></li>
             </ul>
           </section>
         </main>

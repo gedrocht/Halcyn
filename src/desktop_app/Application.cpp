@@ -49,7 +49,7 @@ int Application::Run() {
                                     runtimeLog);
   opengl_renderer::Renderer renderer(applicationConfig_.renderer, sceneStore, runtimeLog);
 
-  runtimeLog->Write(shared_runtime::LogLevel::Info, "app", "Starting Halcyn.");
+  runtimeLog->Write(shared_runtime::LogLevel::Info, "app", "Starting Halcyn Visualizer.");
 
   try {
     // The API server is started first so external tools can immediately talk to
@@ -59,12 +59,13 @@ int Application::Run() {
     PrintStartupSummary(httpApiServer.GetBoundPort());
     renderer.Run();
     httpApiServer.Stop();
-    runtimeLog->Write(shared_runtime::LogLevel::Info, "app", "Halcyn shut down cleanly.");
+    runtimeLog->Write(shared_runtime::LogLevel::Info, "app",
+                      "Halcyn Visualizer shut down cleanly.");
     return 0;
   } catch (...) {
     httpApiServer.Stop();
     runtimeLog->Write(shared_runtime::LogLevel::Error, "app",
-                      "Halcyn stopped because an unhandled exception escaped.");
+                      "Halcyn Visualizer stopped because an unhandled exception escaped.");
     throw;
   }
 }
@@ -86,8 +87,9 @@ scene_description::SceneDocument Application::LoadInitialScene() const {
     return scene_description::CreateSample2DSceneDocument();
   }
 
-  if (applicationConfig_.initialSample == "spectrograph") {
-    return scene_description::CreateSampleSpectrographSceneDocument();
+  if (applicationConfig_.initialSample == "bar-wall" ||
+      applicationConfig_.initialSample == "spectrograph") {
+    return scene_description::CreateSampleBarWallSceneDocument();
   }
 
   return scene_description::CreateDefaultSceneDocument();
@@ -115,7 +117,7 @@ scene_description::SceneDocument Application::LoadSceneFromFile(const std::strin
 }
 
 void Application::PrintStartupSummary(int listeningPort) const {
-  std::cout << "Halcyn is starting.\n";
+  std::cout << "Halcyn Visualizer is starting.\n";
   std::cout << "Window: " << applicationConfig_.renderer.windowWidth << "x"
             << applicationConfig_.renderer.windowHeight << " ("
             << applicationConfig_.renderer.targetFramesPerSecond << " FPS target)\n";
@@ -188,8 +190,9 @@ ApplicationConfig ParseCommandLineArguments(const std::vector<std::string>& argu
     if (argument == "--sample") {
       const std::string& sampleValue = requireOptionValue("--sample");
       if (sampleValue != "default" && sampleValue != "2d" && sampleValue != "3d" &&
-          sampleValue != "spectrograph") {
-        throw std::runtime_error("--sample must be one of: default, 2d, 3d, spectrograph");
+          sampleValue != "bar-wall" && sampleValue != "spectrograph") {
+        throw std::runtime_error(
+            "--sample must be one of: default, 2d, 3d, bar-wall, spectrograph");
       }
 
       applicationConfiguration.initialSample = sampleValue;
@@ -227,9 +230,9 @@ void PrintHelpText() {
   std::cout << "  --width <pixels>     Set the render window width. Default: 1280\n";
   std::cout << "  --height <pixels>    Set the render window height. Default: 720\n";
   std::cout << "  --fps <number>       Set the target frame rate. Default: 60\n";
-  std::cout << "  --title <text>       Set the render window title. Default: Halcyn\n";
+  std::cout << "  --title <text>       Set the render window title. Default: Halcyn Visualizer\n";
   std::cout << "  --sample <name>      Choose the startup sample. Values: default, 2d, 3d, "
-               "spectrograph\n";
+               "bar-wall, spectrograph\n";
   std::cout << "  --scene-file <path>  Load a scene JSON file before starting the API.\n";
 }
 } // namespace halcyn::desktop_app
