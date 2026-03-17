@@ -14,9 +14,14 @@ if ($LASTEXITCODE -ne 0) {
 
 $projectRoot = Get-ProjectRoot
 $coverageFile = Join-Path $projectRoot '.coverage-visualizer-studio'
+$previousNativeCommandErrorPreference = $PSNativeCommandUseErrorActionPreference
 Push-Location $projectRoot
 
 try {
+  # Some Tk and ttkbootstrap test cases can emit harmless stderr noise while still
+  # succeeding. We still trust the real process exit code below, so keep stderr
+  # from being promoted into a PowerShell exception during the native Python runs.
+  $PSNativeCommandUseErrorActionPreference = $false
   $env:COVERAGE_FILE = $coverageFile
 
   & $python.Source -m coverage erase
@@ -42,6 +47,7 @@ try {
   }
 }
 finally {
+  $PSNativeCommandUseErrorActionPreference = $previousNativeCommandErrorPreference
   Remove-Item $coverageFile -ErrorAction SilentlyContinue
   Remove-Item "${coverageFile}-journal" -ErrorAction SilentlyContinue
   Remove-Item Env:COVERAGE_FILE -ErrorAction SilentlyContinue

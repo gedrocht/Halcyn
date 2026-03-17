@@ -67,7 +67,9 @@ If you are new to the project, the simplest way to think about it is:
 `-- tests/
 ```
 
-The older split desktop packages are still present in the repository as internal migration helpers, but the supported public workflow is now the unified Visualizer Studio.
+Some of the older split desktop packages are still present in the repository as
+internal support modules, but the supported public workflow is now the unified
+Visualizer Studio.
 
 ## Quick start
 
@@ -202,7 +204,7 @@ Main supported scripts:
 - `.\scripts\serve-docs-site.ps1`
 - `.\scripts\create-release-package.ps1`
 
-Compatibility launchers still exist for older workflows, but the preferred public names are the scripts listed above.
+The scripts listed above are the supported public entry points.
 
 ## Documentation
 

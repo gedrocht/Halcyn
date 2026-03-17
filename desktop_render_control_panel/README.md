@@ -32,11 +32,15 @@ That separation makes both apps easier to understand:
 - if you want one source of live data to drive multiple renderer targets, use
   the shared data-source panel
 
-## Launch it
+## How to reach the supported workflow
 
 ```powershell
-.\scripts\launch-desktop-render-control-panel.ps1
+.\scripts\launch-visualizer-studio.ps1
 ```
+
+This package stays in the repository because Visualizer Studio still reuses its
+scene-building and audio-capture helpers internally. It is no longer a
+separately launched public app.
 
 ## What it can control
 
