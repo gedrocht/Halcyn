@@ -30,7 +30,13 @@ class SpectrographExternalBridgeClient:
         source_label: str,
         json_text: str,
     ) -> SpectrographExternalBridgeResponse:
-        """POST one generated JSON document to the local bridge endpoint."""
+        """POST one generated JSON document to the local bridge endpoint.
+
+        The bridge lives on the same machine as the desktop tools, so this
+        intentionally uses plain loopback HTTP instead of HTTPS. That keeps the
+        beginner workflow simple: there are no certificates to configure, and
+        the traffic never leaves the local computer.
+        """
 
         request_body = json.dumps(
             {
@@ -39,8 +45,9 @@ class SpectrographExternalBridgeClient:
             },
             separators=(",", ":"),
         ).encode("utf-8")
+        normalized_bridge_path = _normalize_bridge_path(path)
         request = urllib.request.Request(
-            url=f"http://{host}:{port}{path}",
+            url=f"http://{host}:{port}{normalized_bridge_path}",
             data=request_body,
             method="POST",
             headers={"Content-Type": "application/json"},
@@ -70,3 +77,20 @@ class SpectrographExternalBridgeClient:
                 reason=type(error).__name__,
                 body=str(error),
             )
+
+
+def _normalize_bridge_path(path: str) -> str:
+    """Return one safe bridge path with exactly one leading slash.
+
+    The desktop UI tries to keep the path field beginner-friendly, which means a
+    person may type either `/external-data` or `external-data`. The bridge
+    protocol expects the former, so the client normalizes both into the same
+    wire format before sending the request.
+    """
+
+    normalized_path = str(path).strip()
+    if not normalized_path:
+        return "/external-data"
+    if not normalized_path.startswith("/"):
+        normalized_path = f"/{normalized_path}"
+    return normalized_path

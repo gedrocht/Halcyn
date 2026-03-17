@@ -45,6 +45,18 @@ That makes the learning path cleaner for a beginner:
 
 ## Launch it
 
+If you want the full spectrograph audio workflow opened for you in separate
+windows, use:
+
+```powershell
+.\scripts\launch-spectrograph-audio-workbench.ps1
+```
+
+That helper starts the renderer, this control panel, and the dedicated audio
+source panel together.
+
+If you prefer the manual step-by-step route, do this:
+
 Start the dedicated spectrograph renderer:
 
 ```powershell

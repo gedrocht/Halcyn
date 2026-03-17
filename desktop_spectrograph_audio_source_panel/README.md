@@ -36,6 +36,16 @@ spectrograph control panel in a clean generic JSON shape?"
 
 ## Running the two-app workflow
 
+If you want the renderer, control panel, and this audio helper opened for you
+automatically, the easiest path is:
+
+```powershell
+.\scripts\launch-spectrograph-audio-workbench.ps1
+```
+
+If you prefer to understand the pieces one at a time, use the manual route
+below instead.
+
 1. Start the spectrograph control panel:
 
 ```powershell

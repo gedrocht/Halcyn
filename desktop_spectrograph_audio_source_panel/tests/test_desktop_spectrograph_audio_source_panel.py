@@ -300,6 +300,23 @@ class SpectrographExternalBridgeClientTests(unittest.TestCase):
         self.assertEqual(response.reason, "RuntimeError")
         self.assertIn("bridge unavailable", response.body)
 
+    def test_client_normalizes_a_bridge_path_without_a_leading_slash(self) -> None:
+        client = SpectrographExternalBridgeClient()
+        with mock.patch(
+            "desktop_spectrograph_audio_source_panel.spectrograph_external_bridge_client.urllib.request.urlopen",
+            return_value=FakeUrlOpenResponse(202, "Accepted", '{"status":"accepted"}'),
+        ) as urlopen_mock:
+            client.deliver_json_text(
+                host="127.0.0.1",
+                port=8091,
+                path="external-data",
+                source_label="unit-test",
+                json_text='{"values":[1,2,3]}',
+            )
+
+        submitted_request = urlopen_mock.call_args[0][0]
+        self.assertEqual(submitted_request.full_url, "http://127.0.0.1:8091/external-data")
+
 
 class SpectrographAudioSourceControllerTests(unittest.TestCase):
     """Exercise the non-visual orchestration behind the audio-source panel."""
@@ -460,13 +477,13 @@ class SpectrographAudioSourceWindowTests(unittest.TestCase):
         self.window._audio_device_flow_variable.set("output")
         self.window._on_device_flow_changed()
         self.window._start_audio_capture()
-        self.window._open_generated_json_window()
+        self.window._open_generated_audio_json_window()
         self.root_window.update_idletasks()
 
         self.assertIn("Capturing", self.window._audio_status_variable.get())
-        self.assertIsNotNone(self.window._generated_json_text_widget)
+        self.assertIsNotNone(self.window._generated_audio_json_text_widget)
 
-    def test_window_can_send_live_revert_and_copy_generated_json(self) -> None:
+    def test_window_can_send_live_revert_and_copy_generated_audio_json(self) -> None:
         self.window._audio_device_flow_variable.set("output")
         self.window._on_device_flow_changed()
         self.window._start_audio_capture()
@@ -484,24 +501,24 @@ class SpectrographAudioSourceWindowTests(unittest.TestCase):
         self.window._stop_live_send()
         self.assertIn("Live send stopped", self.window._delivery_status_variable.get())
 
-        self.window._open_generated_json_window()
-        self.window._open_generated_json_window()
-        self.window._copy_generated_json_to_clipboard()
+        self.window._open_generated_audio_json_window()
+        self.window._open_generated_audio_json_window()
+        self.window._copy_generated_audio_json_to_clipboard()
         self.assertIn('"audioFrames"', self.root_window.clipboard_get())
 
         self.window._revert_defaults()
         self.assertEqual(self.window._audio_device_flow_variable.get(), "output")
         self.assertEqual(self.window._live_cadence_variable.get(), 125)
 
-        self.window._on_generated_json_window_closed()
-        self.assertIsNone(self.window._generated_json_window)
+        self.window._on_generated_audio_json_window_closed()
+        self.assertIsNone(self.window._generated_audio_json_window)
 
     def test_window_can_save_load_and_report_preview_and_copy_errors(self) -> None:
         with mock.patch(
             "desktop_spectrograph_audio_source_panel.spectrograph_audio_source_window.messagebox.showinfo"
         ) as showinfo_mock:
-            self.window._latest_preview = None
-            self.window._copy_generated_json_to_clipboard()
+            self.window._latest_audio_source_preview = None
+            self.window._copy_generated_audio_json_to_clipboard()
         showinfo_mock.assert_called_once()
 
         with TemporaryDirectory() as temporary_directory:

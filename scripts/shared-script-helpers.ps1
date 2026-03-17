@@ -92,6 +92,58 @@ function Start-BrowserWhenReady {
   } -ArgumentList $Url, $TimeoutSeconds | Out-Null
 }
 
+function Get-PreferredPowerShellExecutable {
+  <#
+    .SYNOPSIS
+    Returns the best available PowerShell executable for launching helper windows.
+
+    .DESCRIPTION
+    Some workflow helpers open multiple scripts in separate console windows so a
+    beginner can see "renderer", "control panel", and "audio helper" as distinct
+    moving parts. This helper prefers PowerShell 7 when it is available, then
+    falls back to Windows PowerShell.
+  #>
+
+  $powerShellSevenCommand = Get-Command pwsh -ErrorAction SilentlyContinue
+  if ($null -ne $powerShellSevenCommand) {
+    return $powerShellSevenCommand.Source
+  }
+
+  $windowsPowerShellCommand = Get-Command powershell -ErrorAction SilentlyContinue
+  if ($null -ne $windowsPowerShellCommand) {
+    return $windowsPowerShellCommand.Source
+  }
+
+  throw 'Neither pwsh nor powershell is available on PATH.'
+}
+
+function Start-HalcynScriptInNewWindow {
+  <#
+    .SYNOPSIS
+    Launches one repository script in a separate PowerShell window.
+
+    .DESCRIPTION
+    This is intentionally small and explicit. It helps "workbench" scripts open
+    related tools side by side without forcing the user to remember several long
+    commands. The child script still runs normally with its own arguments and
+    current working directory set to the repository root.
+  #>
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$ScriptPath,
+    [string[]]$ArgumentList = @()
+  )
+
+  $powerShellExecutable = Get-PreferredPowerShellExecutable
+  $projectRoot = Get-ProjectRoot
+
+  Start-Process -FilePath $powerShellExecutable -ArgumentList @(
+    '-ExecutionPolicy', 'Bypass',
+    '-NoExit',
+    '-File', $ScriptPath
+  ) + $ArgumentList -WorkingDirectory $projectRoot
+}
+
 function Get-ProjectRoot {
   <#
     .SYNOPSIS

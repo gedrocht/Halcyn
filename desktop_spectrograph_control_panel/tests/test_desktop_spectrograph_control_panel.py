@@ -300,6 +300,36 @@ class SpectrographExternalDataBridgeServerTests(unittest.TestCase):
         self.assertEqual(received_payloads[0][1], "test-audio-panel")
         self.assertFalse(stopped_status["listening"])
 
+    def test_bridge_server_accepts_the_external_data_path_with_a_trailing_slash(self) -> None:
+        received_payloads: list[tuple[str, str]] = []
+        bridge_server = SpectrographExternalDataBridgeServer(
+            host="127.0.0.1",
+            port=0,
+            on_external_json_received=lambda json_text, source_label: received_payloads.append(
+                (json_text, source_label)
+            ),
+        )
+        started_status = bridge_server.start()
+
+        request = urllib.request.Request(
+            url=(
+                f"http://{started_status['host']}:{started_status['port']}/external-data/"
+            ),
+            method="POST",
+            data=json.dumps(
+                {
+                    "sourceLabel": "test-audio-panel",
+                    "jsonText": json.dumps({"values": [4, 5, 6]}),
+                }
+            ).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(request, timeout=5.0) as response:
+            self.assertEqual(response.status, 202)
+
+        bridge_server.stop()
+        self.assertEqual(received_payloads[0][0], '{"values": [4, 5, 6]}')
+
 
 class SpectrographWindowTests(unittest.TestCase):
     """Exercise the desktop spectrograph Tkinter window behavior."""

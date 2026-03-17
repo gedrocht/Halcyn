@@ -101,6 +101,15 @@ class RepositoryContractTests(unittest.TestCase):
             self.assertIn("$projectRoot = Get-ProjectRoot", script_text)
             self.assertIn("'--project-root'", script_text)
 
+    def test_spectrograph_audio_workbench_launcher_stays_wired_to_the_three_app_flow(self) -> None:
+        """The convenience launcher should keep opening the full spectrograph audio workflow."""
+
+        launcher_text = self._read_text("scripts/launch-spectrograph-audio-workbench.ps1")
+        self.assertIn("launch-halcyn-spectrograph-app.ps1", launcher_text)
+        self.assertIn("launch-desktop-spectrograph-control-panel.ps1", launcher_text)
+        self.assertIn("launch-desktop-spectrograph-audio-source-panel.ps1", launcher_text)
+        self.assertIn("Start-HalcynScriptInNewWindow", launcher_text)
+
     def test_scripts_do_not_reintroduce_provider_style_project_root_resolution(self) -> None:
         """Repository scripts should avoid the old provider-prefixed Resolve-Path pattern."""
 
@@ -136,6 +145,7 @@ class RepositoryContractTests(unittest.TestCase):
             "client-studio.html",
         ]:
             self.assertNotIn(retired_name, readme_text)
+        self.assertIn(r".\scripts\launch-spectrograph-audio-workbench.ps1", readme_text)
 
     def test_docs_site_uses_current_directory_and_script_names(self) -> None:
         """The docs site should stay aligned with the renamed repository layout."""
@@ -170,6 +180,20 @@ class RepositoryContractTests(unittest.TestCase):
                 self.assertNotIn(
                     retired_term, page_text, f"{relative_path} still contains {retired_term!r}"
                 )
+
+    def test_spectrograph_docs_expose_the_workbench_launcher(self) -> None:
+        """The docs should keep teaching the easiest spectrograph audio launch path."""
+
+        spectrograph_suite_text = self._read_text("docs/site/spectrograph-suite.html")
+        spectrograph_audio_source_text = self._read_text(
+            "docs/site/spectrograph-audio-source-panel.html"
+        )
+
+        self.assertIn(r".\scripts\launch-spectrograph-audio-workbench.ps1", spectrograph_suite_text)
+        self.assertIn(
+            r".\scripts\launch-spectrograph-audio-workbench.ps1",
+            spectrograph_audio_source_text,
+        )
 
     def test_docs_site_keeps_full_docs_map_links(self) -> None:
         """Every docs page should expose the same core navigation destinations."""

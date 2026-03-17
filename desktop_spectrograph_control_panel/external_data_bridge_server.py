@@ -53,6 +53,8 @@ class SpectrographExternalDataBridgeStatus:
 class SpectrographExternalDataBridgeServer:
     """Listen for external JSON updates destined for the spectrograph panel."""
 
+    _supported_paths = frozenset({"/external-data", "/external-data/"})
+
     def __init__(
         self,
         host: str,
@@ -79,7 +81,7 @@ class SpectrographExternalDataBridgeServer:
             """Handle the tiny local bridge protocol for external data updates."""
 
             def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler naming contract.
-                if self.path != "/external-data":
+                if self.path not in bridge_server._supported_paths:
                     self._write_json_response(404, {"status": "not-found"})
                     return
 

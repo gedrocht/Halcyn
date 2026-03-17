@@ -38,9 +38,9 @@ class DesktopSpectrographAudioSourceWindow:
         self._root_window = root_window
         self._controller = controller or DesktopSpectrographAudioSourceController()
         self._catalog_payload = self._controller.catalog_payload()
-        self._generated_json_window: tk.Toplevel | None = None
-        self._generated_json_text_widget: ScrolledText | None = None
-        self._latest_preview: SpectrographAudioSourcePreview | None = None
+        self._generated_audio_json_window: tk.Toplevel | None = None
+        self._generated_audio_json_text_widget: ScrolledText | None = None
+        self._latest_audio_source_preview: SpectrographAudioSourcePreview | None = None
 
         self._root_window.title("Halcyn Spectrograph Audio Source Panel")
         self._root_window.geometry("1380x900")
@@ -405,7 +405,7 @@ class DesktopSpectrographAudioSourceWindow:
                 ("Send once", self._deliver_once),
                 ("Start live", self._start_live_send),
                 ("Stop live", self._stop_live_send),
-                ("Open JSON", self._open_generated_json_window),
+                ("Open generated JSON", self._open_generated_audio_json_window),
                 ("Revert defaults", self._revert_defaults),
                 ("Load settings", self._load_settings_document),
                 ("Save settings", self._save_settings_document),
@@ -564,17 +564,17 @@ class DesktopSpectrographAudioSourceWindow:
         try:
             request_payload = self._collect_request_payload_from_user_interface()
             self._controller.replace_request_payload(request_payload)
-            self._latest_preview = self._controller.preview_payload()
+            self._latest_audio_source_preview = self._controller.preview_payload()
         except Exception as error:
-            self._latest_preview = None
+            self._latest_audio_source_preview = None
             self._delivery_status_variable.set(f"Preview error: {error}")
             self._bridge_summary_variable.set(
                 "The current settings could not be turned into a bridge-ready JSON document."
             )
-            self._update_generated_json_window()
+            self._update_generated_audio_json_window()
             return
 
-        analysis = self._latest_preview.analysis
+        analysis = self._latest_audio_source_preview.analysis
         latest_audio_signal_snapshot = self._controller.audio_snapshot()
         if latest_audio_signal_snapshot.capturing:
             self._bridge_summary_variable.set(
@@ -589,7 +589,7 @@ class DesktopSpectrographAudioSourceWindow:
                 "Choose a device, start capture, then send the generated JSON "
                 "to the spectrograph panel."
             )
-        self._update_generated_json_window()
+        self._update_generated_audio_json_window()
 
     def _deliver_once(self) -> None:
         """Send the current preview once to the spectrograph control panel bridge."""
@@ -605,8 +605,8 @@ class DesktopSpectrographAudioSourceWindow:
             self._delivery_status_variable.set(
                 f"Delivery failed: HTTP {response.status} {response.reason}. {response.body}"
             )
-        self._latest_preview = delivery_result["preview"]
-        self._update_generated_json_window()
+        self._latest_audio_source_preview = delivery_result["preview"]
+        self._update_generated_audio_json_window()
 
     def _start_live_send(self) -> None:
         """Start repeatedly sending the generated JSON document."""
@@ -663,25 +663,32 @@ class DesktopSpectrographAudioSourceWindow:
         self._refresh_preview()
         self._delivery_status_variable.set(f"Loaded settings from {selected_path}")
 
-    def _open_generated_json_window(self) -> None:
+    def _open_generated_audio_json_window(self) -> None:
         """Open a detached read-only window that shows the generated JSON payload."""
 
-        if self._generated_json_window is not None and self._generated_json_window.winfo_exists():
-            self._generated_json_window.deiconify()
-            self._generated_json_window.lift()
-            self._update_generated_json_window()
+        if (
+            self._generated_audio_json_window is not None
+            and self._generated_audio_json_window.winfo_exists()
+        ):
+            self._generated_audio_json_window.deiconify()
+            self._generated_audio_json_window.lift()
+            self._update_generated_audio_json_window()
             return
 
-        self._generated_json_window = tk.Toplevel(self._root_window)
-        self._generated_json_window.title("Generated Spectrograph Audio JSON")
-        self._generated_json_window.geometry("760x720")
-        self._generated_json_window.configure(background=WINDOW_BACKGROUND)
-        self._generated_json_window.protocol(
+        self._generated_audio_json_window = tk.Toplevel(self._root_window)
+        self._generated_audio_json_window.title("Generated Spectrograph Audio JSON")
+        self._generated_audio_json_window.geometry("760x720")
+        self._generated_audio_json_window.configure(background=WINDOW_BACKGROUND)
+        self._generated_audio_json_window.protocol(
             "WM_DELETE_WINDOW",
-            self._on_generated_json_window_closed,
+            self._on_generated_audio_json_window_closed,
         )
 
-        preview_frame = ttk.Frame(self._generated_json_window, style="Panel.TFrame", padding=12)
+        preview_frame = ttk.Frame(
+            self._generated_audio_json_window,
+            style="Panel.TFrame",
+            padding=12,
+        )
         preview_frame.pack(fill="both", expand=True)
         preview_frame.columnconfigure(0, weight=1)
         preview_frame.rowconfigure(1, weight=1)
@@ -695,10 +702,10 @@ class DesktopSpectrographAudioSourceWindow:
             preview_frame,
             text="Copy JSON",
             style="Accent.TButton",
-            command=self._copy_generated_json_to_clipboard,
+            command=self._copy_generated_audio_json_to_clipboard,
         ).grid(row=0, column=1, sticky="e")
 
-        self._generated_json_text_widget = ScrolledText(
+        self._generated_audio_json_text_widget = ScrolledText(
             preview_frame,
             wrap="word",
             background="#0c1d2e",
@@ -707,54 +714,56 @@ class DesktopSpectrographAudioSourceWindow:
             relief="flat",
             font=("Consolas", 10),
         )
-        self._generated_json_text_widget.grid(
+        self._generated_audio_json_text_widget.grid(
             row=1,
             column=0,
             columnspan=2,
             sticky="nsew",
             pady=(10, 0),
         )
-        self._generated_json_text_widget.configure(state="disabled")
-        self._update_generated_json_window()
+        self._generated_audio_json_text_widget.configure(state="disabled")
+        self._update_generated_audio_json_window()
 
-    def _update_generated_json_window(self) -> None:
+    def _update_generated_audio_json_window(self) -> None:
         """Refresh the detached JSON preview window if it is open."""
 
         if (
-            self._generated_json_window is None
-            or self._generated_json_text_widget is None
-            or not self._generated_json_window.winfo_exists()
+            self._generated_audio_json_window is None
+            or self._generated_audio_json_text_widget is None
+            or not self._generated_audio_json_window.winfo_exists()
         ):
             return
 
-        if self._latest_preview is None:
+        if self._latest_audio_source_preview is None:
             preview_text = "No valid generated audio JSON is available right now."
         else:
-            preview_text = self._latest_preview.generated_json_text
+            preview_text = self._latest_audio_source_preview.generated_json_text
 
-        self._generated_json_text_widget.configure(state="normal")
-        self._generated_json_text_widget.delete("1.0", "end")
-        self._generated_json_text_widget.insert("1.0", preview_text)
-        self._generated_json_text_widget.configure(state="disabled")
+        self._generated_audio_json_text_widget.configure(state="normal")
+        self._generated_audio_json_text_widget.delete("1.0", "end")
+        self._generated_audio_json_text_widget.insert("1.0", preview_text)
+        self._generated_audio_json_text_widget.configure(state="disabled")
 
-    def _copy_generated_json_to_clipboard(self) -> None:
+    def _copy_generated_audio_json_to_clipboard(self) -> None:
         """Copy the current generated JSON document to the clipboard."""
 
-        if self._latest_preview is None:
+        if self._latest_audio_source_preview is None:
             messagebox.showinfo("Copy JSON", "There is no generated JSON to copy yet.")
             return
 
         self._root_window.clipboard_clear()
-        self._root_window.clipboard_append(self._latest_preview.generated_json_text)
+        self._root_window.clipboard_append(
+            self._latest_audio_source_preview.generated_json_text
+        )
         self._delivery_status_variable.set("Copied the generated audio JSON to the clipboard.")
 
-    def _on_generated_json_window_closed(self) -> None:
+    def _on_generated_audio_json_window_closed(self) -> None:
         """Forget the detached JSON window after it closes."""
 
-        if self._generated_json_window is not None:
-            self._generated_json_window.destroy()
-        self._generated_json_window = None
-        self._generated_json_text_widget = None
+        if self._generated_audio_json_window is not None:
+            self._generated_audio_json_window.destroy()
+        self._generated_audio_json_window = None
+        self._generated_audio_json_text_widget = None
 
     def _schedule_status_poll(self) -> None:
         """Keep audio and live-send status current while the window is open."""

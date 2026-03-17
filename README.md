@@ -59,11 +59,12 @@ Halcyn is a C++20 application that accepts JSON scene descriptions over HTTP and
 5. Launch the dedicated spectrograph renderer with `.\scripts\launch-halcyn-spectrograph-app.ps1`.
 6. Launch the native desktop spectrograph operator console with `.\scripts\launch-desktop-spectrograph-control-panel.ps1` if you want to turn arbitrary JSON into a rolling 3D spectrograph scene.
 7. Launch the dedicated desktop spectrograph audio-source helper with `.\scripts\launch-desktop-spectrograph-audio-source-panel.ps1` if you want live output or input audio to feed the spectrograph suite.
-8. Launch the shared desktop data-source panel with `.\scripts\launch-desktop-multi-renderer-data-source-panel.ps1` if you want one live input source to drive the classic renderer, the spectrograph renderer, or both.
-9. Use the Control Center dashboard to run the prerequisite report, build, tests, and app startup from the browser.
-10. In the Scene Studio, either desktop control panel, the spectrograph audio-source panel, the shared data-source panel, or API Lab, generate and submit sample scenes to the live renderer.
-11. Open the docs site directly from the Control Center or with `.\scripts\serve-docs-site.ps1`.
-12. For a full Windows setup and troubleshooting guide, see `INSTALL.md`.
+8. If you want the whole spectrograph audio workflow opened for you in separate windows, run `.\scripts\launch-spectrograph-audio-workbench.ps1`.
+9. Launch the shared desktop data-source panel with `.\scripts\launch-desktop-multi-renderer-data-source-panel.ps1` if you want one live input source to drive the classic renderer, the spectrograph renderer, or both.
+10. Use the Control Center dashboard to run the prerequisite report, build, tests, and app startup from the browser.
+11. In the Scene Studio, either desktop control panel, the spectrograph audio-source panel, the shared data-source panel, or API Lab, generate and submit sample scenes to the live renderer.
+12. Open the docs site directly from the Control Center or with `.\scripts\serve-docs-site.ps1`.
+13. For a full Windows setup and troubleshooting guide, see `INSTALL.md`.
 
 ## PowerShell first-run note
 
@@ -189,6 +190,7 @@ Example:
 - `.\scripts\build-halcyn-app.ps1`
 - `.\scripts\launch-halcyn-app.ps1`
 - `.\scripts\launch-halcyn-spectrograph-app.ps1`
+- `.\scripts\launch-spectrograph-audio-workbench.ps1`
 - `.\scripts\run-native-tests.ps1`
 - `.\scripts\run-all-quality-checks.ps1`
 - `.\scripts\lint-browser-control-center.ps1`
@@ -239,6 +241,28 @@ Example:
 - API guide: `docs/site/api.html`
 - Testing guide: `docs/site/testing.html`
 - Code docs guide: `docs/site/code-docs.html`
+
+## Fastest spectrograph audio path
+
+If you want the quickest beginner-friendly way to see the spectrograph suite
+working with live audio, use this one command:
+
+```powershell
+.\scripts\launch-spectrograph-audio-workbench.ps1
+```
+
+That helper opens separate windows for:
+
+- the dedicated spectrograph renderer
+- the Desktop Spectrograph Control Panel
+- the Spectrograph Audio Source Panel
+
+After those windows open:
+
+1. Leave the external source bridge enabled in the spectrograph control panel.
+2. Choose an audio device in the audio-source panel.
+3. Click `Start capture`.
+4. Use `Send once` or `Start live`.
 
 ## Browser Control Center
 
