@@ -38,6 +38,7 @@
             <li><a href="scene-studio.html" data-nav-link="scene-studio">Scene Studio</a></li>
             <li><a href="desktop-control-panel.html" data-nav-link="desktop-control-panel">Desktop Control Panel</a></li>
             <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Spectrograph Suite</a></li>
+            <li><a href="spectrograph-audio-source-panel.html" data-nav-link="spectrograph-audio-source-panel">Spectrograph Audio Source Panel</a></li>
             <li><a href="multi-renderer-data-source-panel.html" data-nav-link="multi-renderer-data-source-panel">Shared Data Source Panel</a></li>
           </ul>
         </nav>
@@ -46,15 +47,23 @@
           <section class="panel">
             <h3>What the spectrograph suite is</h3>
             <p>
-              The spectrograph suite is a paired tool set:
+              The spectrograph suite is a coordinated tool set:
             </p>
             <ul>
               <li><code>.\scripts\launch-halcyn-spectrograph-app.ps1</code> starts a dedicated native renderer that defaults to a 3D bar-grid scene and API port <code>8090</code>.</li>
               <li><code>.\scripts\launch-desktop-spectrograph-control-panel.ps1</code> opens a native desktop operator app that turns generic JSON into a rolling 3D spectrograph scene.</li>
+              <li><code>.\scripts\launch-desktop-spectrograph-audio-source-panel.ps1</code> opens a companion native helper app that captures live audio and feeds it into the spectrograph control panel.</li>
             </ul>
             <div class="callout">
               The renderer still consumes ordinary Halcyn scene JSON. The new work lives in how the control panel interprets arbitrary source data and shapes it into a bar scene.
             </div>
+            <p>
+              If you want the quickest beginner path, run
+              <code>.\scripts\launch-spectrograph-audio-workbench.ps1</code>.
+              That one helper opens the renderer, the control panel, and the
+              audio-source panel in separate windows so you can see the whole
+              workflow without memorizing three separate commands first.
+            </p>
           </section>
 
           <section class="panel">
@@ -80,12 +89,18 @@
               <div class="card"><h4>Bar wall size</h4><p>Choose the <code>N</code> in the final <code>N x N</code> bar grid.</p></div>
               <div class="card"><h4>Render presentation</h4><p>Toggle multisample anti-aliasing and choose between <code>standard</code>, <code>neon</code>, and <code>heatmap</code> shader styles.</p></div>
               <div class="card"><h4>Geometry shape</h4><p>Change floor height and peak height so the bars can feel flatter, denser, taller, or more dramatic.</p></div>
+              <div class="card"><h4>External audio bridge</h4><p>Let the control panel follow live JSON arriving from the dedicated spectrograph audio-source panel while preserving the same preview, validate, apply, and live-stream workflow.</p></div>
               <div class="card"><h4>Live operation</h4><p>Preview, validate, apply once, or continuously live-stream at a chosen cadence.</p></div>
             </div>
             <p>
               If you want one shared live source to drive both the classic renderer and this
               spectrograph renderer, use the
               <a href="multi-renderer-data-source-panel.html">Shared Data Source Panel</a>.
+            </p>
+            <p>
+              If you want a helper app focused only on live audio capture for this renderer family,
+              study the
+              <a href="spectrograph-audio-source-panel.html">Spectrograph Audio Source Panel</a>.
             </p>
           </section>
 
@@ -109,8 +124,10 @@
           <section class="panel">
             <h3>Recommended learning order</h3>
             <ol>
-              <li>Launch the spectrograph renderer and confirm its startup scene appears.</li>
+              <li>Either launch the suite manually or start with <code>.\scripts\launch-spectrograph-audio-workbench.ps1</code>.</li>
+              <li>Confirm the spectrograph renderer window appears and shows its startup scene.</li>
               <li>Open the desktop spectrograph control panel and load one built-in example.</li>
+              <li>Then use the spectrograph audio-source panel, start output or input capture, and watch the bridge feed live JSON into the control panel.</li>
               <li>Switch between automatic and manual range modes and watch how the bars respond.</li>
               <li>Change the bar-grid size to see how grouping changes the final scene.</li>
               <li>Open the generated scene JSON window and compare the source data to the final renderer payload.</li>
@@ -135,10 +152,17 @@
 .\scripts\typecheck-desktop-spectrograph-control-panel.ps1
 .\scripts\test-desktop-spectrograph-control-panel.ps1
 .\scripts\measure-desktop-spectrograph-control-panel-coverage.ps1
-.\scripts\launch-desktop-multi-renderer-data-source-panel.ps1</code></pre>
+.\scripts\lint-desktop-spectrograph-audio-source-panel.ps1
+.\scripts\typecheck-desktop-spectrograph-audio-source-panel.ps1
+.\scripts\test-desktop-spectrograph-audio-source-panel.ps1
+.\scripts\measure-desktop-spectrograph-audio-source-panel-coverage.ps1</code></pre>
             <p>
               The repo-wide pass still lives at
               <code>.\scripts\run-all-quality-checks.ps1 -Configuration Debug</code>.
+            </p>
+            <p>
+              For the shared-source cross-renderer workflow, study the
+              <a href="multi-renderer-data-source-panel.html">Shared Data Source Panel</a>.
             </p>
           </section>
         </main>

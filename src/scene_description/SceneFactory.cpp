@@ -5,38 +5,77 @@
 
 #include "scene_description/SceneFactory.hpp"
 
+#include <algorithm>
+
 namespace halcyn::scene_description {
 namespace {
+ColorRgba ShadeColor(const ColorRgba& baseColor, float intensityMultiplier) {
+  auto clampChannel = [](float channel) { return std::max(0.0F, std::min(1.0F, channel)); };
+
+  return {clampChannel(baseColor.r * intensityMultiplier),
+          clampChannel(baseColor.g * intensityMultiplier),
+          clampChannel(baseColor.b * intensityMultiplier), baseColor.a};
+}
+
 void AppendBar(Scene3D& scene, float centerX, float centerZ, float width, float depth, float height,
                const ColorRgba& color) {
   const std::uint32_t firstVertexIndex = static_cast<std::uint32_t>(scene.vertices.size());
   const float halfWidth = width * 0.5F;
   const float halfDepth = depth * 0.5F;
 
-  scene.vertices.push_back(
-      {centerX - halfWidth, 0.0F, centerZ - halfDepth, color.r, color.g, color.b, color.a});
-  scene.vertices.push_back(
-      {centerX + halfWidth, 0.0F, centerZ - halfDepth, color.r, color.g, color.b, color.a});
-  scene.vertices.push_back(
-      {centerX + halfWidth, 0.0F, centerZ + halfDepth, color.r, color.g, color.b, color.a});
-  scene.vertices.push_back(
-      {centerX - halfWidth, 0.0F, centerZ + halfDepth, color.r, color.g, color.b, color.a});
-  scene.vertices.push_back(
-      {centerX - halfWidth, height, centerZ - halfDepth, color.r, color.g, color.b, color.a});
-  scene.vertices.push_back(
-      {centerX + halfWidth, height, centerZ - halfDepth, color.r, color.g, color.b, color.a});
-  scene.vertices.push_back(
-      {centerX + halfWidth, height, centerZ + halfDepth, color.r, color.g, color.b, color.a});
-  scene.vertices.push_back(
-      {centerX - halfWidth, height, centerZ + halfDepth, color.r, color.g, color.b, color.a});
+  // We intentionally duplicate the per-face vertices instead of sharing one set
+  // of corner vertices. That lets the spectrograph sample assign a brighter top
+  // face and darker side faces so the bars read as 3D even though Halcyn's
+  // renderer still uses simple color shading instead of a full normal-based
+  // lighting pipeline.
+  const ColorRgba floorColor = ShadeColor(color, 0.42F);
+  const ColorRgba topColor = ShadeColor(color, 1.18F);
+  const ColorRgba frontColor = ShadeColor(color, 0.82F);
+  const ColorRgba rightColor = ShadeColor(color, 0.96F);
+  const ColorRgba backColor = ShadeColor(color, 0.68F);
+  const ColorRgba leftColor = ShadeColor(color, 0.58F);
+
+  auto appendVertex = [&scene](float x, float y, float z, const ColorRgba& faceColor) {
+    scene.vertices.push_back({x, y, z, faceColor.r, faceColor.g, faceColor.b, faceColor.a});
+  };
+
+  appendVertex(centerX - halfWidth, 0.0F, centerZ - halfDepth, floorColor);
+  appendVertex(centerX + halfWidth, 0.0F, centerZ - halfDepth, floorColor);
+  appendVertex(centerX + halfWidth, 0.0F, centerZ + halfDepth, floorColor);
+  appendVertex(centerX - halfWidth, 0.0F, centerZ + halfDepth, floorColor);
+
+  appendVertex(centerX - halfWidth, height, centerZ - halfDepth, topColor);
+  appendVertex(centerX + halfWidth, height, centerZ - halfDepth, topColor);
+  appendVertex(centerX + halfWidth, height, centerZ + halfDepth, topColor);
+  appendVertex(centerX - halfWidth, height, centerZ + halfDepth, topColor);
+
+  appendVertex(centerX - halfWidth, 0.0F, centerZ - halfDepth, frontColor);
+  appendVertex(centerX + halfWidth, 0.0F, centerZ - halfDepth, frontColor);
+  appendVertex(centerX + halfWidth, height, centerZ - halfDepth, frontColor);
+  appendVertex(centerX - halfWidth, height, centerZ - halfDepth, frontColor);
+
+  appendVertex(centerX + halfWidth, 0.0F, centerZ - halfDepth, rightColor);
+  appendVertex(centerX + halfWidth, 0.0F, centerZ + halfDepth, rightColor);
+  appendVertex(centerX + halfWidth, height, centerZ + halfDepth, rightColor);
+  appendVertex(centerX + halfWidth, height, centerZ - halfDepth, rightColor);
+
+  appendVertex(centerX + halfWidth, 0.0F, centerZ + halfDepth, backColor);
+  appendVertex(centerX - halfWidth, 0.0F, centerZ + halfDepth, backColor);
+  appendVertex(centerX - halfWidth, height, centerZ + halfDepth, backColor);
+  appendVertex(centerX + halfWidth, height, centerZ + halfDepth, backColor);
+
+  appendVertex(centerX - halfWidth, 0.0F, centerZ + halfDepth, leftColor);
+  appendVertex(centerX - halfWidth, 0.0F, centerZ - halfDepth, leftColor);
+  appendVertex(centerX - halfWidth, height, centerZ - halfDepth, leftColor);
+  appendVertex(centerX - halfWidth, height, centerZ + halfDepth, leftColor);
 
   const std::array<std::uint32_t, 36> cubeIndices = {
-      0, 1, 2, 0, 2, 3, // floor
-      4, 5, 6, 4, 6, 7, // top
-      0, 1, 5, 0, 5, 4, // front
-      1, 2, 6, 1, 6, 5, // right
-      2, 3, 7, 2, 7, 6, // back
-      3, 0, 4, 3, 4, 7  // left
+      0,  1,  2,  0,  2,  3,  // floor
+      4,  5,  6,  4,  6,  7,  // top
+      8,  9,  10, 8,  10, 11, // front
+      12, 13, 14, 12, 14, 15, // right
+      16, 17, 18, 16, 18, 19, // back
+      20, 21, 22, 20, 22, 23  // left
   };
 
   for (const std::uint32_t indexOffset : cubeIndices) {

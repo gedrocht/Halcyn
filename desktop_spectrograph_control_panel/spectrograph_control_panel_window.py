@@ -51,6 +51,8 @@ class DesktopSpectrographControlPanelWindow:
         self._scene_preview_window: tk.Toplevel | None = None
         self._scene_preview_text_widget: ScrolledText | None = None
         self._latest_preview_result: SpectrographBuildResult | None = None
+        self._external_audio_bridge_host = "127.0.0.1"
+        self._external_audio_bridge_port = 8091
 
         self._root_window.title("Halcyn Spectrograph Control Panel")
         self._root_window.geometry("1600x940")
@@ -86,6 +88,11 @@ class DesktopSpectrographControlPanelWindow:
         self._peak_height_label_variable = tk.StringVar(value="3.40")
         self._live_cadence_variable = tk.IntVar(value=250)
         self._live_cadence_label_variable = tk.StringVar(value="250 ms")
+        self._external_source_enabled_variable = tk.BooleanVar(value=False)
+        self._external_source_status_variable = tk.StringVar(
+            value="External source bridge not checked yet."
+        )
+        self._external_bridge_address_variable = tk.StringVar(value="127.0.0.1:8091")
         self._result_status_variable = tk.StringVar(value="Ready.")
         self._health_status_variable = tk.StringVar(value="Renderer health not checked yet.")
         self._statistics_summary_variable = tk.StringVar(
@@ -203,7 +210,7 @@ class DesktopSpectrographControlPanelWindow:
         """Create the JSON input area and data-source helper buttons."""
 
         parent.columnconfigure(0, weight=1)
-        parent.rowconfigure(2, weight=1)
+        parent.rowconfigure(3, weight=1)
 
         example_button_frame = ttk.Frame(parent, style="Section.TFrame", padding=12)
         example_button_frame.grid(row=0, column=0, sticky="ew", pady=(0, 12))
@@ -270,8 +277,36 @@ class DesktopSpectrographControlPanelWindow:
             width=8,
         ).grid(row=0, column=3, sticky="w", padx=(10, 0))
 
+        external_bridge_frame = ttk.Frame(parent, style="Section.TFrame", padding=12)
+        external_bridge_frame.grid(row=2, column=0, sticky="ew", pady=(0, 12))
+        external_bridge_frame.columnconfigure(0, weight=1)
+        ttk.Label(
+            external_bridge_frame,
+            text="External source bridge",
+            style="Section.TLabel",
+        ).grid(row=0, column=0, sticky="w")
+        ttk.Checkbutton(
+            external_bridge_frame,
+            text="Use the latest data sent by helper tools such as the audio source panel",
+            variable=self._external_source_enabled_variable,
+            style="Dark.TCheckbutton",
+            command=self._refresh_preview,
+        ).grid(row=1, column=0, sticky="w", pady=(8, 0))
+        ttk.Label(
+            external_bridge_frame,
+            textvariable=self._external_bridge_address_variable,
+            style="Value.TLabel",
+        ).grid(row=2, column=0, sticky="w", pady=(8, 0))
+        ttk.Label(
+            external_bridge_frame,
+            textvariable=self._external_source_status_variable,
+            style="Body.TLabel",
+            wraplength=760,
+            justify="left",
+        ).grid(row=3, column=0, sticky="ew", pady=(8, 0))
+
         text_frame = ttk.Frame(parent, style="Section.TFrame", padding=12)
-        text_frame.grid(row=2, column=0, sticky="nsew")
+        text_frame.grid(row=3, column=0, sticky="nsew")
         text_frame.columnconfigure(0, weight=1)
         text_frame.rowconfigure(1, weight=1)
 
@@ -638,6 +673,11 @@ class DesktopSpectrographControlPanelWindow:
                 "host": self._target_host_variable.get(),
                 "port": self._safe_int(self._target_port_variable.get(), 8090),
             },
+            "externalAudioBridge": {
+                "enabled": self._external_source_enabled_variable.get(),
+                "host": self._external_audio_bridge_host,
+                "port": self._external_audio_bridge_port,
+            },
             "data": {
                 "jsonText": self._input_json_text_widget.get("1.0", "end").strip(),
             },
@@ -668,6 +708,14 @@ class DesktopSpectrographControlPanelWindow:
 
         self._target_host_variable.set(str(request_payload["target"]["host"]))
         self._target_port_variable.set(str(request_payload["target"]["port"]))
+        self._external_audio_bridge_host = str(request_payload["externalAudioBridge"]["host"])
+        self._external_audio_bridge_port = int(request_payload["externalAudioBridge"]["port"])
+        self._external_source_enabled_variable.set(
+            bool(request_payload["externalAudioBridge"]["enabled"])
+        )
+        self._external_bridge_address_variable.set(
+            f"{self._external_audio_bridge_host}:{self._external_audio_bridge_port}"
+        )
         self._replace_input_json_text(str(request_payload["data"]["jsonText"]))
         self._bar_grid_size_variable.set(int(request_payload["render"]["barGridSize"]))
         self._bar_grid_size_label_variable.set(
@@ -735,6 +783,7 @@ class DesktopSpectrographControlPanelWindow:
             f"Group size: {analysis['groupSize']}."
         )
         self._update_scene_json_window()
+        self._refresh_external_source_status()
 
     def _run_health_check(self) -> None:
         """Check whether the target spectrograph renderer is reachable."""
@@ -938,6 +987,44 @@ class DesktopSpectrographControlPanelWindow:
             f"Live stream {live_stream_snapshot['status']}. "
             f"Frames applied: {live_stream_snapshot['frames_applied']}. "
             f"Frames failed: {live_stream_snapshot['frames_failed']}."
+        )
+        self._refresh_external_source_status()
+
+    def _refresh_external_source_status(self) -> None:
+        """Refresh the external-source bridge summary shown in the data tab."""
+
+        external_source_status = self._controller.external_source_status()
+        bridge_status = external_source_status["bridge"]
+
+        if bridge_status["last_error"]:
+            self._external_source_status_variable.set(
+                f"Bridge error on {bridge_status['host']}:{bridge_status['port']}: "
+                f"{bridge_status['last_error']}"
+            )
+            return
+
+        if not bridge_status["listening"]:
+            self._external_source_status_variable.set(
+                "The external source bridge is not listening right now."
+            )
+            return
+
+        if external_source_status["latest_received_at_utc"]:
+            mode_summary = (
+                "following external data"
+                if self._external_source_enabled_variable.get()
+                else "receiving external data but still using the manual JSON editor"
+            )
+            self._external_source_status_variable.set(
+                f"Listening on {bridge_status['host']}:{bridge_status['port']} and {mode_summary}. "
+                f"Latest source: {external_source_status['latest_source_label']} at "
+                f"{external_source_status['latest_received_at_utc']}."
+            )
+            return
+
+        self._external_source_status_variable.set(
+            f"Listening on {bridge_status['host']}:{bridge_status['port']}. "
+            "No helper tool has sent live data yet."
         )
 
     def _on_close_requested(self) -> None:

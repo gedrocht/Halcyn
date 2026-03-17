@@ -4,7 +4,7 @@
 [![Pages](https://github.com/gedrocht/Halcyn/actions/workflows/pages.yml/badge.svg)](https://github.com/gedrocht/Halcyn/actions/workflows/pages.yml)
 [![CodeQL](https://github.com/gedrocht/Halcyn/actions/workflows/codeql.yml/badge.svg)](https://github.com/gedrocht/Halcyn/actions/workflows/codeql.yml)
 
-Halcyn is a C++20 application that accepts JSON scene descriptions over HTTP and renders them in a GPU-backed OpenGL window at a 60 FPS target. It supports both 2D and 3D payloads, includes unit tests, ships with example scenes and helper scripts, and now includes a growing family of operator tools around the renderer: a browser-based Control Center, a separate browser-facing Scene Studio, a native desktop render control panel for hardware-aware live control, a dedicated spectrograph-oriented renderer executable, a native desktop spectrograph control panel that turns generic JSON into a rolling 3D bar wall, and a new shared desktop data-source panel that can feed either renderer family or both at once.
+Halcyn is a C++20 application that accepts JSON scene descriptions over HTTP and renders them in a GPU-backed OpenGL window at a 60 FPS target. It supports both 2D and 3D payloads, includes unit tests, ships with example scenes and helper scripts, and now includes a growing family of operator tools around the renderer: a browser-based Control Center, a separate browser-facing Scene Studio, a native desktop render control panel for hardware-aware live control, a dedicated spectrograph-oriented renderer executable, a native desktop spectrograph control panel that turns generic JSON into a rolling 3D bar wall, a dedicated desktop spectrograph audio-source helper that captures live audio for that suite, and a shared desktop data-source panel that can feed either renderer family or both at once.
 
 ## What you get
 
@@ -17,6 +17,7 @@ Halcyn is a C++20 application that accepts JSON scene descriptions over HTTP and
 - A native desktop operator app under `desktop_render_control_panel/` that can preview, validate, apply, and live-stream scenes while selecting real local audio devices.
 - A dedicated spectrograph renderer executable that starts with a 3D bar-grid scene and exposes its own default API port.
 - A native desktop spectrograph operator app under `desktop_spectrograph_control_panel/` that accepts very generic JSON, normalizes it through a rolling statistical range, and turns it into a controllable 3D spectrograph scene.
+- A native desktop spectrograph audio-source helper under `desktop_spectrograph_audio_source_panel/` that captures output or input audio and sends readable JSON into the spectrograph control panel's local bridge.
 - A shared native desktop data-source app under `desktop_multi_renderer_data_source_panel/` that captures or generates one live data stream and routes it into the classic renderer, the spectrograph renderer, or both.
 - A small shared desktop support package under `desktop_shared_control_support/` so desktop apps can share renderer HTTP helpers and audio-device integration through one clear import path.
 - A static dark-mode docs site under `docs/site`.
@@ -34,6 +35,7 @@ Halcyn is a C++20 application that accepts JSON scene descriptions over HTTP and
 |-- browser_control_center/
 |-- desktop_render_control_panel/
 |-- desktop_spectrograph_control_panel/
+|-- desktop_spectrograph_audio_source_panel/
 |-- desktop_multi_renderer_data_source_panel/
 |-- desktop_shared_control_support/
 |-- scripts/
@@ -56,11 +58,13 @@ Halcyn is a C++20 application that accepts JSON scene descriptions over HTTP and
 4. Launch the native desktop render control panel with `.\scripts\launch-desktop-render-control-panel.ps1` if you want local audio-device selection and instant 2D/3D switching in a desktop window.
 5. Launch the dedicated spectrograph renderer with `.\scripts\launch-halcyn-spectrograph-app.ps1`.
 6. Launch the native desktop spectrograph operator console with `.\scripts\launch-desktop-spectrograph-control-panel.ps1` if you want to turn arbitrary JSON into a rolling 3D spectrograph scene.
-7. Launch the shared desktop data-source panel with `.\scripts\launch-desktop-multi-renderer-data-source-panel.ps1` if you want one live input source to drive the classic renderer, the spectrograph renderer, or both.
-8. Use the Control Center dashboard to run the prerequisite report, build, tests, and app startup from the browser.
-9. In the Scene Studio, either desktop control panel, the shared data-source panel, or API Lab, generate and submit sample scenes to the live renderer.
-10. Open the docs site directly from the Control Center or with `.\scripts\serve-docs-site.ps1`.
-11. For a full Windows setup and troubleshooting guide, see `INSTALL.md`.
+7. Launch the dedicated desktop spectrograph audio-source helper with `.\scripts\launch-desktop-spectrograph-audio-source-panel.ps1` if you want live output or input audio to feed the spectrograph suite.
+8. If you want the whole spectrograph audio workflow opened for you in separate windows, run `.\scripts\launch-spectrograph-audio-workbench.ps1`.
+9. Launch the shared desktop data-source panel with `.\scripts\launch-desktop-multi-renderer-data-source-panel.ps1` if you want one live input source to drive the classic renderer, the spectrograph renderer, or both.
+10. Use the Control Center dashboard to run the prerequisite report, build, tests, and app startup from the browser.
+11. In the Scene Studio, either desktop control panel, the spectrograph audio-source panel, the shared data-source panel, or API Lab, generate and submit sample scenes to the live renderer.
+12. Open the docs site directly from the Control Center or with `.\scripts\serve-docs-site.ps1`.
+13. For a full Windows setup and troubleshooting guide, see `INSTALL.md`.
 
 ## PowerShell first-run note
 
@@ -86,6 +90,8 @@ Optional extras:
 
 - `doxygen` for generated code docs
 - `clang-format` for the formatting script
+- Python package `sounddevice` for microphone or line-input capture in desktop tools
+- Python package `soundcard` for desktop output-loopback capture in desktop tools
 
 Helpful install routes:
 
@@ -93,6 +99,8 @@ Helpful install routes:
 - LLVM and `clang-format`: `winget install LLVM.LLVM`
 - Doxygen: `winget install DimitriVanHeesch.Doxygen`
 - Python package: `python -m pip install jinja2`
+- Audio input package: `python -m pip install sounddevice`
+- Output loopback package: `python -m pip install soundcard`
 
 For the easiest Windows-native path, install Visual Studio 2022 Build Tools from `https://visualstudio.microsoft.com/downloads/` and select the `Desktop development with C++` workload.
 
@@ -182,6 +190,7 @@ Example:
 - `.\scripts\build-halcyn-app.ps1`
 - `.\scripts\launch-halcyn-app.ps1`
 - `.\scripts\launch-halcyn-spectrograph-app.ps1`
+- `.\scripts\launch-spectrograph-audio-workbench.ps1`
 - `.\scripts\run-native-tests.ps1`
 - `.\scripts\run-all-quality-checks.ps1`
 - `.\scripts\lint-browser-control-center.ps1`
@@ -193,19 +202,24 @@ Example:
 - `.\scripts\launch-browser-scene-studio.ps1`
 - `.\scripts\launch-desktop-render-control-panel.ps1`
 - `.\scripts\launch-desktop-spectrograph-control-panel.ps1`
+- `.\scripts\launch-desktop-spectrograph-audio-source-panel.ps1`
 - `.\scripts\launch-desktop-multi-renderer-data-source-panel.ps1`
 - `.\scripts\test-browser-control-center.ps1`
 - `.\scripts\test-desktop-render-control-panel.ps1`
 - `.\scripts\test-desktop-spectrograph-control-panel.ps1`
+- `.\scripts\test-desktop-spectrograph-audio-source-panel.ps1`
 - `.\scripts\test-desktop-multi-renderer-data-source-panel.ps1`
 - `.\scripts\lint-desktop-render-control-panel.ps1`
 - `.\scripts\lint-desktop-spectrograph-control-panel.ps1`
+- `.\scripts\lint-desktop-spectrograph-audio-source-panel.ps1`
 - `.\scripts\lint-desktop-multi-renderer-data-source-panel.ps1`
 - `.\scripts\typecheck-desktop-render-control-panel.ps1`
 - `.\scripts\typecheck-desktop-spectrograph-control-panel.ps1`
+- `.\scripts\typecheck-desktop-spectrograph-audio-source-panel.ps1`
 - `.\scripts\typecheck-desktop-multi-renderer-data-source-panel.ps1`
 - `.\scripts\measure-desktop-render-control-panel-coverage.ps1`
 - `.\scripts\measure-desktop-spectrograph-control-panel-coverage.ps1`
+- `.\scripts\measure-desktop-spectrograph-audio-source-panel-coverage.ps1`
 - `.\scripts\measure-desktop-multi-renderer-data-source-panel-coverage.ps1`
 - `.\scripts\post-example-2d-scene.ps1`
 - `.\scripts\post-example-3d-scene.ps1`
@@ -221,11 +235,34 @@ Example:
 - Scene Studio guide: `docs/site/scene-studio.html`
 - Desktop control panel guide: `docs/site/desktop-control-panel.html`
 - Spectrograph suite guide: `docs/site/spectrograph-suite.html`
+- Spectrograph audio-source panel guide: `docs/site/spectrograph-audio-source-panel.html`
 - Shared data-source panel guide: `docs/site/multi-renderer-data-source-panel.html`
 - Architecture guide: `docs/site/architecture.html`
 - API guide: `docs/site/api.html`
 - Testing guide: `docs/site/testing.html`
 - Code docs guide: `docs/site/code-docs.html`
+
+## Fastest spectrograph audio path
+
+If you want the quickest beginner-friendly way to see the spectrograph suite
+working with live audio, use this one command:
+
+```powershell
+.\scripts\launch-spectrograph-audio-workbench.ps1
+```
+
+That helper opens separate windows for:
+
+- the dedicated spectrograph renderer
+- the Desktop Spectrograph Control Panel
+- the Spectrograph Audio Source Panel
+
+After those windows open:
+
+1. Leave the external source bridge enabled in the spectrograph control panel.
+2. Choose an audio device in the audio-source panel.
+3. Click `Start capture`.
+4. Use `Send once` or `Start live`.
 
 ## Browser Control Center
 
@@ -300,6 +337,19 @@ Run `.\scripts\launch-desktop-spectrograph-control-panel.ps1` to open the native
 - preview, validate, apply, and live-stream the generated spectrograph scene
 - save and load operator settings as JSON
 - open the fully generated Halcyn scene JSON in a separate study window
+- optionally follow the latest JSON arriving from the dedicated spectrograph audio-source helper
+
+## Desktop Spectrograph Audio Source Panel
+
+Run `.\scripts\launch-desktop-spectrograph-audio-source-panel.ps1` to open the native spectrograph audio-source helper. This app can:
+
+- choose from desktop `Output sources` or microphone-style `Input sources`
+- refresh the device list and start or stop capture explicitly
+- show a live volume meter for the currently selected source
+- package a rolling history of audio snapshots into readable generic JSON
+- send that JSON once or repeatedly to the spectrograph control panel's local external-data bridge
+- save and reload a versioned settings document
+- open the fully generated bridge JSON in a separate study window
 
 ## Code documentation generation
 
@@ -315,7 +365,8 @@ Run `.\scripts\create-release-package.ps1` to produce a versioned ZIP file under
 - The Control Center is linted, type-checked, and required to maintain at least 90% Python coverage.
 - The desktop render control panel is also linted, type-checked, and required to maintain at least 90% Python coverage.
 - The desktop spectrograph control panel is also linted, type-checked, and required to maintain at least 90% Python coverage.
-- GitHub Actions lint and cover all three Python operator surfaces, build the native project in Debug and Release, and run the native tests.
+- The desktop spectrograph audio-source panel is also linted, type-checked, and required to maintain at least 90% Python coverage.
+- GitHub Actions lint and cover all maintained Python operator surfaces, build the native project in Debug and Release, and run the native tests.
 - CodeQL analyzes the native code on pushes, pull requests, and a weekly schedule.
 - The Pages workflow now publishes the static docs site together with generated Doxygen output.
 - Repository formatting is explicitly governed by `.clang-format` and `.editorconfig`.

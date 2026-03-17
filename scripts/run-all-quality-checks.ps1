@@ -49,6 +49,15 @@ else {
 }
 
 Write-Host ''
+Write-Host 'Running desktop spectrograph audio source panel lint...'
+if (Test-PythonCommand -Arguments @('-m', 'ruff', '--version')) {
+  & (Join-Path $PSScriptRoot 'lint-desktop-spectrograph-audio-source-panel.ps1')
+}
+else {
+  Write-Host 'Skipping desktop spectrograph audio source panel lint because ruff is not yet available.'
+}
+
+Write-Host ''
 Write-Host 'Running desktop multi-renderer data source panel lint...'
 if (Test-PythonCommand -Arguments @('-m', 'ruff', '--version')) {
   & (Join-Path $PSScriptRoot 'lint-desktop-multi-renderer-data-source-panel.ps1')
@@ -82,6 +91,15 @@ if (Test-PythonCommand -Arguments @('-m', 'mypy', '--version')) {
 }
 else {
   Write-Host 'Skipping desktop spectrograph control panel type checks because mypy is not yet available.'
+}
+
+Write-Host ''
+Write-Host 'Running desktop spectrograph audio source panel type checks...'
+if (Test-PythonCommand -Arguments @('-m', 'mypy', '--version')) {
+  & (Join-Path $PSScriptRoot 'typecheck-desktop-spectrograph-audio-source-panel.ps1')
+}
+else {
+  Write-Host 'Skipping desktop spectrograph audio source panel type checks because mypy is not yet available.'
 }
 
 Write-Host ''
@@ -121,6 +139,16 @@ if (Test-PythonCommand -Arguments @('-m', 'coverage', '--version')) {
 else {
   Write-Host 'Falling back to plain desktop spectrograph control panel tests because coverage is not yet available.'
   & (Join-Path $PSScriptRoot 'test-desktop-spectrograph-control-panel.ps1')
+}
+
+Write-Host ''
+Write-Host 'Running desktop spectrograph audio source panel quality checks...'
+if (Test-PythonCommand -Arguments @('-m', 'coverage', '--version')) {
+  & (Join-Path $PSScriptRoot 'measure-desktop-spectrograph-audio-source-panel-coverage.ps1')
+}
+else {
+  Write-Host 'Falling back to plain desktop spectrograph audio source panel tests because coverage is not yet available.'
+  & (Join-Path $PSScriptRoot 'test-desktop-spectrograph-audio-source-panel.ps1')
 }
 
 Write-Host ''

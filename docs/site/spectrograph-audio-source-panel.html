@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Halcyn Spectrograph Audio Source Panel</title>
+    <link rel="stylesheet" href="assets/styles.css">
+    <script defer src="assets/app.js"></script>
+  </head>
+  <body data-page="spectrograph-audio-source-panel">
+    <div class="page-shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true"></div>
+          <div class="brand-copy">
+            <h1>Spectrograph Audio Source Panel</h1>
+            <p>A beginner-friendly desktop app that captures live audio and feeds the spectrograph suite.</p>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <button class="button" data-theme-toggle>Toggle theme</button>
+          <a class="button" href="https://github.com/gedrocht/Halcyn/blob/main/scripts/launch-desktop-spectrograph-audio-source-panel.ps1">View audio-source launcher</a>
+        </div>
+      </header>
+
+      <div class="content-grid">
+        <nav class="nav-card">
+          <h3>Docs map</h3>
+          <ul>
+            <li><a href="index.html" data-nav-link="index">Overview</a></li>
+            <li><a href="tutorial.html" data-nav-link="tutorial">Tutorial</a></li>
+            <li><a href="api.html" data-nav-link="api">API Reference</a></li>
+            <li><a href="architecture.html" data-nav-link="architecture">Architecture</a></li>
+            <li><a href="testing.html" data-nav-link="testing">Testing</a></li>
+            <li><a href="code-docs.html" data-nav-link="code-docs">Code Docs</a></li>
+            <li><a href="field-reference.html" data-nav-link="field-reference">Field Reference</a></li>
+            <li><a href="control-center.html" data-nav-link="control-center">Control Center</a></li>
+            <li><a href="scene-studio.html" data-nav-link="scene-studio">Scene Studio</a></li>
+            <li><a href="desktop-control-panel.html" data-nav-link="desktop-control-panel">Desktop Control Panel</a></li>
+            <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Spectrograph Suite</a></li>
+            <li><a href="spectrograph-audio-source-panel.html" data-nav-link="spectrograph-audio-source-panel">Spectrograph Audio Source Panel</a></li>
+            <li><a href="multi-renderer-data-source-panel.html" data-nav-link="multi-renderer-data-source-panel">Shared Data Source Panel</a></li>
+          </ul>
+        </nav>
+
+        <main>
+          <section class="panel">
+            <h3>What this app is for</h3>
+            <p>
+              This desktop app solves one focused problem: it listens to a real local audio
+              source, turns the recent activity into a readable JSON document, and sends that JSON
+              into the Desktop Spectrograph Control Panel.
+            </p>
+            <div class="callout">
+              Think of the spectrograph control panel as the place that decides
+              <em>how the bars should look</em>, while this audio-source panel decides
+              <em>what live audio data should feed those bars</em>.
+            </div>
+          </section>
+
+          <section class="panel">
+            <h3>Why the audio source lives in a separate app</h3>
+            <div class="cards">
+              <div class="card"><h4>Cleaner learning path</h4><p>A beginner can study capture and rendering as two related problems instead of one huge window that tries to explain everything at once.</p></div>
+              <div class="card"><h4>Safer boundaries</h4><p>The apps talk through a tiny local bridge contract instead of reaching into each other's UI controls directly.</p></div>
+              <div class="card"><h4>Better reuse later</h4><p>The same capture logic can grow independently if you later want more sources, more analysis, or more renderer targets.</p></div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h3>Two-app workflow</h3>
+            <p>
+              If you want the whole spectrograph audio path opened for you, run
+              <code>.\scripts\launch-spectrograph-audio-workbench.ps1</code>.
+              That helper opens the renderer, the spectrograph control panel,
+              and this audio-source panel in separate windows.
+            </p>
+            <ol>
+              <li>Start the dedicated renderer with <code>.\scripts\launch-halcyn-spectrograph-app.ps1</code>.</li>
+              <li>Start the operator console with <code>.\scripts\launch-desktop-spectrograph-control-panel.ps1</code>.</li>
+              <li>In that control panel, leave the external audio bridge enabled so it listens for helper-app input.</li>
+              <li>Start this app with <code>.\scripts\launch-desktop-spectrograph-audio-source-panel.ps1</code>.</li>
+              <li>Choose <strong>Output sources</strong> if you want desktop loopback audio, or <strong>Input sources</strong> if you want a microphone-style source.</li>
+              <li>Pick a device, click <strong>Start capture</strong>, and watch the volume bar move.</li>
+              <li>Use <strong>Send once</strong> to test the bridge, or <strong>Start live</strong> for continuous updates.</li>
+            </ol>
+          </section>
+
+          <section class="panel">
+            <h3>What the app can control</h3>
+            <div class="cards">
+              <div class="card"><h4>Audio source flow</h4><p>Switch between desktop output loopback and microphone-style input devices.</p></div>
+              <div class="card"><h4>Device selection</h4><p>Refresh the device list, choose the active device, and start or stop capture explicitly.</p></div>
+              <div class="card"><h4>Volume monitor</h4><p>Watch one simple live meter so you can immediately tell whether the chosen source is active.</p></div>
+              <div class="card"><h4>Rolling history</h4><p>Choose how many recent frames should be kept when the app builds the outgoing JSON document.</p></div>
+              <div class="card"><h4>Bridge target</h4><p>Choose the host, port, path, and source label for the local bridge delivery.</p></div>
+              <div class="card"><h4>Live cadence</h4><p>Set how frequently the generated JSON should be posted while live sending is running.</p></div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h3>What the generated JSON contains</h3>
+            <p>
+              The output intentionally stays generic. That means the spectrograph control panel can
+              keep using its existing JSON flattening pipeline instead of learning a new binary or
+              specialized audio protocol.
+            </p>
+            <pre><code>{
+  "sourceType": "spectrograph-audio-source-panel",
+  "device": {
+    "name": "Desktop speakers",
+    "identifier": "speaker-1",
+    "flow": "output"
+  },
+  "summary": {
+    "available": true,
+    "capturing": true,
+    "currentLevel": 0.71,
+    "currentBass": 0.62,
+    "currentMid": 0.33,
+    "currentTreble": 0.18,
+    "averageLevel": 0.46,
+    "peakLevel": 0.88
+  },
+  "audioFrames": [
+    { "level": 0.12, "bass": 0.08, "mid": 0.04, "treble": 0.01 },
+    { "level": 0.71, "bass": 0.62, "mid": 0.33, "treble": 0.18 }
+  ]
+}</code></pre>
+            <p>
+              If you open the JSON preview window, you can study the full document that will be
+              sent across the local bridge.
+            </p>
+          </section>
+
+          <section class="panel">
+            <h3>How the bridge works</h3>
+            <p>
+              The spectrograph control panel starts a tiny local HTTP server at
+              <code>/external-data</code>. This app posts JSON to that route. The control panel
+              then treats that incoming text as its newest external JSON source and can use it
+              during preview, validate, apply, or live-stream operations.
+            </p>
+            <p>
+              That design keeps the boundary simple: one app is responsible for capture, and the
+              other remains responsible for translating generic JSON into the final bar scene.
+            </p>
+          </section>
+
+          <section class="panel">
+            <h3>Helpful external references</h3>
+            <ul>
+              <li><a href="https://docs.python.org/3/library/tkinter.html">Tkinter overview</a></li>
+              <li><a href="https://docs.python.org/3/library/tkinter.ttk.html">Tk themed widgets (<code>ttk</code>)</a></li>
+              <li><a href="https://docs.python.org/3/library/tkinter.scrolledtext.html">ScrolledText widget</a></li>
+              <li><a href="https://docs.python.org/3/library/urllib.request.html">urllib.request</a></li>
+              <li><a href="https://docs.python.org/3/library/http.server.html">http.server</a></li>
+              <li><a href="https://python-sounddevice.readthedocs.io/">sounddevice</a></li>
+              <li><a href="https://soundcard.readthedocs.io/">soundcard</a></li>
+            </ul>
+          </section>
+
+          <section class="panel">
+            <h3>Testing and quality gates</h3>
+            <pre><code>.\scripts\lint-desktop-spectrograph-audio-source-panel.ps1
+.\scripts\typecheck-desktop-spectrograph-audio-source-panel.ps1
+.\scripts\test-desktop-spectrograph-audio-source-panel.ps1
+.\scripts\measure-desktop-spectrograph-audio-source-panel-coverage.ps1</code></pre>
+            <p>
+              The repo-wide pass still lives at
+              <code>.\scripts\run-all-quality-checks.ps1 -Configuration Debug</code>.
+            </p>
+          </section>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

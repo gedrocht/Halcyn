@@ -57,8 +57,12 @@
               <dt>6.</dt>
               <dd>Run <code>.\scripts\launch-desktop-spectrograph-control-panel.ps1</code> to turn generic JSON into a rolling spectrograph scene.</dd>
               <dt>7.</dt>
-              <dd>Run <code>.\scripts\launch-desktop-multi-renderer-data-source-panel.ps1</code> to drive the classic renderer, the spectrograph renderer, or both from one data source.</dd>
+              <dd>Run <code>.\scripts\launch-desktop-spectrograph-audio-source-panel.ps1</code> if you want a dedicated live-audio helper for the spectrograph suite.</dd>
               <dt>8.</dt>
+              <dd>Run <code>.\scripts\launch-spectrograph-audio-workbench.ps1</code> if you want the dedicated spectrograph renderer, the spectrograph control panel, and the audio helper opened together for you.</dd>
+              <dt>9.</dt>
+              <dd>Run <code>.\scripts\launch-desktop-multi-renderer-data-source-panel.ps1</code> to drive the classic renderer, the spectrograph renderer, or both from one data source.</dd>
+              <dt>10.</dt>
               <dd>Read the tutorial page to learn how each layer works.</dd>
             </dl>
           </aside>
@@ -80,6 +84,7 @@
             <li><a href="scene-studio.html">Scene Studio</a></li>
             <li><a href="desktop-control-panel.html">Desktop Control Panel</a></li>
             <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Spectrograph Suite</a></li>
+            <li><a href="spectrograph-audio-source-panel.html" data-nav-link="spectrograph-audio-source-panel">Spectrograph Audio Source Panel</a></li>
             <li><a href="multi-renderer-data-source-panel.html" data-nav-link="multi-renderer-data-source-panel">Shared Data Source Panel</a></li>
           </ul>
         </nav>
@@ -169,6 +174,10 @@
                     <td>A native operator console that turns generic JSON into a statistically normalized 3D bar-grid spectrograph scene.</td>
                   </tr>
                   <tr>
+                    <td><code>desktop_spectrograph_audio_source_panel</code></td>
+                    <td>A native helper app that captures live audio, builds readable JSON, and feeds the spectrograph control panel through a local bridge.</td>
+                  </tr>
+                  <tr>
                     <td><code>desktop_multi_renderer_data_source_panel</code></td>
                     <td>A native routing console that captures one data source and sends translated scenes to the classic renderer, the spectrograph renderer, or both.</td>
                   </tr>
@@ -202,7 +211,11 @@
               </div>
               <div class="card">
                 <h4>Spectrograph Suite</h4>
-                <p>Launch <code>.\scripts\launch-halcyn-spectrograph-app.ps1</code> and <code>.\scripts\launch-desktop-spectrograph-control-panel.ps1</code> to drive a 3D bar wall from generic JSON with adaptive range normalization.</p>
+                <p>Launch <code>.\scripts\launch-spectrograph-audio-workbench.ps1</code> for the easiest full setup, or use <code>.\scripts\launch-halcyn-spectrograph-app.ps1</code> plus <code>.\scripts\launch-desktop-spectrograph-control-panel.ps1</code> if you want the manual step-by-step route.</p>
+              </div>
+              <div class="card">
+                <h4>Spectrograph Audio Source Panel</h4>
+                <p>Launch <code>.\scripts\launch-desktop-spectrograph-audio-source-panel.ps1</code> to capture live output or input audio and feed it into the spectrograph control panel.</p>
               </div>
               <div class="card">
                 <h4>Shared Data Source Panel</h4>
