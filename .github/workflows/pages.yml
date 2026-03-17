@@ -6,9 +6,11 @@ on:
       - main
     paths:
       - "docs/site/**"
+      - "docs/wiki/**"
       - "src/**"
       - "README.md"
       - "Doxyfile"
+      - "mkdocs-wiki.yml"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -38,15 +40,28 @@ jobs:
       - name: Install Doxygen
         run: sudo apt-get update && sudo apt-get install -y doxygen
 
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+
+      - name: Install wiki build dependencies
+        run: python -m pip install --upgrade pip mkdocs pymdown-extensions
+
       - name: Generate code documentation
         run: doxygen Doxyfile
+
+      - name: Build beginner walkthrough wiki
+        run: python -m mkdocs build --strict -f mkdocs-wiki.yml
 
       - name: Assemble publish directory
         run: |
           rm -rf .pages
           mkdir -p .pages/generated-code-docs
+          mkdir -p .pages/wiki
           cp -R docs/site/. .pages/
           cp -R docs/generated/code-reference/. .pages/generated-code-docs/
+          cp -R artifacts/beginner-wiki-site/. .pages/wiki/
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4

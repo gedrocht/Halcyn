@@ -1,0 +1,55 @@
+site_name: Halcyn Walkthrough Wiki
+site_description: Beginner-first, narrative documentation for learning Halcyn step by step.
+site_url: https://gedrocht.github.io/Halcyn/wiki/
+repo_url: https://github.com/gedrocht/Halcyn
+repo_name: gedrocht/Halcyn
+docs_dir: docs/wiki
+site_dir: artifacts/beginner-wiki-site
+use_directory_urls: true
+exclude_docs: README.md
+
+theme:
+  name: readthedocs
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+
+nav:
+  - Home: index.md
+  - Begin Here:
+      - Start Here: 01-start-here.md
+      - Meet the Cast: 02-meet-the-cast.md
+      - Follow One Scene: 03-follow-one-scene.md
+      - Scene JSON Without Fear: 04-scene-json-without-fear.md
+  - Learn the Tools:
+      - Browser Tools in Plain Language: 05-browser-tools-in-plain-language.md
+      - Visualizer Studio as a Daily Driver: 06-visualizer-studio-as-a-daily-driver.md
+      - How the Browser and Desktop Tools Share the Work: 14-how-the-tools-fit-together.md
+      - Which Tool Should I Open?: appendix-which-tool-should-i-open.md
+  - Work With Data:
+      - How Bar-Wall Scenes Think: 07-how-bar-wall-scenes-think.md
+      - Common Workflows: 11-common-workflows.md
+      - Command Cheat Sheet: appendix-command-cheat-sheet.md
+  - Stay Safe:
+      - The Safety Net: 08-the-safety-net.md
+      - How To Read the Activity Monitor: 10-how-to-read-the-activity-monitor.md
+      - Troubleshooting Without Panic: 12-troubleshooting-without-panic.md
+      - How the Tests Protect You: 13-how-the-tests-protect-you.md
+  - Extend Halcyn:
+      - How To Extend Halcyn: 09-how-to-extend-halcyn.md
+      - Building Features With Confidence: 15-building-features-with-confidence.md
+  - Appendices:
+      - Glossary: appendix-glossary.md
+      - Your First Hour With Halcyn: appendix-first-hour.md

@@ -78,6 +78,15 @@ else {
 }
 
 Write-Host ''
+Write-Host 'Building beginner walkthrough wiki...'
+if (Test-PythonCommand -Arguments @('-m', 'mkdocs', '--version')) {
+  & (Join-Path $PSScriptRoot 'build-beginner-wiki.ps1')
+}
+else {
+  Write-Host 'Skipping beginner walkthrough wiki build because mkdocs is not yet available.'
+}
+
+Write-Host ''
 Write-Host 'Running prerequisite report...'
 & (Join-Path $PSScriptRoot 'report-prerequisites.ps1')
 
