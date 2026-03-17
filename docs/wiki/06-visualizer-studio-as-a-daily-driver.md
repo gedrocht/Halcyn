@@ -85,9 +85,9 @@ They solve different comfort problems:
 
 ## Formal references for this chapter
 
-- [Visualizer Studio guide](../site/desktop-control-panel.html)
-- [Bar-wall scene guide](../site/spectrograph-suite.html)
-- [Control Center guide](../site/control-center.html)
+- [Visualizer Studio guide](https://gedrocht.github.io/Halcyn/desktop-control-panel.html)
+- [Bar-wall scene guide](https://gedrocht.github.io/Halcyn/spectrograph-suite.html)
+- [Control Center guide](https://gedrocht.github.io/Halcyn/control-center.html)
 
 ## Helpful external references
 
@@ -97,6 +97,6 @@ They solve different comfort problems:
 - [sounddevice docs](https://python-sounddevice.readthedocs.io/)
 - [soundcard docs](https://soundcard.readthedocs.io/)
 
-Walkthrough index: [Return to the walkthrough index](README.md)  
-Previous chapter: [Chapter 5: Browser Tools in Plain Language](05-browser-tools-in-plain-language.md)  
-Next chapter: [Chapter 7: How Bar-Wall Scenes Think](07-how-bar-wall-scenes-think.md)
+- Walkthrough index: [Return to the walkthrough index](index.md)
+- Previous chapter: [Chapter 5: Browser Tools in Plain Language](05-browser-tools-in-plain-language.md)
+- Next chapter: [Chapter 7: How Bar-Wall Scenes Think](07-how-bar-wall-scenes-think.md)

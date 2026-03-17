@@ -94,4 +94,4 @@ Do just this:
 
 That is already a real first contact with the project.
 
-Walkthrough index: [Return to the walkthrough index](README.md)
+- Walkthrough index: [Return to the walkthrough index](index.md)

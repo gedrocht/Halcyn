@@ -51,6 +51,7 @@ $doxygenPath = Get-ResolvedToolPath -ToolName 'doxygen'
 $clangFormatPath = Get-ResolvedToolPath -ToolName 'clang-format'
 $pythonJinja2Available = Test-PythonModuleAvailable -ModuleName 'jinja2'
 $pythonTtkbootstrapAvailable = Test-PythonModuleAvailable -ModuleName 'ttkbootstrap'
+$pythonMkdocsAvailable = Test-PythonModuleAvailable -ModuleName 'mkdocs'
 $pythonSoundDeviceAvailable = Test-PythonModuleAvailable -ModuleName 'sounddevice'
 $pythonSoundCardAvailable = Test-PythonModuleAvailable -ModuleName 'soundcard'
 $visualStudioInstallation = Test-VisualStudio2022Available
@@ -66,6 +67,7 @@ Write-ToolStatus -Name 'cmake' -IsAvailable ($null -ne $cmakeCommand) -Details (
 Write-ToolStatus -Name 'python' -IsAvailable ($null -ne $pythonCommand) -Details ($pythonCommand.Source)
 Write-ToolStatus -Name 'python-jinja2' -IsAvailable $pythonJinja2Available
 Write-ToolStatus -Name 'python-ttkbootstrap' -IsAvailable $pythonTtkbootstrapAvailable
+Write-ToolStatus -Name 'python-mkdocs' -IsAvailable $pythonMkdocsAvailable
 Write-ToolStatus -Name 'python-sounddevice' -IsAvailable $pythonSoundDeviceAvailable
 Write-ToolStatus -Name 'python-soundcard' -IsAvailable $pythonSoundCardAvailable
 Write-ToolStatus -Name 'git' -IsAvailable ($null -ne $gitCommand) -Details ($gitCommand.Source)
@@ -97,6 +99,7 @@ Write-InstallHint -Name 'doxygen' -IsAvailable (-not [string]::IsNullOrWhiteSpac
 Write-InstallHint -Name 'clang-format' -IsAvailable (-not [string]::IsNullOrWhiteSpace($clangFormatPath)) -Hint 'Needed only for the format script. Install LLVM from https://llvm.org/ or with winget: winget install LLVM.LLVM'
 Write-InstallHint -Name 'python-jinja2' -IsAvailable $pythonJinja2Available -Hint 'Install with: python -m pip install jinja2'
 Write-InstallHint -Name 'python-ttkbootstrap' -IsAvailable $pythonTtkbootstrapAvailable -Hint 'Needed for the native Visualizer Studio desktop UI. Install with: python -m pip install ttkbootstrap'
+Write-InstallHint -Name 'python-mkdocs' -IsAvailable $pythonMkdocsAvailable -Hint 'Needed only for the hosted beginner wiki. Install with: python -m pip install mkdocs'
 Write-InstallHint -Name 'python-sounddevice' -IsAvailable $pythonSoundDeviceAvailable -Hint 'Needed for microphone and line-input capture. Install with: python -m pip install sounddevice'
 Write-InstallHint -Name 'python-soundcard' -IsAvailable $pythonSoundCardAvailable -Hint 'Needed for desktop output-loopback capture. Install with: python -m pip install soundcard'
 

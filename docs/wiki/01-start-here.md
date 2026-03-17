@@ -124,9 +124,9 @@ If you want this chapter to become real instead of theoretical:
 
 Use these pages when you want the more compact, reference-style version:
 
-- [Docs overview](../site/index.html)
-- [Tutorial](../site/tutorial.html)
-- [Repository README](../../README.md)
+- [Docs overview](https://gedrocht.github.io/Halcyn/index.html)
+- [Tutorial](https://gedrocht.github.io/Halcyn/tutorial.html)
+- [Repository README](https://github.com/gedrocht/Halcyn/blob/main/README.md)
 
 ## Helpful external references
 
@@ -134,6 +134,6 @@ Use these pages when you want the more compact, reference-style version:
 - [Python documentation](https://docs.python.org/3/)
 - [CMake documentation](https://cmake.org/documentation/)
 
-Walkthrough index: [Return to the walkthrough index](README.md)  
-Previous chapter: [Walkthrough index](README.md)  
-Next chapter: [Chapter 2: Meet the Cast](02-meet-the-cast.md)
+- Walkthrough index: [Return to the walkthrough index](index.md)
+- Previous chapter: [Walkthrough index](index.md)
+- Next chapter: [Chapter 2: Meet the Cast](02-meet-the-cast.md)

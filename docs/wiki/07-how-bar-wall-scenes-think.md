@@ -76,8 +76,8 @@ unhelpful.
 
 ## Formal references for this chapter
 
-- [Bar-wall scene guide](../site/spectrograph-suite.html)
-- [Field reference](../site/field-reference.html)
+- [Bar-wall scene guide](https://gedrocht.github.io/Halcyn/spectrograph-suite.html)
+- [Field reference](https://gedrocht.github.io/Halcyn/field-reference.html)
 
 ## Helpful external references
 
@@ -85,6 +85,6 @@ unhelpful.
 - [UTF-8 encoding docs](https://docs.python.org/3/library/stdtypes.html#str.encode)
 - [JSON docs](https://docs.python.org/3/library/json.html)
 
-Walkthrough index: [Return to the walkthrough index](README.md)  
-Previous chapter: [Chapter 6: Visualizer Studio as a Daily Driver](06-visualizer-studio-as-a-daily-driver.md)  
-Next chapter: [Chapter 8: The Safety Net](08-the-safety-net.md)
+- Walkthrough index: [Return to the walkthrough index](index.md)
+- Previous chapter: [Chapter 6: Visualizer Studio as a Daily Driver](06-visualizer-studio-as-a-daily-driver.md)
+- Next chapter: [Chapter 8: The Safety Net](08-the-safety-net.md)

@@ -1,10 +1,14 @@
 # Halcyn Walkthrough Wiki
 
-This is the "learn it like a guided video series" layer of Halcyn's
-documentation.
+This is the GitHub-readable version of the "learn it like a guided video
+series" layer of Halcyn's documentation.
 
-The existing docs under [`../site/`](../site/) are already strong at being a
-reference manual. This walkthrough is trying to do a different job:
+If you want the hosted wiki home page, start with [index.md](index.md). That is
+the page the wiki framework uses as its landing page.
+
+The main docs site at [the Halcyn Pages home](https://gedrocht.github.io/Halcyn/index.html)
+is already strong at being a reference manual. This walkthrough is trying to do
+a different job:
 
 - explain the project in a calmer, more human order
 - start with "what is this thing?" before "what is every field?"
@@ -42,6 +46,18 @@ matches your question:
   - [Chapter 8: The Safety Net](08-the-safety-net.md)
 - "How do I change Halcyn without getting lost?"
   - [Chapter 9: How To Extend Halcyn](09-how-to-extend-halcyn.md)
+- "How do I read the shared logs without feeling overwhelmed?"
+  - [Chapter 10: How To Read the Activity Monitor](10-how-to-read-the-activity-monitor.md)
+- "What are the common day-to-day workflows?"
+  - [Chapter 11: Common Workflows](11-common-workflows.md)
+- "How do I troubleshoot calmly when something goes wrong?"
+  - [Chapter 12: Troubleshooting Without Panic](12-troubleshooting-without-panic.md)
+- "How do the tests and checks actually protect me?"
+  - [Chapter 13: How the Tests Protect You](13-how-the-tests-protect-you.md)
+- "Why are there both browser and desktop tools?"
+  - [Chapter 14: How the Browser and Desktop Tools Share the Work](14-how-the-tools-fit-together.md)
+- "How do I build features with confidence instead of guessing?"
+  - [Chapter 15: Building Features With Confidence](15-building-features-with-confidence.md)
 
 Helpful appendices:
 
@@ -49,6 +65,10 @@ Helpful appendices:
   - [Appendix A: Glossary](appendix-glossary.md)
 - "I just want a guided first hour."
   - [Appendix B: Your First Hour With Halcyn](appendix-first-hour.md)
+- "I need the short command list."
+  - [Appendix C: Command Cheat Sheet](appendix-command-cheat-sheet.md)
+- "I do not know which app I should open."
+  - [Appendix D: Which Tool Should I Open?](appendix-which-tool-should-i-open.md)
 
 ## What this wiki assumes
 
@@ -87,13 +107,13 @@ The surrounding tools help you:
 This walkthrough is intentionally narrative. When you want the precise
 field-by-field or endpoint-by-endpoint view, keep these pages nearby:
 
-- [Docs overview](../site/index.html)
-- [Tutorial](../site/tutorial.html)
-- [Architecture guide](../site/architecture.html)
-- [API reference](../site/api.html)
-- [Testing guide](../site/testing.html)
-- [Code docs guide](../site/code-docs.html)
-- [Repository README](../../README.md)
+- [Docs overview](https://gedrocht.github.io/Halcyn/index.html)
+- [Tutorial](https://gedrocht.github.io/Halcyn/tutorial.html)
+- [Architecture guide](https://gedrocht.github.io/Halcyn/architecture.html)
+- [API reference](https://gedrocht.github.io/Halcyn/api.html)
+- [Testing guide](https://gedrocht.github.io/Halcyn/testing.html)
+- [Code docs guide](https://gedrocht.github.io/Halcyn/code-docs.html)
+- [Repository README](https://github.com/gedrocht/Halcyn/blob/main/README.md)
 
 ## One recommended study path
 
@@ -128,6 +148,15 @@ Read:
 3. [Chapter 7](07-how-bar-wall-scenes-think.md)
 4. [Chapter 8](08-the-safety-net.md)
 
+### Track 3: "I want to change Halcyn, but I want to do it safely"
+
+Read:
+
+1. [Chapter 9](09-how-to-extend-halcyn.md)
+2. [Chapter 13](13-how-the-tests-protect-you.md)
+3. [Chapter 14](14-how-the-tools-fit-together.md)
+4. [Chapter 15](15-building-features-with-confidence.md)
+
 ## External references you may want nearby
 
 - [C++ language reference](https://en.cppreference.com/w/cpp)
@@ -138,5 +167,6 @@ Read:
 - [cpp-httplib repository](https://github.com/yhirose/cpp-httplib)
 - [Python documentation](https://docs.python.org/3/)
 - [ttkbootstrap documentation](https://ttkbootstrap.readthedocs.io/)
+- [MkDocs documentation](https://www.mkdocs.org/)
 
-Next chapter: [Chapter 1: Start Here](01-start-here.md)
+- Next chapter: [Chapter 1: Start Here](01-start-here.md)

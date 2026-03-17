@@ -148,10 +148,10 @@ That is often enough to get unstuck.
 
 ## Formal references for this chapter
 
-- [Architecture guide](../site/architecture.html)
-- [Control Center guide](../site/control-center.html)
-- [Visualizer Studio guide](../site/desktop-control-panel.html)
-- [Scene Studio guide](../site/scene-studio.html)
+- [Architecture guide](https://gedrocht.github.io/Halcyn/architecture.html)
+- [Control Center guide](https://gedrocht.github.io/Halcyn/control-center.html)
+- [Visualizer Studio guide](https://gedrocht.github.io/Halcyn/desktop-control-panel.html)
+- [Scene Studio guide](https://gedrocht.github.io/Halcyn/scene-studio.html)
 
 ## Helpful external references
 
@@ -160,6 +160,6 @@ That is often enough to get unstuck.
 - [ttkbootstrap documentation](https://ttkbootstrap.readthedocs.io/)
 - [Python http.server docs](https://docs.python.org/3/library/http.server.html)
 
-Walkthrough index: [Return to the walkthrough index](README.md)  
-Previous chapter: [Chapter 1: Start Here](01-start-here.md)  
-Next chapter: [Chapter 3: Follow One Scene](03-follow-one-scene.md)
+- Walkthrough index: [Return to the walkthrough index](index.md)
+- Previous chapter: [Chapter 1: Start Here](01-start-here.md)
+- Next chapter: [Chapter 3: Follow One Scene](03-follow-one-scene.md)

@@ -80,9 +80,9 @@ Usually:
 
 ## Formal references for this chapter
 
-- [Control Center guide](../site/control-center.html)
-- [Scene Studio guide](../site/scene-studio.html)
-- [Testing guide](../site/testing.html)
+- [Control Center guide](https://gedrocht.github.io/Halcyn/control-center.html)
+- [Scene Studio guide](https://gedrocht.github.io/Halcyn/scene-studio.html)
+- [Testing guide](https://gedrocht.github.io/Halcyn/testing.html)
 
 ## Helpful external references
 
@@ -90,6 +90,6 @@ Usually:
 - [Fetch API overview](https://developer.mozilla.org/docs/Web/API/Fetch_API)
 - [JavaScript JSON docs](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/JSON)
 
-Walkthrough index: [Return to the walkthrough index](README.md)  
-Previous chapter: [Chapter 4: Scene JSON Without Fear](04-scene-json-without-fear.md)  
-Next chapter: [Chapter 6: Visualizer Studio as a Daily Driver](06-visualizer-studio-as-a-daily-driver.md)
+- Walkthrough index: [Return to the walkthrough index](index.md)
+- Previous chapter: [Chapter 4: Scene JSON Without Fear](04-scene-json-without-fear.md)
+- Next chapter: [Chapter 6: Visualizer Studio as a Daily Driver](06-visualizer-studio-as-a-daily-driver.md)

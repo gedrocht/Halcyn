@@ -71,10 +71,10 @@ When you add something real, remember to update:
 
 ## Formal references for this chapter
 
-- [Code docs guide](../site/code-docs.html)
-- [Architecture guide](../site/architecture.html)
-- [Testing guide](../site/testing.html)
-- [Repository README](../../README.md)
+- [Code docs guide](https://gedrocht.github.io/Halcyn/code-docs.html)
+- [Architecture guide](https://gedrocht.github.io/Halcyn/architecture.html)
+- [Testing guide](https://gedrocht.github.io/Halcyn/testing.html)
+- [Repository README](https://github.com/gedrocht/Halcyn/blob/main/README.md)
 
 ## Helpful external references
 
@@ -84,6 +84,6 @@ When you add something real, remember to update:
 - [Python documentation](https://docs.python.org/3/)
 - [Git documentation](https://git-scm.com/doc)
 
-Walkthrough index: [Return to the walkthrough index](README.md)  
-Previous chapter: [Chapter 8: The Safety Net](08-the-safety-net.md)  
-Next chapter: [Walkthrough index](README.md)
+- Walkthrough index: [Return to the walkthrough index](index.md)
+- Previous chapter: [Chapter 8: The Safety Net](08-the-safety-net.md)
+- Next chapter: [Chapter 10: How To Read the Activity Monitor](10-how-to-read-the-activity-monitor.md)

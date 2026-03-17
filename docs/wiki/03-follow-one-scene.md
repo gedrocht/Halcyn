@@ -155,9 +155,9 @@ That one tiny exercise makes the whole pipeline much less abstract.
 
 ## Formal references for this chapter
 
-- [API reference](../site/api.html)
-- [Architecture guide](../site/architecture.html)
-- [Field reference](../site/field-reference.html)
+- [API reference](https://gedrocht.github.io/Halcyn/api.html)
+- [Architecture guide](https://gedrocht.github.io/Halcyn/architecture.html)
+- [Field reference](https://gedrocht.github.io/Halcyn/field-reference.html)
 
 ## Helpful external references
 
@@ -166,6 +166,6 @@ That one tiny exercise makes the whole pipeline much less abstract.
 - [cpp-httplib repository](https://github.com/yhirose/cpp-httplib)
 - [OpenGL Wiki](https://wikis.khronos.org/opengl/Main_Page)
 
-Walkthrough index: [Return to the walkthrough index](README.md)  
-Previous chapter: [Chapter 2: Meet the Cast](02-meet-the-cast.md)  
-Next chapter: [Chapter 4: Scene JSON Without Fear](04-scene-json-without-fear.md)
+- Walkthrough index: [Return to the walkthrough index](index.md)
+- Previous chapter: [Chapter 2: Meet the Cast](02-meet-the-cast.md)
+- Next chapter: [Chapter 4: Scene JSON Without Fear](04-scene-json-without-fear.md)

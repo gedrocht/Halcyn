@@ -69,9 +69,9 @@ That is enough. You do not need to decode the entire payload at once.
 
 ## Formal references for this chapter
 
-- [Field reference](../site/field-reference.html)
-- [Bar-wall scene guide](../site/spectrograph-suite.html)
-- [Scene Studio guide](../site/scene-studio.html)
+- [Field reference](https://gedrocht.github.io/Halcyn/field-reference.html)
+- [Bar-wall scene guide](https://gedrocht.github.io/Halcyn/spectrograph-suite.html)
+- [Scene Studio guide](https://gedrocht.github.io/Halcyn/scene-studio.html)
 
 ## Helpful external references
 
@@ -79,6 +79,6 @@ That is enough. You do not need to decode the entire payload at once.
 - [UTF-8 encoding with str.encode](https://docs.python.org/3/library/stdtypes.html#str.encode)
 - [nlohmann/json API](https://nlohmann.github.io/json/api/basic_json/)
 
-Walkthrough index: [Return to the walkthrough index](README.md)  
-Previous chapter: [Chapter 3: Follow One Scene](03-follow-one-scene.md)  
-Next chapter: [Chapter 5: Browser Tools in Plain Language](05-browser-tools-in-plain-language.md)
+- Walkthrough index: [Return to the walkthrough index](index.md)
+- Previous chapter: [Chapter 3: Follow One Scene](03-follow-one-scene.md)
+- Next chapter: [Chapter 5: Browser Tools in Plain Language](05-browser-tools-in-plain-language.md)

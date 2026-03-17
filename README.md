@@ -124,8 +124,9 @@ Minimum Windows-native setup:
 
 Optional extras:
 
-- `doxygen` for generated code docs
-- `clang-format` for formatting checks
+  - `doxygen` for generated code docs
+  - `clang-format` for formatting checks
+- Python package `mkdocs` for the hosted beginner walkthrough wiki
 - Python package `sounddevice` for microphone and line-input capture
 - Python package `soundcard` for desktop output-loopback capture
 
@@ -133,11 +134,11 @@ Helpful install routes:
 
 - Ninja: `winget install Ninja-build.Ninja`
 - LLVM and `clang-format`: `winget install LLVM.LLVM`
-- Doxygen: `winget install DimitriVanHeesch.Doxygen`
-- Python packages:
-  ```powershell
-  python -m pip install jinja2 ttkbootstrap sounddevice soundcard
-  ```
+  - Doxygen: `winget install DimitriVanHeesch.Doxygen`
+  - Python packages:
+    ```powershell
+  python -m pip install jinja2 ttkbootstrap mkdocs sounddevice soundcard
+    ```
 
 For the easiest Windows-native C++ path, install Visual Studio 2022 Build Tools from [visualstudio.microsoft.com/downloads](https://visualstudio.microsoft.com/downloads/) and include the `Desktop development with C++` workload.
 
@@ -201,6 +202,8 @@ Main supported scripts:
 - `.\scripts\measure-visualizer-studio-coverage.ps1`
 - `.\scripts\verify-cpp-formatting.ps1`
 - `.\scripts\generate-code-reference-docs.ps1`
+- `.\scripts\build-beginner-wiki.ps1`
+- `.\scripts\serve-beginner-wiki.ps1`
 - `.\scripts\serve-docs-site.ps1`
 - `.\scripts\create-release-package.ps1`
 
@@ -209,6 +212,8 @@ The scripts listed above are the supported public entry points.
 ## Documentation
 
 - Docs overview: `docs/site/index.html`
+- Beginner walkthrough wiki source: `docs/wiki/README.md`
+- Beginner walkthrough wiki hosted home: `docs/wiki/index.md`
 - Tutorial: `docs/site/tutorial.html`
 - API guide: `docs/site/api.html`
 - Architecture guide: `docs/site/architecture.html`

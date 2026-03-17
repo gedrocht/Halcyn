@@ -82,4 +82,4 @@ A measure of how much code was exercised while the tests ran.
 A convenience launcher that opens the main pieces together so you can start
 working without manually launching each one.
 
-Walkthrough index: [Return to the walkthrough index](README.md)
+- Walkthrough index: [Return to the walkthrough index](index.md)

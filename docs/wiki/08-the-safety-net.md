@@ -77,9 +77,9 @@ That matters because:
 
 ## Formal references for this chapter
 
-- [Testing guide](../site/testing.html)
-- [API reference](../site/api.html)
-- [Control Center guide](../site/control-center.html)
+- [Testing guide](https://gedrocht.github.io/Halcyn/testing.html)
+- [API reference](https://gedrocht.github.io/Halcyn/api.html)
+- [Control Center guide](https://gedrocht.github.io/Halcyn/control-center.html)
 
 ## Helpful external references
 
@@ -88,6 +88,6 @@ That matters because:
 - [GitHub Actions documentation](https://docs.github.com/actions)
 - [CodeQL documentation](https://docs.github.com/code-security/code-scanning/introduction-to-code-scanning/about-code-scanning-with-codeql)
 
-Walkthrough index: [Return to the walkthrough index](README.md)  
-Previous chapter: [Chapter 7: How Bar-Wall Scenes Think](07-how-bar-wall-scenes-think.md)  
-Next chapter: [Chapter 9: How To Extend Halcyn](09-how-to-extend-halcyn.md)
+- Walkthrough index: [Return to the walkthrough index](index.md)
+- Previous chapter: [Chapter 7: How Bar-Wall Scenes Think](07-how-bar-wall-scenes-think.md)
+- Next chapter: [Chapter 9: How To Extend Halcyn](09-how-to-extend-halcyn.md)
