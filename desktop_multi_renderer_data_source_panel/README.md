@@ -107,11 +107,15 @@ The spectrograph target uses the spectrograph scene builder. The collected
 source values are fed into the rolling statistical range calculation and grouped
 into the chosen `N x N` bar grid.
 
-## Running the app
+## How to reach the supported workflow
 
 ```powershell
-.\scripts\launch-desktop-multi-renderer-data-source-panel.ps1
+.\scripts\launch-visualizer-studio.ps1
 ```
+
+This package remains in the repository because Visualizer Studio still reuses
+its source-routing ideas and helpers internally. It is no longer a separately
+launched public app.
 
 ## Testing
 

@@ -43,31 +43,17 @@ That makes the learning path cleaner for a beginner:
 - use the shared data-source panel when the interesting question is "where is
   the live data coming from, and which renderer should receive it?"
 
-## Launch it
+## How to reach the supported workflow
 
-If you want the full spectrograph audio workflow opened for you in separate
-windows, use:
-
-```powershell
-.\scripts\launch-spectrograph-audio-workbench.ps1
-```
-
-That helper starts the renderer, this control panel, and the dedicated audio
-source panel together.
-
-If you prefer the manual step-by-step route, do this:
-
-Start the dedicated spectrograph renderer:
+Use the unified desktop workflow instead:
 
 ```powershell
-.\scripts\launch-halcyn-spectrograph-app.ps1
+.\scripts\launch-visualizer-studio.ps1
 ```
 
-Then start the desktop control panel:
-
-```powershell
-.\scripts\launch-desktop-spectrograph-control-panel.ps1
-```
+This package remains in the repository because Visualizer Studio still reuses
+its bar-wall transformation logic internally. It is no longer a separately
+launched public app.
 
 ## What it can control
 

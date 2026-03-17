@@ -111,11 +111,38 @@ class RepositoryContractTests(unittest.TestCase):
             self.assertIn("$projectRoot = Get-ProjectRoot", script_text)
             self.assertIn("'--project-root'", script_text)
 
-    def test_spectrograph_audio_workbench_launcher_stays_wired_to_the_three_app_flow(self) -> None:
-        """The compatibility workbench should forward to the unified Visualizer workbench."""
+    def test_deprecated_wrapper_scripts_are_removed(self) -> None:
+        """Deprecated wrapper scripts should stay out of the repository."""
 
-        launcher_text = self._read_text("scripts/launch-spectrograph-audio-workbench.ps1")
-        self.assertIn("launch-visualizer-workbench.ps1", launcher_text)
+        for relative_path in [
+            "scripts/launch-desktop-multi-renderer-data-source-panel.ps1",
+            "scripts/launch-desktop-render-control-panel.ps1",
+            "scripts/launch-desktop-spectrograph-audio-source-panel.ps1",
+            "scripts/launch-desktop-spectrograph-control-panel.ps1",
+            "scripts/launch-halcyn-spectrograph-app.ps1",
+            "scripts/launch-operator-console.ps1",
+            "scripts/launch-spectrograph-audio-workbench.ps1",
+            "scripts/lint-operator-console.ps1",
+            "scripts/measure-operator-console-coverage.ps1",
+            "scripts/test-operator-console.ps1",
+            "scripts/typecheck-operator-console.ps1",
+        ]:
+            self.assertFalse(
+                (self.project_root / relative_path).exists(),
+                f"{relative_path} should have been removed with the deprecated wrappers.",
+            )
+
+    def test_legacy_docs_pages_are_removed(self) -> None:
+        """Deprecated docs-only landing pages should stay removed."""
+
+        for relative_path in [
+            "docs/site/spectrograph-audio-source-panel.html",
+            "docs/site/multi-renderer-data-source-panel.html",
+        ]:
+            self.assertFalse(
+                (self.project_root / relative_path).exists(),
+                f"{relative_path} should have been removed with the legacy docs pages.",
+            )
 
     def test_activity_monitor_launcher_reuses_control_center_routes(self) -> None:
         """The Activity Monitor launcher should stay coupled to the Control Center server."""
@@ -157,7 +184,11 @@ class RepositoryContractTests(unittest.TestCase):
             r".\scripts\typecheck-control-plane.ps1",
             r".\scripts\test-control-plane.ps1",
             r".\scripts\launch-operator-console.ps1",
+            r".\scripts\launch-halcyn-spectrograph-app.ps1",
+            r".\scripts\launch-spectrograph-audio-workbench.ps1",
             "client-studio.html",
+            "spectrograph-audio-source-panel.html",
+            "multi-renderer-data-source-panel.html",
             "desktop_render_control_panel/",
             "desktop_spectrograph_control_panel/",
             "desktop_spectrograph_audio_source_panel/",
@@ -181,6 +212,10 @@ class RepositoryContractTests(unittest.TestCase):
             "architecture.svg",
             "http://127.0.0.1:9001",
             "../../README.md",
+            "spectrograph-audio-source-panel.html",
+            "multi-renderer-data-source-panel.html",
+            "launch-halcyn-spectrograph-app.ps1",
+            "launch-spectrograph-audio-workbench.ps1",
         ]
         for relative_path in [
             "docs/site/index.html",
@@ -192,8 +227,6 @@ class RepositoryContractTests(unittest.TestCase):
             "docs/site/scene-studio.html",
             "docs/site/desktop-control-panel.html",
             "docs/site/spectrograph-suite.html",
-            "docs/site/spectrograph-audio-source-panel.html",
-            "docs/site/multi-renderer-data-source-panel.html",
             "docs/site/code-docs.html",
         ]:
             page_text = self._read_text(relative_path)
@@ -206,14 +239,12 @@ class RepositoryContractTests(unittest.TestCase):
         """The bar-wall docs should keep teaching the unified workbench launch path."""
 
         spectrograph_suite_text = self._read_text("docs/site/spectrograph-suite.html")
-        spectrograph_audio_source_text = self._read_text(
-            "docs/site/spectrograph-audio-source-panel.html"
-        )
-
         self.assertIn(r".\scripts\launch-visualizer-workbench.ps1", spectrograph_suite_text)
-        self.assertIn(
-            r".\scripts\launch-visualizer-studio.ps1",
-            spectrograph_audio_source_text,
+        self.assertIn(r".\scripts\launch-visualizer-studio.ps1", spectrograph_suite_text)
+        self.assertNotIn(r".\scripts\launch-halcyn-spectrograph-app.ps1", spectrograph_suite_text)
+        self.assertNotIn(
+            r".\scripts\launch-spectrograph-audio-workbench.ps1",
+            spectrograph_suite_text,
         )
 
     def test_docs_site_keeps_full_docs_map_links(self) -> None:
@@ -231,8 +262,6 @@ class RepositoryContractTests(unittest.TestCase):
             "scene-studio.html",
             "desktop-control-panel.html",
             "spectrograph-suite.html",
-            "spectrograph-audio-source-panel.html",
-            "multi-renderer-data-source-panel.html",
         }
 
         for relative_path in [
@@ -247,8 +276,6 @@ class RepositoryContractTests(unittest.TestCase):
             "docs/site/scene-studio.html",
             "docs/site/desktop-control-panel.html",
             "docs/site/spectrograph-suite.html",
-            "docs/site/spectrograph-audio-source-panel.html",
-            "docs/site/multi-renderer-data-source-panel.html",
         ]:
             parser = self._parse_html(relative_path)
             missing_doc_links = sorted(expected_doc_links - parser.hrefs)
@@ -272,8 +299,6 @@ class RepositoryContractTests(unittest.TestCase):
             "docs/site/scene-studio.html",
             "docs/site/desktop-control-panel.html",
             "docs/site/spectrograph-suite.html",
-            "docs/site/spectrograph-audio-source-panel.html",
-            "docs/site/multi-renderer-data-source-panel.html",
         ]:
             parser = self._parse_html(relative_path)
             root_relative_links = sorted(href for href in parser.hrefs if href.startswith("/"))

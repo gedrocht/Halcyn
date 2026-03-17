@@ -34,34 +34,17 @@ shader should color them. Instead, it answers the simpler question:
 "What does the recent audio activity look like, and how can I hand that to the
 spectrograph control panel in a clean generic JSON shape?"
 
-## Running the two-app workflow
+## How to reach the supported workflow
 
-If you want the renderer, control panel, and this audio helper opened for you
-automatically, the easiest path is:
-
-```powershell
-.\scripts\launch-spectrograph-audio-workbench.ps1
-```
-
-If you prefer to understand the pieces one at a time, use the manual route
-below instead.
-
-1. Start the spectrograph control panel:
+Use the unified desktop workflow instead:
 
 ```powershell
-.\scripts\launch-desktop-spectrograph-control-panel.ps1
+.\scripts\launch-visualizer-studio.ps1
 ```
 
-2. Start the audio source panel:
-
-```powershell
-.\scripts\launch-desktop-spectrograph-audio-source-panel.ps1
-```
-
-3. In the spectrograph control panel, leave the external source bridge enabled.
-4. In the audio source panel, choose an input or output device.
-5. Start capture.
-6. Click `Send once` or `Start live`.
+This package remains in the repository because Visualizer Studio still reuses
+its audio-to-generic-data translation logic internally. It is no longer a
+separately launched public helper app.
 
 ## Helpful external references
 

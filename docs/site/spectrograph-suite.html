@@ -19,7 +19,7 @@
         </div>
         <div class="topbar-actions">
           <button class="button" data-theme-toggle>Toggle theme</button>
-          <a class="button" href="https://github.com/gedrocht/Halcyn/blob/main/scripts/launch-halcyn-spectrograph-app.ps1">View compatibility launcher</a>
+          <a class="button" href="https://github.com/gedrocht/Halcyn/blob/main/scripts/launch-visualizer-workbench.ps1">View workbench launcher</a>
         </div>
       </header>
 
@@ -38,8 +38,6 @@
             <li><a href="scene-studio.html" data-nav-link="scene-studio">Scene Studio</a></li>
             <li><a href="desktop-control-panel.html" data-nav-link="desktop-control-panel">Visualizer Studio</a></li>
             <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Bar-Wall Scenes</a></li>
-            <li><a href="spectrograph-audio-source-panel.html" data-nav-link="spectrograph-audio-source-panel">Legacy Audio Helper</a></li>
-            <li><a href="multi-renderer-data-source-panel.html" data-nav-link="multi-renderer-data-source-panel">Legacy Data Router</a></li>
           </ul>
         </nav>
 
@@ -53,10 +51,8 @@
               family inside the same Visualizer app.
             </p>
             <div class="callout">
-              The compatibility route and compatibility launcher still exist:
-              <code>GET /api/v1/examples/spectrograph</code> and
-              <code>.\scripts\launch-halcyn-spectrograph-app.ps1</code>.
-              They now forward to the same unified renderer behavior.
+              The public workflow is now simple: launch the Visualizer, then use Visualizer Studio
+              to choose the <strong>Bar wall</strong> scene family and drive it with live data.
             </div>
           </section>
 
@@ -86,9 +82,9 @@
               <li>preview, validate, apply, or live-stream the scene</li>
             </ul>
             <p>
-              If you want the renderer to begin on the bar-wall family immediately, use:
+              If you want the easiest guided path, open the whole workbench instead:
             </p>
-            <pre><code>.\scripts\launch-halcyn-spectrograph-app.ps1</code></pre>
+            <pre><code>.\scripts\launch-visualizer-workbench.ps1</code></pre>
           </section>
 
           <section class="panel">
@@ -97,10 +93,6 @@
               The preferred example route is now:
             </p>
             <pre><code>GET /api/v1/examples/bar-wall</code></pre>
-            <p>
-              The old spectrograph example route remains as a compatibility alias:
-            </p>
-            <pre><code>GET /api/v1/examples/spectrograph</code></pre>
           </section>
 
           <section class="panel">
