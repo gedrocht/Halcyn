@@ -25,6 +25,10 @@ The responsibilities are split like this:
 
 - this panel focuses on spectrograph-specific rendering choices such as shader
   style, adaptive range behavior, and `N x N` bar grouping
+- the
+  [desktop spectrograph audio-source panel](/Y:/Halcyn/desktop_spectrograph_audio_source_panel/README.md)
+  focuses on capturing live output or input audio and handing it to this panel
+  as readable generic JSON
 - the shared
   [desktop multi-renderer data source panel](/Y:/Halcyn/desktop_multi_renderer_data_source_panel/README.md)
   focuses on capturing or generating one source stream and routing it into the
@@ -34,6 +38,8 @@ That makes the learning path cleaner for a beginner:
 
 - use this panel when the interesting question is "how should the spectrograph
   interpret and display data?"
+- use the spectrograph audio-source panel when the interesting question is
+  "which live audio source should feed the spectrograph right now?"
 - use the shared data-source panel when the interesting question is "where is
   the live data coming from, and which renderer should receive it?"
 

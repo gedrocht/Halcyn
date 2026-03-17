@@ -28,6 +28,8 @@ from typing import Any
 
 DEFAULT_SPECTROGRAPH_HOST = "127.0.0.1"
 DEFAULT_SPECTROGRAPH_PORT = 8090
+DEFAULT_EXTERNAL_AUDIO_BRIDGE_HOST = "127.0.0.1"
+DEFAULT_EXTERNAL_AUDIO_BRIDGE_PORT = 8091
 DEFAULT_BAR_GRID_SIZE = 8
 DEFAULT_LIVE_CADENCE_MS = 250
 DEFAULT_ROLLING_HISTORY_VALUE_COUNT = 4096
@@ -104,6 +106,8 @@ def build_catalog_payload() -> dict[str, Any]:
         "defaults": {
             "host": DEFAULT_SPECTROGRAPH_HOST,
             "port": DEFAULT_SPECTROGRAPH_PORT,
+            "externalAudioBridgeHost": DEFAULT_EXTERNAL_AUDIO_BRIDGE_HOST,
+            "externalAudioBridgePort": DEFAULT_EXTERNAL_AUDIO_BRIDGE_PORT,
             "barGridSize": DEFAULT_BAR_GRID_SIZE,
             "liveCadenceMs": DEFAULT_LIVE_CADENCE_MS,
         },
@@ -117,6 +121,11 @@ def build_default_request_payload() -> dict[str, Any]:
         "target": {
             "host": DEFAULT_SPECTROGRAPH_HOST,
             "port": DEFAULT_SPECTROGRAPH_PORT,
+        },
+        "externalAudioBridge": {
+            "enabled": False,
+            "host": DEFAULT_EXTERNAL_AUDIO_BRIDGE_HOST,
+            "port": DEFAULT_EXTERNAL_AUDIO_BRIDGE_PORT,
         },
         "data": {
             "jsonText": EXAMPLE_INPUT_DOCUMENTS["numeric_wave"],
@@ -306,6 +315,24 @@ def _normalize_request_payload(request_payload: dict[str, Any]) -> dict[str, Any
     merged_payload["target"]["port"] = _clamp_int(
         merged_payload["target"].get("port"),
         DEFAULT_SPECTROGRAPH_PORT,
+        1,
+        65535,
+    )
+    merged_payload["externalAudioBridge"]["enabled"] = bool(
+        merged_payload["externalAudioBridge"].get("enabled", False)
+    )
+    merged_payload["externalAudioBridge"]["host"] = (
+        str(
+            merged_payload["externalAudioBridge"].get(
+                "host",
+                DEFAULT_EXTERNAL_AUDIO_BRIDGE_HOST,
+            )
+        ).strip()
+        or DEFAULT_EXTERNAL_AUDIO_BRIDGE_HOST
+    )
+    merged_payload["externalAudioBridge"]["port"] = _clamp_int(
+        merged_payload["externalAudioBridge"].get("port"),
+        DEFAULT_EXTERNAL_AUDIO_BRIDGE_PORT,
         1,
         65535,
     )
@@ -565,14 +592,30 @@ def _append_bar_prism(
     height: float,
     color: tuple[float, float, float, float],
 ) -> None:
-    """Append one rectangular prism to the shared scene buffers."""
+    """Append one rectangular prism to the shared scene buffers.
+
+    This function intentionally emits four dedicated vertices per visible face
+    instead of sharing the same eight cube corners everywhere.
+
+    A beginner-friendly reason for that choice is: shared corner vertices force
+    every touching face to use the same color. The spectrograph looks much more
+    readable when the top face can stay brighter and the side faces can stay
+    darker, because that creates a simple "light from above-right" cue without
+    adding a full normal-and-lighting pipeline to the renderer.
+    """
 
     half_width = width * 0.5
     half_depth = depth * 0.5
-    red, green, blue, alpha = color
     first_vertex_index = len(vertices)
+    face_colors = _build_face_shaded_bar_colors(color)
 
-    def build_vertex(x: float, y: float, z: float) -> dict[str, float]:
+    def build_vertex(
+        x: float,
+        y: float,
+        z: float,
+        face_color: tuple[float, float, float, float],
+    ) -> dict[str, float]:
+        red, green, blue, alpha = face_color
         return {
             "x": x,
             "y": y,
@@ -585,14 +628,152 @@ def _append_bar_prism(
 
     vertices.extend(
         [
-            build_vertex(center_x - half_width, 0.0, center_z - half_depth),
-            build_vertex(center_x + half_width, 0.0, center_z - half_depth),
-            build_vertex(center_x + half_width, 0.0, center_z + half_depth),
-            build_vertex(center_x - half_width, 0.0, center_z + half_depth),
-            build_vertex(center_x - half_width, height, center_z - half_depth),
-            build_vertex(center_x + half_width, height, center_z - half_depth),
-            build_vertex(center_x + half_width, height, center_z + half_depth),
-            build_vertex(center_x - half_width, height, center_z + half_depth),
+            # Floor face. We keep it darkest so the bar body stands out above it.
+            build_vertex(
+                center_x - half_width,
+                0.0,
+                center_z - half_depth,
+                face_colors["floor"],
+            ),
+            build_vertex(
+                center_x + half_width,
+                0.0,
+                center_z - half_depth,
+                face_colors["floor"],
+            ),
+            build_vertex(
+                center_x + half_width,
+                0.0,
+                center_z + half_depth,
+                face_colors["floor"],
+            ),
+            build_vertex(
+                center_x - half_width,
+                0.0,
+                center_z + half_depth,
+                face_colors["floor"],
+            ),
+            # Top face. This face gets the most light so peaks feel more dimensional.
+            build_vertex(
+                center_x - half_width,
+                height,
+                center_z - half_depth,
+                face_colors["top"],
+            ),
+            build_vertex(
+                center_x + half_width,
+                height,
+                center_z - half_depth,
+                face_colors["top"],
+            ),
+            build_vertex(
+                center_x + half_width,
+                height,
+                center_z + half_depth,
+                face_colors["top"],
+            ),
+            build_vertex(
+                center_x - half_width,
+                height,
+                center_z + half_depth,
+                face_colors["top"],
+            ),
+            build_vertex(
+                center_x - half_width,
+                0.0,
+                center_z - half_depth,
+                face_colors["front"],
+            ),
+            build_vertex(
+                center_x + half_width,
+                0.0,
+                center_z - half_depth,
+                face_colors["front"],
+            ),
+            build_vertex(
+                center_x + half_width,
+                height,
+                center_z - half_depth,
+                face_colors["front"],
+            ),
+            build_vertex(
+                center_x - half_width,
+                height,
+                center_z - half_depth,
+                face_colors["front"],
+            ),
+            build_vertex(
+                center_x + half_width,
+                0.0,
+                center_z - half_depth,
+                face_colors["right"],
+            ),
+            build_vertex(
+                center_x + half_width,
+                0.0,
+                center_z + half_depth,
+                face_colors["right"],
+            ),
+            build_vertex(
+                center_x + half_width,
+                height,
+                center_z + half_depth,
+                face_colors["right"],
+            ),
+            build_vertex(
+                center_x + half_width,
+                height,
+                center_z - half_depth,
+                face_colors["right"],
+            ),
+            build_vertex(
+                center_x + half_width,
+                0.0,
+                center_z + half_depth,
+                face_colors["back"],
+            ),
+            build_vertex(
+                center_x - half_width,
+                0.0,
+                center_z + half_depth,
+                face_colors["back"],
+            ),
+            build_vertex(
+                center_x - half_width,
+                height,
+                center_z + half_depth,
+                face_colors["back"],
+            ),
+            build_vertex(
+                center_x + half_width,
+                height,
+                center_z + half_depth,
+                face_colors["back"],
+            ),
+            build_vertex(
+                center_x - half_width,
+                0.0,
+                center_z + half_depth,
+                face_colors["left"],
+            ),
+            build_vertex(
+                center_x - half_width,
+                0.0,
+                center_z - half_depth,
+                face_colors["left"],
+            ),
+            build_vertex(
+                center_x - half_width,
+                height,
+                center_z - half_depth,
+                face_colors["left"],
+            ),
+            build_vertex(
+                center_x - half_width,
+                height,
+                center_z + half_depth,
+                face_colors["left"],
+            ),
         ]
     )
 
@@ -609,30 +790,30 @@ def _append_bar_prism(
         4,
         6,
         7,
-        0,
-        1,
-        5,
-        0,
-        5,
-        4,
-        1,
-        2,
-        6,
-        1,
-        6,
-        5,
-        2,
-        3,
-        7,
-        2,
-        7,
-        6,
-        3,
-        0,
-        4,
-        3,
-        4,
-        7,
+        8,
+        9,
+        10,
+        8,
+        10,
+        11,
+        12,
+        13,
+        14,
+        12,
+        14,
+        15,
+        16,
+        17,
+        18,
+        16,
+        18,
+        19,
+        20,
+        21,
+        22,
+        20,
+        22,
+        23,
     ]
     indices.extend(first_vertex_index + triangle_index for triangle_index in cube_triangle_indices)
 
@@ -673,6 +854,44 @@ def _build_bar_color(
         min(1.0, base_green + (column_fraction * 0.03)),
         min(1.0, base_blue + (row_fraction * 0.02)),
         1.0,
+    )
+
+
+def _build_face_shaded_bar_colors(
+    base_color: tuple[float, float, float, float],
+) -> dict[str, tuple[float, float, float, float]]:
+    """Build per-face colors that simulate simple directional lighting.
+
+    The light model here is intentionally artist-friendly rather than physically
+    perfect. We assume the brightest light comes from above and slightly from
+    the viewer's right, then tint each face accordingly.
+
+    That gives the spectrograph bars much better depth cues while keeping the
+    data format simple: the renderer still only receives colored vertices.
+    """
+
+    return {
+        "floor": _shade_color(base_color, 0.42),
+        "top": _shade_color(base_color, 1.18),
+        "front": _shade_color(base_color, 0.82),
+        "right": _shade_color(base_color, 0.96),
+        "back": _shade_color(base_color, 0.68),
+        "left": _shade_color(base_color, 0.58),
+    }
+
+
+def _shade_color(
+    base_color: tuple[float, float, float, float],
+    intensity_multiplier: float,
+) -> tuple[float, float, float, float]:
+    """Scale one RGBA color while keeping channels in the legal 0..1 range."""
+
+    red, green, blue, alpha = base_color
+    return (
+        max(0.0, min(1.0, red * intensity_multiplier)),
+        max(0.0, min(1.0, green * intensity_multiplier)),
+        max(0.0, min(1.0, blue * intensity_multiplier)),
+        alpha,
     )
 
 

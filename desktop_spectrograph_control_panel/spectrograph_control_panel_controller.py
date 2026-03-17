@@ -7,6 +7,12 @@ keeps the operational logic separate:
 - tracking the rolling statistical history
 - talking to the live renderer API
 - managing a simple live-stream worker thread
+- receiving optional external JSON updates from helper desktop tools
+
+That last bullet is new and important. The spectrograph control panel is now
+the place where render behavior is tuned, while helper tools can feed it new
+data sources. That keeps the app-to-app boundary explicit instead of trying to
+smuggle values directly into Tkinter widgets.
 """
 
 from __future__ import annotations
@@ -20,6 +26,9 @@ from datetime import datetime, timezone
 from typing import Any, Protocol
 
 from desktop_shared_control_support.render_api_client import RenderApiClient, RenderApiResponse
+from desktop_spectrograph_control_panel.external_data_bridge_server import (
+    SpectrographExternalDataBridgeServer,
+)
 from desktop_spectrograph_control_panel.spectrograph_scene_builder import (
     SpectrographBuildResult,
     build_catalog_payload,
@@ -52,6 +61,24 @@ class SpectrographLiveStreamSnapshot:
     last_analysis: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        """Return a JSON-ready copy of the live-stream status."""
+
+        return asdict(self)
+
+
+@dataclass
+class ExternalSourceStatus:
+    """Describe whether the spectrograph panel is receiving external data."""
+
+    enabled: bool = False
+    latest_source_label: str = ""
+    latest_received_at_utc: str = ""
+    latest_json_text: str = ""
+    last_error: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return a JSON-ready copy of the external-source state."""
+
         return asdict(self)
 
 
@@ -79,8 +106,13 @@ class DesktopSpectrographControlPanelController:
         self._live_stream_snapshot = SpectrographLiveStreamSnapshot(
             cadence_ms=int(self._current_request_payload["session"]["cadenceMs"])
         )
+        self._external_source_status = ExternalSourceStatus(
+            enabled=bool(self._current_request_payload["externalAudioBridge"]["enabled"])
+        )
         self._live_stream_thread: threading.Thread | None = None
         self._stop_live_stream_event = threading.Event()
+        self._external_data_bridge_server = self._build_external_data_bridge_server()
+        self._external_data_bridge_status = self._start_external_data_bridge_server()
 
     def catalog_payload(self) -> dict[str, Any]:
         """Return metadata that helps the window build selectors and example buttons."""
@@ -102,7 +134,13 @@ class DesktopSpectrographControlPanelController:
                 self._current_request_payload.get("session", {}).get("cadenceMs"),
                 250,
             )
-            return copy.deepcopy(self._current_request_payload)
+            self._external_source_status.enabled = bool(
+                self._current_request_payload.get("externalAudioBridge", {}).get("enabled", False)
+            )
+            should_restart_bridge = self._bridge_configuration_changed()
+        if should_restart_bridge:
+            self._external_data_bridge_status = self._restart_external_data_bridge_server()
+        return self.current_request_payload()
 
     def replace_request_payload(self, request_payload: dict[str, Any]) -> dict[str, Any]:
         """Replace the payload using a freshly normalized saved-settings document."""
@@ -114,7 +152,11 @@ class DesktopSpectrographControlPanelController:
                 self._current_request_payload.get("session", {}).get("cadenceMs"),
                 250,
             )
-            return copy.deepcopy(self._current_request_payload)
+            self._external_source_status.enabled = bool(
+                self._current_request_payload.get("externalAudioBridge", {}).get("enabled", False)
+            )
+        self._external_data_bridge_status = self._restart_external_data_bridge_server()
+        return self.current_request_payload()
 
     def reset_to_defaults(self) -> dict[str, Any]:
         """Restore the full default payload and clear the rolling value history."""
@@ -125,7 +167,11 @@ class DesktopSpectrographControlPanelController:
             self._live_stream_snapshot = SpectrographLiveStreamSnapshot(
                 cadence_ms=int(self._current_request_payload["session"]["cadenceMs"])
             )
-            return copy.deepcopy(self._current_request_payload)
+            self._external_source_status = ExternalSourceStatus(
+                enabled=bool(self._current_request_payload["externalAudioBridge"]["enabled"])
+            )
+        self._external_data_bridge_status = self._restart_external_data_bridge_server()
+        return self.current_request_payload()
 
     def settings_document(self) -> dict[str, Any]:
         """Return a versioned document suitable for saving to disk."""
@@ -145,11 +191,17 @@ class DesktopSpectrographControlPanelController:
         return self.replace_request_payload(request_payload)
 
     def preview_scene_result(self) -> SpectrographBuildResult:
-        """Build the current scene without mutating rolling history."""
+        """Build the current scene using manual JSON or the latest external source."""
 
         with self._lock:
             request_payload = copy.deepcopy(self._current_request_payload)
             rolling_history_values = list(self._rolling_history_values)
+            external_json_text = self._external_source_status.latest_json_text
+            external_source_enabled = self._external_source_status.enabled
+
+        if external_source_enabled and external_json_text:
+            request_payload["data"]["jsonText"] = external_json_text
+
         return build_spectrograph_scene_result(request_payload, rolling_history_values)
 
     def health(self) -> RenderApiResponse:
@@ -206,6 +258,20 @@ class DesktopSpectrographControlPanelController:
         with self._lock:
             return self._live_stream_snapshot.to_dict()
 
+    def external_source_status(self) -> dict[str, Any]:
+        """Return the current external-source state shown in the UI."""
+
+        with self._lock:
+            status_copy = self._external_source_status.to_dict()
+        status_copy["bridge"] = self.external_data_bridge_status()
+        return status_copy
+
+    def external_data_bridge_status(self) -> dict[str, Any]:
+        """Return the current local bridge server status."""
+
+        with self._lock:
+            return copy.deepcopy(self._external_data_bridge_status)
+
     def start_live_stream(self) -> dict[str, Any]:
         """Start repeatedly applying the current spectrograph scene."""
 
@@ -247,9 +313,10 @@ class DesktopSpectrographControlPanelController:
             return self._live_stream_snapshot.to_dict()
 
     def close(self) -> None:
-        """Shut down any live-stream worker during application exit."""
+        """Shut down the live-stream worker and local bridge during application exit."""
 
         self.stop_live_stream()
+        self._external_data_bridge_status = self._stop_external_data_bridge_server()
 
     def _run_live_stream_loop(self) -> None:
         """Apply frames in a loop until the caller requests a stop."""
@@ -294,6 +361,84 @@ class DesktopSpectrographControlPanelController:
             remaining_seconds = max(0.0, (cadence_ms / 1000.0) - elapsed_seconds)
             if remaining_seconds > 0.0:
                 self._stop_live_stream_event.wait(remaining_seconds)
+
+    def _build_external_data_bridge_server(self) -> SpectrographExternalDataBridgeServer:
+        """Create the local bridge server for helper desktop tools."""
+
+        bridge_settings = self._current_request_payload["externalAudioBridge"]
+        return SpectrographExternalDataBridgeServer(
+            host=str(bridge_settings["host"]),
+            port=int(bridge_settings["port"]),
+            on_external_json_received=self._accept_external_json_from_bridge,
+        )
+
+    def _start_external_data_bridge_server(self) -> dict[str, Any]:
+        """Start the local bridge server and convert startup failures into status."""
+
+        try:
+            return self._external_data_bridge_server.start()
+        except Exception as error:
+            error_message = str(error)
+            with self._lock:
+                self._external_source_status.last_error = error_message
+            return {
+                "host": str(self._current_request_payload["externalAudioBridge"]["host"]),
+                "port": int(self._current_request_payload["externalAudioBridge"]["port"]),
+                "listening": False,
+                "last_received_at_utc": "",
+                "last_source_label": "",
+                "last_payload_size_bytes": 0,
+                "last_error": error_message,
+            }
+
+    def _stop_external_data_bridge_server(self) -> dict[str, Any]:
+        """Stop the local bridge server and return its final status snapshot."""
+
+        try:
+            return self._external_data_bridge_server.stop()
+        except Exception as error:
+            return {
+                "host": str(self._current_request_payload["externalAudioBridge"]["host"]),
+                "port": int(self._current_request_payload["externalAudioBridge"]["port"]),
+                "listening": False,
+                "last_received_at_utc": "",
+                "last_source_label": "",
+                "last_payload_size_bytes": 0,
+                "last_error": str(error),
+            }
+
+    def _restart_external_data_bridge_server(self) -> dict[str, Any]:
+        """Recreate the bridge server after settings or defaults change."""
+
+        self._stop_external_data_bridge_server()
+        self._external_data_bridge_server = self._build_external_data_bridge_server()
+        return self._start_external_data_bridge_server()
+
+    def _bridge_configuration_changed(self) -> bool:
+        """Return whether the payload no longer matches the active bridge server."""
+
+        configured_bridge = self._current_request_payload["externalAudioBridge"]
+        current_status = self._external_data_bridge_status
+        return (
+            str(configured_bridge["host"]) != str(current_status.get("host", ""))
+            or int(configured_bridge["port"]) != int(current_status.get("port", 0))
+        )
+
+    def _accept_external_json_from_bridge(self, json_text: str, source_label: str) -> None:
+        """Record the most recent externally supplied JSON document.
+
+        The bridge server calls this on a worker thread whenever a helper tool,
+        such as the dedicated audio-source panel, posts fresh data. The
+        controller stores the payload as plain text because the existing
+        spectrograph builder already knows how to validate, flatten, and analyze
+        generic JSON text.
+        """
+
+        with self._lock:
+            self._external_source_status.latest_json_text = json_text
+            self._external_source_status.latest_source_label = source_label
+            self._external_source_status.latest_received_at_utc = _current_utc_timestamp_iso8601()
+            self._external_source_status.last_error = ""
 
 
 def _safe_int(value: Any, fallback: int) -> int:

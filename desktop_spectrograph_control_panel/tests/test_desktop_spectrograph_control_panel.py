@@ -7,11 +7,15 @@ import runpy
 import time
 import tkinter as tk
 import unittest
+import urllib.request
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
 from desktop_render_control_panel.render_api_client import RenderApiResponse
+from desktop_spectrograph_control_panel.external_data_bridge_server import (
+    SpectrographExternalDataBridgeServer,
+)
 from desktop_spectrograph_control_panel.spectrograph_control_panel_controller import (
     DesktopSpectrographControlPanelController,
 )
@@ -74,6 +78,7 @@ class SpectrographSceneBuilderTests(unittest.TestCase):
         self.assertEqual(default_request_payload["render"]["shaderStyle"], "heatmap")
         self.assertEqual(default_request_payload["render"]["barGridSize"], 8)
         self.assertEqual(default_request_payload["target"]["port"], 8090)
+        self.assertEqual(default_request_payload["externalAudioBridge"]["port"], 8091)
 
     def test_flatten_generic_json_value_handles_numbers_booleans_strings_and_nested_objects(
         self,
@@ -109,10 +114,14 @@ class SpectrographSceneBuilderTests(unittest.TestCase):
         self.assertEqual(build_result.scene["sceneType"], "3d")
         self.assertEqual(build_result.scene["renderStyle"]["shader"], "heatmap")
         self.assertFalse(build_result.scene["renderStyle"]["antiAliasing"])
-        self.assertEqual(len(build_result.scene["vertices"]), 16 * 8)
+        self.assertEqual(len(build_result.scene["vertices"]), 16 * 24)
         self.assertEqual(len(build_result.scene["indices"]), 16 * 36)
         self.assertGreaterEqual(build_result.analysis["rollingHistoryValueCount"], 2)
         self.assertIn(65.0, build_result.flattened_source_values)
+        self.assertNotEqual(
+            build_result.scene["vertices"][0]["r"],
+            build_result.scene["vertices"][4]["r"],
+        )
 
     def test_manual_range_is_preserved_and_out_of_range_values_are_counted(self) -> None:
         build_result = build_spectrograph_scene_result(
@@ -234,6 +243,63 @@ class SpectrographControllerTests(unittest.TestCase):
         self.assertEqual(controller_safe_int("15", 4), 15)
         self.assertEqual(controller_safe_int("oops", 4), 4)
 
+    def test_external_source_json_can_override_the_manual_editor_input(self) -> None:
+        self.controller.replace_request_payload(
+            {
+                "externalAudioBridge": {"enabled": True},
+                "data": {"jsonText": json.dumps({"values": [0, 0, 0]})},
+            }
+        )
+
+        self.controller._accept_external_json_from_bridge(  # noqa: SLF001 - direct bridge hook test.
+            json.dumps({"values": [9, 8, 7, 6]}),
+            "unit-test-audio-panel",
+        )
+        preview_result = self.controller.preview_scene_result()
+        external_source_status = self.controller.external_source_status()
+
+        self.assertIn(9.0, preview_result.flattened_source_values)
+        self.assertEqual(external_source_status["latest_source_label"], "unit-test-audio-panel")
+        self.assertTrue(external_source_status["enabled"])
+
+
+class SpectrographExternalDataBridgeServerTests(unittest.TestCase):
+    """Exercise the local HTTP bridge that accepts external JSON updates."""
+
+    def test_bridge_server_accepts_external_json_posts(self) -> None:
+        received_payloads: list[tuple[str, str]] = []
+        bridge_server = SpectrographExternalDataBridgeServer(
+            host="127.0.0.1",
+            port=0,
+            on_external_json_received=lambda json_text, source_label: received_payloads.append(
+                (json_text, source_label)
+            ),
+        )
+        started_status = bridge_server.start()
+
+        request = urllib.request.Request(
+            url=(
+                f"http://{started_status['host']}:{started_status['port']}/external-data"
+            ),
+            method="POST",
+            data=json.dumps(
+                {
+                    "sourceLabel": "test-audio-panel",
+                    "jsonText": json.dumps({"values": [1, 2, 3]}),
+                }
+            ).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(request, timeout=5.0) as response:
+            response_body = response.read().decode("utf-8")
+
+        stopped_status = bridge_server.stop()
+
+        self.assertEqual(response.status, 202)
+        self.assertIn('"status":"accepted"', response_body)
+        self.assertEqual(received_payloads[0][1], "test-audio-panel")
+        self.assertFalse(stopped_status["listening"])
+
 
 class SpectrographWindowTests(unittest.TestCase):
     """Exercise the desktop spectrograph Tkinter window behavior."""
@@ -264,6 +330,7 @@ class SpectrographWindowTests(unittest.TestCase):
     def test_window_initializes_preview_labels_and_updates_slider_text(self) -> None:
         self.assertIn("Preview ready", self.window._result_status_variable.get())
         self.assertIn("Range mode", self.window._statistics_summary_variable.get())
+        self.assertIn("Listening on", self.window._external_source_status_variable.get())
 
         self.window._bar_grid_size_variable.set(10)
         self.window._on_bar_grid_size_changed("10")

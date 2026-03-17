@@ -208,6 +208,7 @@ Where it appears:
 
 - `desktop_render_control_panel.render_api_client`
 - `desktop_shared_control_support.render_api_client`
+- `desktop_spectrograph_audio_source_panel.spectrograph_external_bridge_client`
 
 Official documentation:
 
@@ -219,6 +220,28 @@ Why Halcyn uses it:
 - the desktop panel only needs a handful of simple HTTP calls
 - the standard library keeps that code dependency-light
 - it is easier for a beginner to study when the client layer is built on familiar Python docs
+
+## http.server
+
+Halcyn uses the standard-library **http.server** module for the local
+spectrograph external-data bridge that helper desktop tools can post into.
+
+Where it appears:
+
+- `desktop_spectrograph_control_panel.external_data_bridge_server`
+
+Official documentation:
+
+- [http.server](https://docs.python.org/3/library/http.server.html)
+- [BaseHTTPRequestHandler](https://docs.python.org/3/library/http.server.html#http.server.BaseHTTPRequestHandler)
+- [ThreadingHTTPServer](https://docs.python.org/3/library/http.server.html#http.server.ThreadingHTTPServer)
+
+Why Halcyn uses it:
+
+- the bridge only needs a tiny local-only POST endpoint
+- the standard library keeps the helper-app boundary easy to study
+- it lets the spectrograph control panel receive external JSON without pulling
+  in another server dependency
 
 ## Python json and statistics
 
@@ -280,6 +303,7 @@ for the desktop render control panel.
 Where it appears:
 
 - `desktop_render_control_panel.audio_input_service`
+- `desktop_spectrograph_audio_source_panel.spectrograph_audio_source_controller`
 
 Official documentation:
 
@@ -301,6 +325,7 @@ audio for the desktop render control panel.
 Where it appears:
 
 - `desktop_render_control_panel.audio_input_service.SoundCardLoopbackOutputCaptureBackend`
+- `desktop_spectrograph_audio_source_panel.spectrograph_audio_source_controller`
 
 Official documentation:
 

@@ -161,6 +161,7 @@ class RepositoryContractTests(unittest.TestCase):
             "docs/site/scene-studio.html",
             "docs/site/desktop-control-panel.html",
             "docs/site/spectrograph-suite.html",
+            "docs/site/spectrograph-audio-source-panel.html",
             "docs/site/multi-renderer-data-source-panel.html",
             "docs/site/code-docs.html",
         ]:
@@ -185,6 +186,7 @@ class RepositoryContractTests(unittest.TestCase):
             "scene-studio.html",
             "desktop-control-panel.html",
             "spectrograph-suite.html",
+            "spectrograph-audio-source-panel.html",
             "multi-renderer-data-source-panel.html",
         }
 
@@ -200,6 +202,7 @@ class RepositoryContractTests(unittest.TestCase):
             "docs/site/scene-studio.html",
             "docs/site/desktop-control-panel.html",
             "docs/site/spectrograph-suite.html",
+            "docs/site/spectrograph-audio-source-panel.html",
             "docs/site/multi-renderer-data-source-panel.html",
         ]:
             parser = self._parse_html(relative_path)
@@ -224,6 +227,7 @@ class RepositoryContractTests(unittest.TestCase):
             "docs/site/scene-studio.html",
             "docs/site/desktop-control-panel.html",
             "docs/site/spectrograph-suite.html",
+            "docs/site/spectrograph-audio-source-panel.html",
             "docs/site/multi-renderer-data-source-panel.html",
         ]:
             parser = self._parse_html(relative_path)
