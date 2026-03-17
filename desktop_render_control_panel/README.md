@@ -13,6 +13,25 @@ It exists for the cases where the browser tools are helpful, but not quite enoug
 - seeing the selected colors and pointer motion reflected immediately in the UI
 - opening the full scene JSON in a separate window only when you want to inspect it
 
+## How it now fits beside the shared data-source tool
+
+This panel is intentionally no longer the "do every desktop job" app.
+
+The responsibilities are now split more clearly:
+
+- this panel focuses on choosing classic Halcyn scene presets and tuning how
+  those presets look
+- the shared
+  [desktop multi-renderer data source panel](/Y:/Halcyn/desktop_multi_renderer_data_source_panel/README.md)
+  focuses on capturing or generating data and routing it into one or both
+  renderer families
+
+That separation makes both apps easier to understand:
+
+- if you want to sculpt the classic preset itself, use this panel
+- if you want one source of live data to drive multiple renderer targets, use
+  the shared data-source panel
+
 ## Launch it
 
 ```powershell
@@ -53,8 +72,12 @@ It exists for the cases where the browser tools are helpful, but not quite enoug
 - `desktop_control_panel_window.py`: the Tkinter window and widgets
 - `desktop_control_panel_controller.py`: non-visual orchestration for payload merging, validation, apply, and live streaming
 - `desktop_control_scene_builder.py`: preset catalog plus 2D/3D scene generation
-- `audio_input_service.py`: audio backend detection, device enumeration, and band analysis
-- `render_api_client.py`: focused HTTP client for Halcyn's validation, apply, and health routes
+- `audio_input_service.py`: the underlying audio backend detection, device enumeration, and band analysis implementation that is now also re-exported through the shared desktop support package
+- `render_api_client.py`: the underlying renderer HTTP client implementation that is now also re-exported through the shared desktop support package
+
+The controller itself now imports the shared desktop support package so that the
+same audio and renderer-client plumbing can be reused by multiple desktop apps
+without each app inventing its own version.
 
 ## Helpful external references
 

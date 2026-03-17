@@ -4,7 +4,7 @@
 [![Pages](https://github.com/gedrocht/Halcyn/actions/workflows/pages.yml/badge.svg)](https://github.com/gedrocht/Halcyn/actions/workflows/pages.yml)
 [![CodeQL](https://github.com/gedrocht/Halcyn/actions/workflows/codeql.yml/badge.svg)](https://github.com/gedrocht/Halcyn/actions/workflows/codeql.yml)
 
-Halcyn is a C++20 application that accepts JSON scene descriptions over HTTP and renders them in a GPU-backed OpenGL window at a 60 FPS target. It supports both 2D and 3D payloads, includes unit tests, ships with example scenes and helper scripts, and now includes a growing family of operator tools around the renderer: a browser-based Control Center, a separate browser-facing Scene Studio, a native desktop render control panel for hardware-aware live control, a dedicated spectrograph-oriented renderer executable, and a native desktop spectrograph control panel that turns generic JSON into a rolling 3D bar wall.
+Halcyn is a C++20 application that accepts JSON scene descriptions over HTTP and renders them in a GPU-backed OpenGL window at a 60 FPS target. It supports both 2D and 3D payloads, includes unit tests, ships with example scenes and helper scripts, and now includes a growing family of operator tools around the renderer: a browser-based Control Center, a separate browser-facing Scene Studio, a native desktop render control panel for hardware-aware live control, a dedicated spectrograph-oriented renderer executable, a native desktop spectrograph control panel that turns generic JSON into a rolling 3D bar wall, and a new shared desktop data-source panel that can feed either renderer family or both at once.
 
 ## What you get
 
@@ -17,6 +17,8 @@ Halcyn is a C++20 application that accepts JSON scene descriptions over HTTP and
 - A native desktop operator app under `desktop_render_control_panel/` that can preview, validate, apply, and live-stream scenes while selecting real local audio devices.
 - A dedicated spectrograph renderer executable that starts with a 3D bar-grid scene and exposes its own default API port.
 - A native desktop spectrograph operator app under `desktop_spectrograph_control_panel/` that accepts very generic JSON, normalizes it through a rolling statistical range, and turns it into a controllable 3D spectrograph scene.
+- A shared native desktop data-source app under `desktop_multi_renderer_data_source_panel/` that captures or generates one live data stream and routes it into the classic renderer, the spectrograph renderer, or both.
+- A small shared desktop support package under `desktop_shared_control_support/` so desktop apps can share renderer HTTP helpers and audio-device integration through one clear import path.
 - A static dark-mode docs site under `docs/site`.
 - Doxygen-ready source comments and a `Doxyfile` for generated code reference output.
 
@@ -32,6 +34,8 @@ Halcyn is a C++20 application that accepts JSON scene descriptions over HTTP and
 |-- browser_control_center/
 |-- desktop_render_control_panel/
 |-- desktop_spectrograph_control_panel/
+|-- desktop_multi_renderer_data_source_panel/
+|-- desktop_shared_control_support/
 |-- scripts/
 |-- src/
 |   |-- http_api/
@@ -52,10 +56,11 @@ Halcyn is a C++20 application that accepts JSON scene descriptions over HTTP and
 4. Launch the native desktop render control panel with `.\scripts\launch-desktop-render-control-panel.ps1` if you want local audio-device selection and instant 2D/3D switching in a desktop window.
 5. Launch the dedicated spectrograph renderer with `.\scripts\launch-halcyn-spectrograph-app.ps1`.
 6. Launch the native desktop spectrograph operator console with `.\scripts\launch-desktop-spectrograph-control-panel.ps1` if you want to turn arbitrary JSON into a rolling 3D spectrograph scene.
-7. Use the Control Center dashboard to run the prerequisite report, build, tests, and app startup from the browser.
-8. In the Scene Studio, either desktop control panel, or API Lab, generate and submit sample scenes to the live renderer.
-9. Open the docs site directly from the Control Center or with `.\scripts\serve-docs-site.ps1`.
-10. For a full Windows setup and troubleshooting guide, see `INSTALL.md`.
+7. Launch the shared desktop data-source panel with `.\scripts\launch-desktop-multi-renderer-data-source-panel.ps1` if you want one live input source to drive the classic renderer, the spectrograph renderer, or both.
+8. Use the Control Center dashboard to run the prerequisite report, build, tests, and app startup from the browser.
+9. In the Scene Studio, either desktop control panel, the shared data-source panel, or API Lab, generate and submit sample scenes to the live renderer.
+10. Open the docs site directly from the Control Center or with `.\scripts\serve-docs-site.ps1`.
+11. For a full Windows setup and troubleshooting guide, see `INSTALL.md`.
 
 ## PowerShell first-run note
 
@@ -188,15 +193,20 @@ Example:
 - `.\scripts\launch-browser-scene-studio.ps1`
 - `.\scripts\launch-desktop-render-control-panel.ps1`
 - `.\scripts\launch-desktop-spectrograph-control-panel.ps1`
+- `.\scripts\launch-desktop-multi-renderer-data-source-panel.ps1`
 - `.\scripts\test-browser-control-center.ps1`
 - `.\scripts\test-desktop-render-control-panel.ps1`
 - `.\scripts\test-desktop-spectrograph-control-panel.ps1`
+- `.\scripts\test-desktop-multi-renderer-data-source-panel.ps1`
 - `.\scripts\lint-desktop-render-control-panel.ps1`
 - `.\scripts\lint-desktop-spectrograph-control-panel.ps1`
+- `.\scripts\lint-desktop-multi-renderer-data-source-panel.ps1`
 - `.\scripts\typecheck-desktop-render-control-panel.ps1`
 - `.\scripts\typecheck-desktop-spectrograph-control-panel.ps1`
+- `.\scripts\typecheck-desktop-multi-renderer-data-source-panel.ps1`
 - `.\scripts\measure-desktop-render-control-panel-coverage.ps1`
 - `.\scripts\measure-desktop-spectrograph-control-panel-coverage.ps1`
+- `.\scripts\measure-desktop-multi-renderer-data-source-panel-coverage.ps1`
 - `.\scripts\post-example-2d-scene.ps1`
 - `.\scripts\post-example-3d-scene.ps1`
 - `.\scripts\serve-docs-site.ps1`
@@ -211,6 +221,7 @@ Example:
 - Scene Studio guide: `docs/site/scene-studio.html`
 - Desktop control panel guide: `docs/site/desktop-control-panel.html`
 - Spectrograph suite guide: `docs/site/spectrograph-suite.html`
+- Shared data-source panel guide: `docs/site/multi-renderer-data-source-panel.html`
 - Architecture guide: `docs/site/architecture.html`
 - API guide: `docs/site/api.html`
 - Testing guide: `docs/site/testing.html`
@@ -251,6 +262,16 @@ Run `.\scripts\launch-desktop-render-control-panel.ps1` to open the native Tk-ba
 - apply one scene immediately or keep a live stream running at a chosen cadence
 - expose signal controls for unix time, deterministic noise, pointer input, audio energy bands, and manual drive
 - serve as a desktop-side companion to the browser Control Center and Scene Studio instead of replacing them
+
+## Shared Data Source Panel
+
+Run `.\scripts\launch-desktop-multi-renderer-data-source-panel.ps1` to open the native shared data-source console. This app can:
+
+- accept JSON documents, plain text, random values, audio devices, or pointer-pad movement as its live source
+- route the same source into the classic renderer, the spectrograph renderer, or both
+- preview, validate, apply once, or live-stream the translated scenes
+- save and reload a versioned settings document
+- complement the other desktop panels by handling data capture and routing while they stay focused on scene editing
 
 ## Spectrograph Renderer
 

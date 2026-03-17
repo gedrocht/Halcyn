@@ -22,18 +22,18 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Protocol
 
-from desktop_render_control_panel.audio_input_service import (
-    AudioDeviceDescriptor,
-    AudioSignalSnapshot,
-    DesktopAudioInputService,
-)
 from desktop_render_control_panel.desktop_control_scene_builder import (
     DEFAULT_DESKTOP_PRESET_ID,
     build_catalog_payload,
     build_default_request_payload,
     build_scene_bundle,
 )
-from desktop_render_control_panel.render_api_client import RenderApiClient, RenderApiResponse
+from desktop_shared_control_support.audio_input_service import (
+    AudioDeviceDescriptor,
+    AudioSignalSnapshot,
+    DesktopAudioInputService,
+)
+from desktop_shared_control_support.render_api_client import RenderApiClient, RenderApiResponse
 
 
 def _current_utc_timestamp_iso8601() -> str:

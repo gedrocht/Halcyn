@@ -19,7 +19,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Protocol
 
-from desktop_render_control_panel.render_api_client import RenderApiClient, RenderApiResponse
+from desktop_shared_control_support.render_api_client import RenderApiClient, RenderApiResponse
 from desktop_spectrograph_control_panel.spectrograph_scene_builder import (
     SpectrographBuildResult,
     build_catalog_payload,

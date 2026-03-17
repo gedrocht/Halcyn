@@ -161,6 +161,7 @@ class RepositoryContractTests(unittest.TestCase):
             "docs/site/scene-studio.html",
             "docs/site/desktop-control-panel.html",
             "docs/site/spectrograph-suite.html",
+            "docs/site/multi-renderer-data-source-panel.html",
             "docs/site/code-docs.html",
         ]:
             page_text = self._read_text(relative_path)
@@ -184,6 +185,7 @@ class RepositoryContractTests(unittest.TestCase):
             "scene-studio.html",
             "desktop-control-panel.html",
             "spectrograph-suite.html",
+            "multi-renderer-data-source-panel.html",
         }
 
         for relative_path in [
@@ -198,6 +200,7 @@ class RepositoryContractTests(unittest.TestCase):
             "docs/site/scene-studio.html",
             "docs/site/desktop-control-panel.html",
             "docs/site/spectrograph-suite.html",
+            "docs/site/multi-renderer-data-source-panel.html",
         ]:
             parser = self._parse_html(relative_path)
             missing_doc_links = sorted(expected_doc_links - parser.hrefs)
@@ -221,6 +224,7 @@ class RepositoryContractTests(unittest.TestCase):
             "docs/site/scene-studio.html",
             "docs/site/desktop-control-panel.html",
             "docs/site/spectrograph-suite.html",
+            "docs/site/multi-renderer-data-source-panel.html",
         ]:
             parser = self._parse_html(relative_path)
             root_relative_links = sorted(href for href in parser.hrefs if href.startswith("/"))

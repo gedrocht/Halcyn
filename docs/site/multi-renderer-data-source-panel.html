@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Halcyn Shared Data Source Panel</title>
+    <link rel="stylesheet" href="assets/styles.css">
+    <script defer src="assets/app.js"></script>
+  </head>
+  <body data-page="multi-renderer-data-source-panel">
+    <div class="page-shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true"></div>
+          <div class="brand-copy">
+            <h1>Shared Data Source Panel</h1>
+            <p>A native desktop app that captures one live data stream and routes it into one or both Halcyn renderer families.</p>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <button class="button" data-theme-toggle>Toggle theme</button>
+          <a class="button" href="https://github.com/gedrocht/Halcyn/blob/main/scripts/launch-desktop-multi-renderer-data-source-panel.ps1">View launcher</a>
+        </div>
+      </header>
+
+      <div class="content-grid">
+        <nav class="nav-card">
+          <h3>Docs map</h3>
+          <ul>
+            <li><a href="index.html" data-nav-link="index">Overview</a></li>
+            <li><a href="tutorial.html" data-nav-link="tutorial">Tutorial</a></li>
+            <li><a href="api.html" data-nav-link="api">API Reference</a></li>
+            <li><a href="architecture.html" data-nav-link="architecture">Architecture</a></li>
+            <li><a href="testing.html" data-nav-link="testing">Testing</a></li>
+            <li><a href="code-docs.html" data-nav-link="code-docs">Code Docs</a></li>
+            <li><a href="field-reference.html" data-nav-link="field-reference">Field Reference</a></li>
+            <li><a href="control-center.html" data-nav-link="control-center">Control Center</a></li>
+            <li><a href="scene-studio.html" data-nav-link="scene-studio">Scene Studio</a></li>
+            <li><a href="desktop-control-panel.html" data-nav-link="desktop-control-panel">Desktop Control Panel</a></li>
+            <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Spectrograph Suite</a></li>
+            <li><a href="multi-renderer-data-source-panel.html" data-nav-link="multi-renderer-data-source-panel">Shared Data Source Panel</a></li>
+          </ul>
+        </nav>
+
+        <main>
+          <section class="panel">
+            <h3>What this app is for</h3>
+            <p>
+              The shared data source panel is the desktop-side data router for Halcyn. Instead of asking one tool to do
+              everything, the responsibilities are now cleaner:
+            </p>
+            <ul>
+              <li>The desktop render control panel focuses on scene presets and visual tuning.</li>
+              <li>The desktop spectrograph control panel focuses on spectrograph-specific rendering options.</li>
+              <li>The shared data source panel focuses on capturing or generating live data and sending it to one or both renderers.</li>
+            </ul>
+            <div class="callout">
+              Beginner mental model: this app is the <strong>data source brain</strong>. The other desktop apps are the
+              <strong>scene editors</strong>.
+            </div>
+          </section>
+
+          <section class="panel">
+            <h3>Beginner walkthrough</h3>
+            <ol>
+              <li>Start the classic renderer with <code>.\scripts\launch-halcyn-app.ps1</code> if you want the regular scene presets.</li>
+              <li>Start the spectrograph renderer with <code>.\scripts\launch-halcyn-spectrograph-app.ps1</code> if you want the bar-wall renderer.</li>
+              <li>Run <code>.\scripts\launch-desktop-multi-renderer-data-source-panel.ps1</code>.</li>
+              <li>Pick one source mode such as <code>JSON document</code>, <code>Plain text</code>, <code>Random values</code>, <code>Audio device</code>, or <code>Pointer pad</code>.</li>
+              <li>Enable the target or targets you want to drive.</li>
+              <li>Click <code>Preview</code> to see whether the data source produced sensible values.</li>
+              <li>Click <code>Validate</code> to ask the renderer APIs whether they accept the generated scenes.</li>
+              <li>Click <code>Apply</code> or <code>Start live stream</code> when the preview looks right.</li>
+            </ol>
+          </section>
+
+          <section class="panel">
+            <h3>Source modes</h3>
+            <div class="cards">
+              <div class="card"><h4>JSON document</h4><p>Parse arbitrary nested JSON, flatten numbers directly, turn booleans into <code>1.0</code> or <code>0.0</code>, and convert strings into UTF-8 bytes.</p></div>
+              <div class="card"><h4>Plain text</h4><p>Turn one plain-text string into byte values without requiring a JSON wrapper first.</p></div>
+              <div class="card"><h4>Random values</h4><p>Generate a repeatable pseudo-random value stream from a seed so testing is easier.</p></div>
+              <div class="card"><h4>Audio device</h4><p>Capture either output loopback or input-device sound, then route that live audio analysis into both renderer families.</p></div>
+              <div class="card"><h4>Pointer pad</h4><p>Use local pointer X, Y, and motion speed when you want a simple interactive source with no hardware dependencies.</p></div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h3>How the same source reaches two different renderers</h3>
+            <ol>
+              <li>The source mode produces one numeric stream.</li>
+              <li>The shared source builder summarizes that numeric stream into smaller signal values for the classic renderer.</li>
+              <li>The same numeric stream is also packaged as JSON for the spectrograph renderer.</li>
+              <li>The classic renderer receives a normal Halcyn scene generated through the existing desktop scene builder.</li>
+              <li>The spectrograph renderer receives a normal Halcyn scene generated through the spectrograph scene builder.</li>
+            </ol>
+            <p>
+              The important design choice is that both outputs are still ordinary Halcyn scene JSON. The new work lives
+              in the translation step, not in inventing a second network protocol.
+            </p>
+          </section>
+
+          <section class="panel">
+            <h3>External references</h3>
+            <ul>
+              <li><a href="https://docs.python.org/3/library/tkinter.html">Tkinter overview</a></li>
+              <li><a href="https://docs.python.org/3/library/tkinter.ttk.html">Tk themed widgets (<code>ttk</code>)</a></li>
+              <li><a href="https://docs.python.org/3/library/tkinter.scrolledtext.html">ScrolledText widget</a></li>
+              <li><a href="https://docs.python.org/3/library/dialog.html#tkinter.filedialog">Tk file dialogs</a></li>
+              <li><a href="https://docs.python.org/3/library/json.html">Python <code>json</code> module</a></li>
+              <li><a href="https://docs.python.org/3/library/random.html">Python <code>random</code> module</a></li>
+              <li><a href="https://docs.python.org/3/library/stdtypes.html#str.encode">UTF-8 encoding with <code>str.encode</code></a></li>
+              <li><a href="https://python-sounddevice.readthedocs.io/">sounddevice</a></li>
+              <li><a href="https://soundcard.readthedocs.io/">soundcard</a></li>
+              <li><a href="https://docs.python.org/3/library/urllib.request.html">urllib.request</a></li>
+            </ul>
+          </section>
+
+          <section class="panel">
+            <h3>Scripts and tests</h3>
+            <pre><code>.\scripts\launch-desktop-multi-renderer-data-source-panel.ps1
+.\scripts\lint-desktop-multi-renderer-data-source-panel.ps1
+.\scripts\typecheck-desktop-multi-renderer-data-source-panel.ps1
+.\scripts\test-desktop-multi-renderer-data-source-panel.ps1
+.\scripts\measure-desktop-multi-renderer-data-source-panel-coverage.ps1</code></pre>
+            <p>The repo-wide quality pass still lives at <code>.\scripts\run-all-quality-checks.ps1 -Configuration Debug</code>.</p>
+          </section>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

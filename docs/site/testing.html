@@ -38,6 +38,7 @@
             <li><a href="scene-studio.html">Scene Studio</a></li>
             <li><a href="desktop-control-panel.html">Desktop Control Panel</a></li>
             <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Spectrograph Suite</a></li>
+            <li><a href="multi-renderer-data-source-panel.html" data-nav-link="multi-renderer-data-source-panel">Shared Data Source Panel</a></li>
           </ul>
         </nav>
 
@@ -58,6 +59,7 @@
               <div class="card"><h4>Browser Control Center</h4><p>Lint, type checks, coverage, and repository-contract tests keep the orchestration UI honest.</p></div>
               <div class="card"><h4>Desktop control panel</h4><p>Unit tests cover audio service fallbacks, HTTP client behavior, controller logic, and the hidden Tk window flow.</p></div>
               <div class="card"><h4>Desktop spectrograph suite</h4><p>Unit tests cover generic JSON flattening, rolling-range normalization, controller live streaming, and the Tk-based spectrograph operator window.</p></div>
+              <div class="card"><h4>Shared data source panel</h4><p>Unit tests cover source-mode routing, dual-target preview/apply behavior, settings documents, audio capture integration, and the detached preview window flow.</p></div>
             </div>
           </section>
 
@@ -70,7 +72,9 @@
 .\scripts\test-desktop-render-control-panel.ps1
 .\scripts\measure-desktop-render-control-panel-coverage.ps1
 .\scripts\test-desktop-spectrograph-control-panel.ps1
-.\scripts\measure-desktop-spectrograph-control-panel-coverage.ps1</code></pre>
+.\scripts\measure-desktop-spectrograph-control-panel-coverage.ps1
+.\scripts\test-desktop-multi-renderer-data-source-panel.ps1
+.\scripts\measure-desktop-multi-renderer-data-source-panel-coverage.ps1</code></pre>
             <p>
               If you want the same consolidated pass CI expects locally, run
               <code>.\scripts\run-all-quality-checks.ps1 -Configuration Debug</code>.
@@ -87,6 +91,7 @@
               <li>Launch the desktop render control panel and confirm it can preview, validate, and apply a scene.</li>
               <li>If you have audio hardware available, confirm the desktop panel can enumerate a device and react to changing input levels.</li>
               <li>Launch the spectrograph renderer and desktop spectrograph control panel, load a string-heavy example, and confirm it still produces a valid moving bar wall.</li>
+              <li>Launch the shared data source panel, enable both targets, and confirm one source stream can validate and apply scenes into both renderers.</li>
             </ul>
           </section>
         </main>
