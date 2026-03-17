@@ -871,14 +871,31 @@ class VisualizerOperatorConsoleWindow:
                 frame.grid_remove()
 
     def _refresh_audio_devices(self) -> None:
-        """Refresh the visible audio-device list for the selected flow."""
+        """Refresh the visible audio-device list for the selected flow.
+
+        Device refresh can fail for reasons the operator cannot immediately
+        solve, such as a missing optional audio library or a backend that is
+        temporarily unavailable. A modal popup here is frustrating because this
+        method runs during startup and during ordinary UI sync steps. Instead,
+        the window reports the problem in its status text and keeps running.
+        """
 
         try:
             audio_devices = self._controller.refresh_audio_devices(
                 self._audio_device_flow_variable.get()
             )
         except Exception as error:
-            messagebox.showerror("Audio devices", str(error))
+            selected_audio_flow = self._audio_device_flow_variable.get()
+            human_readable_flow_name = (
+                "output sources" if selected_audio_flow == "output" else "input sources"
+            )
+            self._audio_device_identifiers_by_label.clear()
+            self._audio_device_labels_by_identifier.clear()
+            self._audio_device_combobox.configure(values=[])
+            self._audio_device_variable.set("")
+            self._audio_status_variable.set(
+                f"Audio device refresh failed for {human_readable_flow_name}: {error}"
+            )
             return
 
         self._audio_device_identifiers_by_label.clear()
@@ -896,6 +913,28 @@ class VisualizerOperatorConsoleWindow:
             self._audio_device_variable.set(audio_device_labels[0])
         elif not audio_device_labels:
             self._audio_device_variable.set("")
+
+        current_audio_status_text = self._audio_status_variable.get()
+        if (
+            current_audio_status_text.startswith("Audio device refresh failed")
+            or current_audio_status_text == "Audio capture not started."
+        ):
+            available_device_count = len(audio_device_labels)
+            selected_audio_flow = self._audio_device_flow_variable.get()
+            human_readable_flow_name = (
+                "output sources" if selected_audio_flow == "output" else "input sources"
+            )
+            human_readable_flow_singular_name = human_readable_flow_name[:-1]
+            if available_device_count > 0:
+                plural_suffix = "" if available_device_count == 1 else "s"
+                self._audio_status_variable.set(
+                    f"Found {available_device_count} "
+                    f"{human_readable_flow_singular_name}{plural_suffix}."
+                )
+            else:
+                self._audio_status_variable.set(
+                    f"No {human_readable_flow_name} were detected."
+                )
 
         self._schedule_preview_refresh()
 

@@ -551,11 +551,33 @@ class VisualizerOperatorWindowTests(unittest.TestCase):
                 "desktop_visualizer_operator_console.visualizer_operator_console_window.messagebox.showerror"
             ) as mocked_show_error:
                 window._refresh_audio_devices()
+                self.assertIn("Audio device refresh failed", window._audio_status_variable.get())
+                self.assertEqual(window._audio_device_variable.get(), "")
         finally:
             controller.close()
             root_window.destroy()
 
-        mocked_show_error.assert_called_once()
+        mocked_show_error.assert_not_called()
+
+    def test_window_startup_handles_audio_refresh_errors_without_a_popup(self) -> None:
+        audio_service = _FakeAudioInputService()
+        audio_service.refresh_error = RuntimeError("refresh failed")
+        controller = VisualizerOperatorConsoleController(
+            project_root=Path(__file__).resolve().parents[2],
+            render_api_client=_FakeRenderApiClient(),
+            audio_input_service=audio_service,
+        )
+        with mock.patch(
+            "desktop_visualizer_operator_console.visualizer_operator_console_window.messagebox.showerror"
+        ) as mocked_show_error:
+            root_window, controller, window = self._build_window(controller)
+        try:
+            self.assertIn("Audio device refresh failed", window._audio_status_variable.get())
+        finally:
+            controller.close()
+            root_window.destroy()
+
+        mocked_show_error.assert_not_called()
 
     def test_window_handles_empty_audio_device_lists(self) -> None:
         audio_service = _FakeAudioInputService()
