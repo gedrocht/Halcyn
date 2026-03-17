@@ -123,6 +123,14 @@ class ControlCenterServerTests(unittest.TestCase):
 
         self.assertIn("Halcyn Control Center", body)
 
+    def test_activity_monitor_route_serves_html(self) -> None:
+        """The shared Activity Monitor page should be reachable."""
+
+        with urllib.request.urlopen(f"{self.base_url}/activity-monitor/", timeout=5) as response:
+            body = response.read().decode("utf-8")
+
+        self.assertIn("Halcyn Activity Monitor", body)
+
     def test_summary_endpoint_returns_expected_sections(self) -> None:
         """The dashboard summary should return tools, docs, jobs, and app state."""
 
@@ -134,6 +142,9 @@ class ControlCenterServerTests(unittest.TestCase):
         self.assertIn("docs", payload)
         self.assertIn("app", payload)
         self.assertIn("jobs", payload)
+        self.assertIn("activityMonitor", payload["docs"])
+        self.assertIn("visualizerStudioGuide", payload["docs"])
+        self.assertIn("barWallScenesGuide", payload["docs"])
 
     def test_docs_route_serves_static_docs(self) -> None:
         """The static docs site should be reachable through the Control Center."""
@@ -156,6 +167,21 @@ class ControlCenterServerTests(unittest.TestCase):
 
             self.assertEqual(payload["status"], "ok")
             self.assertIn(expected_key, payload)
+
+    def test_activity_log_endpoint_returns_structured_entries(self) -> None:
+        """The shared activity-log endpoint should expose filtered journal data."""
+
+        self.state._record_log("INFO", "tests", "Synthetic activity event")
+
+        with urllib.request.urlopen(
+            f"{self.base_url}/api/activity-log?limit=25&source=control-center",
+            timeout=5,
+        ) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+
+        self.assertEqual(payload["status"], "ok")
+        self.assertTrue(payload["entries"])
+        self.assertEqual(payload["entries"][-1]["source_app"], "control-center")
 
     def test_path_traversal_for_static_assets_is_rejected(self) -> None:
         """Static asset traversal attempts should not escape the static directory."""
@@ -376,8 +402,8 @@ class ControlCenterStateTests(unittest.TestCase):
             return_value=fake_process,
         ):
             job = self.state._start_job("bootstrap", ["powershell"], self.project_root)
+            self._wait_for(lambda: job.status == "succeeded")
 
-        self._wait_for(lambda: job.status == "succeeded")
         self.assertEqual(job.exit_code, 0)
         self.assertEqual(job.output_lines, ["hello", "world"])
 
@@ -389,8 +415,7 @@ class ControlCenterStateTests(unittest.TestCase):
             side_effect=OSError("boom"),
         ):
             job = self.state._start_job("bootstrap", ["powershell"], self.project_root)
-
-        self._wait_for(lambda: job.status == "failed")
+            self._wait_for(lambda: job.status == "failed")
         self.assertEqual(job.exit_code, -1)
         self.assertIn("Failed to start process", job.output_lines[0])
 

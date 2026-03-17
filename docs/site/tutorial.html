@@ -13,13 +13,12 @@
         <div class="brand">
           <div class="brand-mark" aria-hidden="true"></div>
           <div class="brand-copy">
-            <h1>Halcyn Tutorial</h1>
-            <p>Step-by-step instructions for first-time users.</p>
+            <h1>Tutorial</h1>
+            <p>A beginner-friendly walk through the current unified Halcyn workflow.</p>
           </div>
         </div>
         <div class="topbar-actions">
           <button class="button" data-theme-toggle>Toggle theme</button>
-          <a class="button" href="index.html">Back to overview</a>
         </div>
       </header>
 
@@ -33,102 +32,72 @@
             <li><a href="architecture.html" data-nav-link="architecture">Architecture</a></li>
             <li><a href="testing.html" data-nav-link="testing">Testing</a></li>
             <li><a href="code-docs.html" data-nav-link="code-docs">Code Docs</a></li>
-            <li><a href="field-reference.html">Field Reference</a></li>
-            <li><a href="control-center.html">Control Center</a></li>
-            <li><a href="scene-studio.html">Scene Studio</a></li>
-            <li><a href="desktop-control-panel.html">Desktop Control Panel</a></li>
-            <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Spectrograph Suite</a></li>
-            <li><a href="spectrograph-audio-source-panel.html" data-nav-link="spectrograph-audio-source-panel">Spectrograph Audio Source Panel</a></li>
-            <li><a href="multi-renderer-data-source-panel.html" data-nav-link="multi-renderer-data-source-panel">Shared Data Source Panel</a></li>
+            <li><a href="field-reference.html" data-nav-link="field-reference">Field Reference</a></li>
+            <li><a href="control-center.html" data-nav-link="control-center">Control Center</a></li>
+            <li><a href="scene-studio.html" data-nav-link="scene-studio">Scene Studio</a></li>
+            <li><a href="desktop-control-panel.html" data-nav-link="desktop-control-panel">Visualizer Studio</a></li>
+            <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Bar-Wall Scenes</a></li>
+            <li><a href="spectrograph-audio-source-panel.html" data-nav-link="spectrograph-audio-source-panel">Legacy Audio Helper</a></li>
+            <li><a href="multi-renderer-data-source-panel.html" data-nav-link="multi-renderer-data-source-panel">Legacy Data Router</a></li>
           </ul>
         </nav>
 
         <main>
           <section class="panel">
             <h3>Step 1: check prerequisites</h3>
-            <p>
-              Run the prerequisite report first. This does not build anything. It only tells you whether CMake, Python,
-              Git, a compiler, and optional documentation tools are present.
-            </p>
             <pre><code>.\scripts\report-prerequisites.ps1</code></pre>
-          </section>
-
-          <section class="panel">
-            <h3>Step 2: build the project</h3>
             <p>
-              The build script configures the project with CMake and then compiles it. By default it produces a Debug
-              build. You can also choose Release.
-            </p>
-            <pre><code>.\scripts\build-halcyn-app.ps1
-.\scripts\build-halcyn-app.ps1 -Configuration Release</code></pre>
-          </section>
-
-          <section class="panel">
-            <h3>Step 3: run the app</h3>
-            <p>
-              The run script builds the app if necessary, starts the HTTP API, and opens the render window. You can
-              choose a startup sample or load a scene file immediately.
-            </p>
-            <pre><code>.\scripts\launch-halcyn-app.ps1
-.\scripts\launch-halcyn-app.ps1 -Sample 3d
-.\scripts\launch-halcyn-app.ps1 -SceneFile .\examples\scene_2d_lines.json
-.\scripts\launch-halcyn-app.ps1 -Port 0</code></pre>
-            <p>
-              If you use <code>-Port 0</code>, Windows chooses any free TCP port. Halcyn then prints the real port in
-              its startup summary so you can connect to the correct address.
+              This tells you whether Python, CMake, Doxygen, audio packages, Visual Studio, and the
+              other helpers needed by the repo are currently available on your machine.
             </p>
           </section>
 
           <section class="panel">
-            <h3>Step 4: post JSON into the running app</h3>
+            <h3>Step 2: open the easiest full setup</h3>
+            <pre><code>.\scripts\launch-visualizer-workbench.ps1</code></pre>
             <p>
-              Open a second PowerShell terminal and post a sample scene. When the request succeeds, the renderer picks
-              up the new scene on the next frame.
+              That opens the Visualizer, the browser Control Center, and the unified Visualizer
+              Studio desktop app in separate windows.
             </p>
-            <pre><code>.\scripts\post-example-2d-scene.ps1
-.\scripts\post-example-3d-scene.ps1</code></pre>
-            <pre><code>.\scripts\post-scene-json-file.ps1 -SceneFile .\examples\scene_3d_wireframe_lines.json</code></pre>
           </section>
 
           <section class="panel">
-            <h3>What happened behind the scenes?</h3>
-            <div class="cards">
-              <div class="card">
-                <h4>The API thread</h4>
-                <p>Received your HTTP request, parsed the JSON, validated it, and stored the latest good scene.</p>
-              </div>
-              <div class="card">
-                <h4>The scene store</h4>
-                <p>Created a new immutable snapshot with a higher version number so the renderer could notice the change.</p>
-              </div>
-              <div class="card">
-                <h4>The render thread</h4>
-                <p>Detected the new version, uploaded the scene to GPU buffers, and kept drawing at the target frame rate.</p>
-              </div>
-            </div>
+            <h3>Step 3: learn the four main roles</h3>
+            <ul>
+              <li><strong>Visualizer</strong>: draws the current scene.</li>
+              <li><strong>Visualizer Studio</strong>: creates scenes from sources and sends them to the Visualizer.</li>
+              <li><strong>Control Center</strong>: launches things, runs jobs, and gives you API and docs access.</li>
+              <li><strong>Activity Monitor</strong>: shows the shared log stream from the running apps.</li>
+            </ul>
           </section>
 
           <section class="panel">
-            <h3>Step 5: use the browser Control Center</h3>
-            <p>
-              If you prefer a web-based workflow, launch the Control Center and open it in your browser. From there you
-              can run bootstrap, build, test, docs generation, smoke checks, and API requests without remembering the
-              individual terminal commands.
-            </p>
-            <pre><code>.\scripts\launch-browser-control-center.ps1</code></pre>
+            <h3>Step 4: try the preset scene family</h3>
+            <ol>
+              <li>In Visualizer Studio, leave the scene family on <strong>Preset scene</strong>.</li>
+              <li>Choose a source mode such as plain text or pointer pad.</li>
+              <li>Use <strong>Preview</strong> to inspect the generated scene.</li>
+              <li>Use <strong>Validate</strong> and then <strong>Apply</strong>.</li>
+            </ol>
           </section>
 
           <section class="panel">
-            <h3>Step 6: use the native desktop control panel when you need hardware-aware control</h3>
+            <h3>Step 5: try the bar-wall scene family</h3>
+            <ol>
+              <li>Switch the scene family to <strong>Bar wall</strong>.</li>
+              <li>Try a JSON document, plain text, random values, or audio.</li>
+              <li>Adjust grid size, shader style, anti-aliasing, and range mode.</li>
+              <li>Open the preview JSON window so you can study the generated 3D scene.</li>
+            </ol>
+          </section>
+
+          <section class="panel">
+            <h3>Step 6: watch the shared logs</h3>
+            <pre><code>.\scripts\launch-activity-monitor.ps1</code></pre>
             <p>
-              The desktop control panel is the best fit when you want one operator surface beside
-              the renderer window, especially if you need local audio-device selection, instant 2D
-              and 3D switching, or a desktop pointer pad instead of browser permissions.
-            </p>
-            <pre><code>.\scripts\launch-desktop-render-control-panel.ps1</code></pre>
-            <p>
-              Inside that app you can preview JSON, validate the current scene, apply it once, or
-              keep a live stream running while you manipulate the controls.
+              This opens the sortable, filterable browser view over the shared activity journal.
+              Watching this while you use Visualizer Studio makes the whole system much easier to
+              understand.
             </p>
           </section>
         </main>

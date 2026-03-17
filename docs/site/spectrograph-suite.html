@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Halcyn Spectrograph Suite</title>
+    <title>Halcyn Bar-Wall Scenes</title>
     <link rel="stylesheet" href="assets/styles.css">
     <script defer src="assets/app.js"></script>
   </head>
@@ -13,13 +13,13 @@
         <div class="brand">
           <div class="brand-mark" aria-hidden="true"></div>
           <div class="brand-copy">
-            <h1>Spectrograph Suite Guide</h1>
-            <p>The dedicated renderer and the native desktop control surface for data-driven 3D bars.</p>
+            <h1>Bar-Wall Scene Guide</h1>
+            <p>The old spectrograph-style workflow is now one scene family inside the unified Visualizer.</p>
           </div>
         </div>
         <div class="topbar-actions">
           <button class="button" data-theme-toggle>Toggle theme</button>
-          <a class="button" href="https://github.com/gedrocht/Halcyn/blob/main/scripts/launch-halcyn-spectrograph-app.ps1">View spectrograph launcher</a>
+          <a class="button" href="https://github.com/gedrocht/Halcyn/blob/main/scripts/launch-halcyn-spectrograph-app.ps1">View compatibility launcher</a>
         </div>
       </header>
 
@@ -36,82 +36,78 @@
             <li><a href="field-reference.html" data-nav-link="field-reference">Field Reference</a></li>
             <li><a href="control-center.html" data-nav-link="control-center">Control Center</a></li>
             <li><a href="scene-studio.html" data-nav-link="scene-studio">Scene Studio</a></li>
-            <li><a href="desktop-control-panel.html" data-nav-link="desktop-control-panel">Desktop Control Panel</a></li>
-            <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Spectrograph Suite</a></li>
-            <li><a href="spectrograph-audio-source-panel.html" data-nav-link="spectrograph-audio-source-panel">Spectrograph Audio Source Panel</a></li>
-            <li><a href="multi-renderer-data-source-panel.html" data-nav-link="multi-renderer-data-source-panel">Shared Data Source Panel</a></li>
+            <li><a href="desktop-control-panel.html" data-nav-link="desktop-control-panel">Visualizer Studio</a></li>
+            <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Bar-Wall Scenes</a></li>
+            <li><a href="spectrograph-audio-source-panel.html" data-nav-link="spectrograph-audio-source-panel">Legacy Audio Helper</a></li>
+            <li><a href="multi-renderer-data-source-panel.html" data-nav-link="multi-renderer-data-source-panel">Legacy Data Router</a></li>
           </ul>
         </nav>
 
         <main>
           <section class="panel">
-            <h3>What the spectrograph suite is</h3>
+            <h3>What changed</h3>
             <p>
-              The spectrograph suite is a coordinated tool set:
+              Earlier versions of the project described a separate spectrograph renderer and a
+              separate spectrograph desktop workflow. The current project keeps the visual idea, but
+              it no longer treats it as a separate renderer. Bar-wall rendering is now one scene
+              family inside the same Visualizer app.
             </p>
-            <ul>
-              <li><code>.\scripts\launch-halcyn-spectrograph-app.ps1</code> starts a dedicated native renderer that defaults to a 3D bar-grid scene and API port <code>8090</code>.</li>
-              <li><code>.\scripts\launch-desktop-spectrograph-control-panel.ps1</code> opens a native desktop operator app that turns generic JSON into a rolling 3D spectrograph scene.</li>
-              <li><code>.\scripts\launch-desktop-spectrograph-audio-source-panel.ps1</code> opens a companion native helper app that captures live audio and feeds it into the spectrograph control panel.</li>
-            </ul>
             <div class="callout">
-              The renderer still consumes ordinary Halcyn scene JSON. The new work lives in how the control panel interprets arbitrary source data and shapes it into a bar scene.
+              The compatibility route and compatibility launcher still exist:
+              <code>GET /api/v1/examples/spectrograph</code> and
+              <code>.\scripts\launch-halcyn-spectrograph-app.ps1</code>.
+              They now forward to the same unified renderer behavior.
             </div>
-            <p>
-              If you want the quickest beginner path, run
-              <code>.\scripts\launch-spectrograph-audio-workbench.ps1</code>.
-              That one helper opens the renderer, the control panel, and the
-              audio-source panel in separate windows so you can see the whole
-              workflow without memorizing three separate commands first.
-            </p>
           </section>
 
           <section class="panel">
-            <h3>How generic JSON becomes bars</h3>
+            <h3>How generic data becomes a bar wall</h3>
             <ol>
-              <li>Parse the raw JSON text.</li>
-              <li>Flatten nested arrays, objects, booleans, and numbers into one numeric stream.</li>
-              <li>Convert strings into UTF-8 byte values so even text can still move the bars.</li>
-              <li>Append the new values into a rolling history buffer.</li>
-              <li>Compute observed minimum, observed maximum, mean, and standard deviation.</li>
-              <li>Choose either an automatic range based on those statistics or a manual minimum/maximum range set by the operator.</li>
-              <li>Group the current source values into exactly <code>N x N</code> equally sized buckets.</li>
-              <li>Normalize each bucket into a <code>0..1</code> intensity.</li>
-              <li>Build one colored 3D bar prism per bucket and submit the resulting Halcyn scene JSON.</li>
+              <li>Collect one live source snapshot from JSON, text, random values, audio, or pointer motion.</li>
+              <li>Flatten that source into one numeric stream.</li>
+              <li>Maintain a rolling history of past values.</li>
+              <li>Estimate a useful active range from the rolling history, or use a manually supplied range.</li>
+              <li>Split the current value stream into equal-sized groups for an <code>N x N</code> wall.</li>
+              <li>Normalize each group against the chosen active range.</li>
+              <li>Build one 3D bar per group and color it according to the selected presentation style.</li>
+              <li>Submit the resulting ordinary Halcyn 3D scene to the unified Visualizer.</li>
             </ol>
           </section>
 
           <section class="panel">
-            <h3>What the desktop control panel can change</h3>
-            <div class="cards">
-              <div class="card"><h4>Data source</h4><p>Paste generic JSON directly, load a JSON file, pick a built-in example, or generate a fresh random numeric sample.</p></div>
-              <div class="card"><h4>Range model</h4><p>Switch between automatic statistical normalization and manually supplied minimum and maximum values.</p></div>
-              <div class="card"><h4>Bar wall size</h4><p>Choose the <code>N</code> in the final <code>N x N</code> bar grid.</p></div>
-              <div class="card"><h4>Render presentation</h4><p>Toggle multisample anti-aliasing and choose between <code>standard</code>, <code>neon</code>, and <code>heatmap</code> shader styles.</p></div>
-              <div class="card"><h4>Geometry shape</h4><p>Change floor height and peak height so the bars can feel flatter, denser, taller, or more dramatic.</p></div>
-              <div class="card"><h4>External audio bridge</h4><p>Let the control panel follow live JSON arriving from the dedicated spectrograph audio-source panel while preserving the same preview, validate, apply, and live-stream workflow.</p></div>
-              <div class="card"><h4>Live operation</h4><p>Preview, validate, apply once, or continuously live-stream at a chosen cadence.</p></div>
-            </div>
+            <h3>Where to control it now</h3>
             <p>
-              If you want one shared live source to drive both the classic renderer and this
-              spectrograph renderer, use the
-              <a href="multi-renderer-data-source-panel.html">Shared Data Source Panel</a>.
+              Use <code>.\scripts\launch-visualizer-studio.ps1</code>. Inside Visualizer Studio:
             </p>
+            <ul>
+              <li>choose <strong>Bar wall</strong> as the scene family</li>
+              <li>choose a live source mode</li>
+              <li>adjust grid size, shader style, anti-aliasing, and range mode</li>
+              <li>preview, validate, apply, or live-stream the scene</li>
+            </ul>
             <p>
-              If you want a helper app focused only on live audio capture for this renderer family,
-              study the
-              <a href="spectrograph-audio-source-panel.html">Spectrograph Audio Source Panel</a>.
+              If you want the renderer to begin on the bar-wall family immediately, use:
             </p>
+            <pre><code>.\scripts\launch-halcyn-spectrograph-app.ps1</code></pre>
           </section>
 
           <section class="panel">
-            <h3>Useful API and scene details</h3>
+            <h3>Preferred example route</h3>
             <p>
-              The native spectrograph renderer exposes the same core API routes as the main app and adds a built-in example route:
+              The preferred example route is now:
+            </p>
+            <pre><code>GET /api/v1/examples/bar-wall</code></pre>
+            <p>
+              The old spectrograph example route remains as a compatibility alias:
             </p>
             <pre><code>GET /api/v1/examples/spectrograph</code></pre>
+          </section>
+
+          <section class="panel">
+            <h3>Render-style controls</h3>
             <p>
-              Spectrograph scenes are still normal 3D scenes, but they often make use of the optional <code>renderStyle</code> object:
+              Bar-wall scenes are still ordinary 3D scenes, but they often include the optional
+              <code>renderStyle</code> object:
             </p>
             <pre><code>{
   "renderStyle": {
@@ -119,51 +115,31 @@
     "antiAliasing": true
   }
 }</code></pre>
+            <p>
+              Visualizer Studio exposes those same controls directly in its desktop UI, so you do
+              not need to hand-edit JSON if you are just learning.
+            </p>
           </section>
 
           <section class="panel">
-            <h3>Recommended learning order</h3>
+            <h3>How to study this feature</h3>
             <ol>
-              <li>Either launch the suite manually or start with <code>.\scripts\launch-spectrograph-audio-workbench.ps1</code>.</li>
-              <li>Confirm the spectrograph renderer window appears and shows its startup scene.</li>
-              <li>Open the desktop spectrograph control panel and load one built-in example.</li>
-              <li>Then use the spectrograph audio-source panel, start output or input capture, and watch the bridge feed live JSON into the control panel.</li>
-              <li>Switch between automatic and manual range modes and watch how the bars respond.</li>
-              <li>Change the bar-grid size to see how grouping changes the final scene.</li>
-              <li>Open the generated scene JSON window and compare the source data to the final renderer payload.</li>
-              <li>Then try the Shared Data Source Panel so the same live source can feed both renderer families.</li>
+              <li>Launch <code>.\scripts\launch-visualizer-workbench.ps1</code>.</li>
+              <li>In Visualizer Studio, switch the scene family to <strong>Bar wall</strong>.</li>
+              <li>Try a plain-text source first so you can see how strings become UTF-8 bytes and then bar heights.</li>
+              <li>Then try audio input or output capture and watch the bar wall respond live.</li>
+              <li>Open the preview JSON window and compare the source data to the generated 3D scene payload.</li>
             </ol>
           </section>
 
           <section class="panel">
             <h3>External references</h3>
             <ul>
-              <li><a href="https://docs.python.org/3/library/tkinter.html">Tkinter overview</a></li>
-              <li><a href="https://docs.python.org/3/library/tkinter.ttk.html">Tk themed widgets (`ttk`)</a></li>
-              <li><a href="https://docs.python.org/3/library/json.html">Python <code>json</code> module</a></li>
-              <li><a href="https://docs.python.org/3/library/statistics.html">Python statistics module concepts</a></li>
+              <li><a href="https://docs.python.org/3/library/json.html">Python json module</a></li>
+              <li><a href="https://docs.python.org/3/library/statistics.html">Python statistics concepts</a></li>
               <li><a href="https://docs.python.org/3/library/stdtypes.html#str.encode">UTF-8 encoding with <code>str.encode</code></a></li>
+              <li><a href="https://wikis.khronos.org/opengl/Main_Page">OpenGL Wiki</a></li>
             </ul>
-          </section>
-
-          <section class="panel">
-            <h3>Testing and quality gates</h3>
-            <pre><code>.\scripts\lint-desktop-spectrograph-control-panel.ps1
-.\scripts\typecheck-desktop-spectrograph-control-panel.ps1
-.\scripts\test-desktop-spectrograph-control-panel.ps1
-.\scripts\measure-desktop-spectrograph-control-panel-coverage.ps1
-.\scripts\lint-desktop-spectrograph-audio-source-panel.ps1
-.\scripts\typecheck-desktop-spectrograph-audio-source-panel.ps1
-.\scripts\test-desktop-spectrograph-audio-source-panel.ps1
-.\scripts\measure-desktop-spectrograph-audio-source-panel-coverage.ps1</code></pre>
-            <p>
-              The repo-wide pass still lives at
-              <code>.\scripts\run-all-quality-checks.ps1 -Configuration Debug</code>.
-            </p>
-            <p>
-              For the shared-source cross-renderer workflow, study the
-              <a href="multi-renderer-data-source-panel.html">Shared Data Source Panel</a>.
-            </p>
           </section>
         </main>
       </div>

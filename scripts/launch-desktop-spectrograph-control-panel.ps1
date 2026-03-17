@@ -2,20 +2,7 @@ param()
 
 $ErrorActionPreference = 'Stop'
 
-. (Join-Path $PSScriptRoot 'shared-script-helpers.ps1')
+Write-Host 'launch-desktop-spectrograph-control-panel.ps1 is now a compatibility wrapper.'
+Write-Host 'Use launch-visualizer-studio.ps1 and choose the Bar wall scene family.'
 
-$python = Get-Command python -ErrorAction SilentlyContinue
-if ($null -eq $python) {
-  throw 'python is not installed or not on PATH.'
-}
-
-$projectRoot = Get-ProjectRoot
-Push-Location $projectRoot
-
-try {
-  & $python.Source -m desktop_spectrograph_control_panel
-}
-finally {
-  Pop-Location
-}
-
+& (Join-Path $PSScriptRoot 'launch-visualizer-studio.ps1')

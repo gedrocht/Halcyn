@@ -159,7 +159,7 @@ SceneDocument CreateSample3DSceneDocument() {
   return document;
 }
 
-SceneDocument CreateSampleSpectrographSceneDocument() {
+SceneDocument CreateSampleBarWallSceneDocument() {
   Scene3D scene;
   scene.primitiveType = PrimitiveType::Triangles;
   scene.clearColor = {0.03F, 0.04F, 0.08F, 1.0F};
@@ -216,5 +216,9 @@ SceneDocument CreateSampleSpectrographSceneDocument() {
   "indices": "Generated bar-grid sample omitted for brevity."
 })";
   return document;
+}
+
+SceneDocument CreateSampleSpectrographSceneDocument() {
+  return CreateSampleBarWallSceneDocument();
 }
 } // namespace halcyn::scene_description

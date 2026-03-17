@@ -1,27 +1,47 @@
-﻿# Halcyn
+# Halcyn
 
 [![CI](https://github.com/gedrocht/Halcyn/actions/workflows/ci.yml/badge.svg)](https://github.com/gedrocht/Halcyn/actions/workflows/ci.yml)
 [![Pages](https://github.com/gedrocht/Halcyn/actions/workflows/pages.yml/badge.svg)](https://github.com/gedrocht/Halcyn/actions/workflows/pages.yml)
 [![CodeQL](https://github.com/gedrocht/Halcyn/actions/workflows/codeql.yml/badge.svg)](https://github.com/gedrocht/Halcyn/actions/workflows/codeql.yml)
 
-Halcyn is a C++20 application that accepts JSON scene descriptions over HTTP and renders them in a GPU-backed OpenGL window at a 60 FPS target. It supports both 2D and 3D payloads, includes unit tests, ships with example scenes and helper scripts, and now includes a growing family of operator tools around the renderer: a browser-based Control Center, a separate browser-facing Scene Studio, a native desktop render control panel for hardware-aware live control, a dedicated spectrograph-oriented renderer executable, a native desktop spectrograph control panel that turns generic JSON into a rolling 3D bar wall, a dedicated desktop spectrograph audio-source helper that captures live audio for that suite, and a shared desktop data-source panel that can feed either renderer family or both at once.
+Halcyn is a C++20 OpenGL application that accepts JSON scene descriptions over HTTP and renders them in a GPU-backed window. The project now centers on one native renderer, one unified desktop operator app, one browser orchestration app, and one browser-based activity monitor.
 
 ## What you get
 
-- An embedded HTTP API for posting 2D or 3D JSON scenes.
-- A renderer that uses OpenGL on the GPU, not software rendering on the CPU.
-- A clean split between scene description rules, shared runtime state, HTTP transport, and rendering.
-- Unit tests for the scene codec, validation rules, and scene store behavior.
-- PowerShell scripts for build, run, test, formatting, docs serving, code-doc generation, and sample posting.
-- A browser-based Control Center under `browser_control_center/` that can kick off builds, tests, smoke checks, docs, and API requests.
-- A native desktop operator app under `desktop_render_control_panel/` that can preview, validate, apply, and live-stream scenes while selecting real local audio devices.
-- A dedicated spectrograph renderer executable that starts with a 3D bar-grid scene and exposes its own default API port.
-- A native desktop spectrograph operator app under `desktop_spectrograph_control_panel/` that accepts very generic JSON, normalizes it through a rolling statistical range, and turns it into a controllable 3D spectrograph scene.
-- A native desktop spectrograph audio-source helper under `desktop_spectrograph_audio_source_panel/` that captures output or input audio and sends readable JSON into the spectrograph control panel's local bridge.
-- A shared native desktop data-source app under `desktop_multi_renderer_data_source_panel/` that captures or generates one live data stream and routes it into the classic renderer, the spectrograph renderer, or both.
-- A small shared desktop support package under `desktop_shared_control_support/` so desktop apps can share renderer HTTP helpers and audio-device integration through one clear import path.
-- A static dark-mode docs site under `docs/site`.
-- Doxygen-ready source comments and a `Doxyfile` for generated code reference output.
+- One native Visualizer executable that can render:
+  - classic preset-driven 2D and 3D scenes
+  - bar-wall scenes that behave like a colorful 3D spectrograph
+- One embedded HTTP API for:
+  - health checks
+  - scene validation
+  - scene submission
+  - example scene retrieval
+  - runtime log retrieval
+- One browser Control Center for builds, tests, docs, API experiments, and process orchestration
+- One browser Activity Monitor for sortable, filterable, shared cross-app logs
+- One native Visualizer Studio app for:
+  - choosing live sources
+  - shaping them into scenes
+  - previewing JSON
+  - validating and applying scenes
+  - live streaming to the renderer
+- One separate browser Scene Studio for browser-first preset authoring
+- Unit tests, coverage gates, static docs, and generated Doxygen reference docs
+
+## Mental model
+
+If you are new to the project, the simplest way to think about it is:
+
+- `Visualizer`
+  The native C++ app that actually draws pixels.
+- `Visualizer Studio`
+  The unified native desktop operator console that feeds data and scene settings into the Visualizer.
+- `Control Center`
+  The browser dashboard that launches tools, runs jobs, and exposes docs and API lab features.
+- `Activity Monitor`
+  The browser log viewer that reads the shared JSON-lines activity journal from all participating apps.
+- `Scene Studio`
+  A separate browser scene-authoring companion that focuses on preset-driven browser control.
 
 ## Repository layout
 
@@ -30,149 +50,119 @@ Halcyn is a C++20 application that accepts JSON scene descriptions over HTTP and
 |-- CMakeLists.txt
 |-- CMakePresets.json
 |-- Doxyfile
-|-- browser_scene_studio/
-|-- examples/
 |-- browser_control_center/
-|-- desktop_render_control_panel/
-|-- desktop_spectrograph_control_panel/
-|-- desktop_spectrograph_audio_source_panel/
-|-- desktop_multi_renderer_data_source_panel/
+|-- browser_scene_studio/
 |-- desktop_shared_control_support/
+|-- desktop_visualizer_operator_console/
+|-- docs/
+|   `-- site/
+|-- examples/
 |-- scripts/
 |-- src/
-|   |-- http_api/
 |   |-- desktop_app/
-|   |-- shared_runtime/
+|   |-- http_api/
+|   |-- opengl_renderer/
 |   |-- scene_description/
-|   `-- opengl_renderer/
-|-- tests/
-`-- docs/
-    `-- site/
+|   `-- shared_runtime/
+`-- tests/
 ```
+
+The older split desktop packages are still present in the repository as internal migration helpers, but the supported public workflow is now the unified Visualizer Studio.
 
 ## Quick start
 
-1. Run `.\scripts\report-prerequisites.ps1` to see which prerequisites are already installed.
+1. Run `.\scripts\report-prerequisites.ps1`.
 2. Launch the browser Control Center with `.\scripts\launch-browser-control-center.ps1`.
-3. Open the separate client-facing scene GUI with `.\scripts\launch-browser-scene-studio.ps1` or by visiting `/scene-studio/` from the Control Center.
-4. Launch the native desktop render control panel with `.\scripts\launch-desktop-render-control-panel.ps1` if you want local audio-device selection and instant 2D/3D switching in a desktop window.
-5. Launch the dedicated spectrograph renderer with `.\scripts\launch-halcyn-spectrograph-app.ps1`.
-6. Launch the native desktop spectrograph operator console with `.\scripts\launch-desktop-spectrograph-control-panel.ps1` if you want to turn arbitrary JSON into a rolling 3D spectrograph scene.
-7. Launch the dedicated desktop spectrograph audio-source helper with `.\scripts\launch-desktop-spectrograph-audio-source-panel.ps1` if you want live output or input audio to feed the spectrograph suite.
-8. If you want the whole spectrograph audio workflow opened for you in separate windows, run `.\scripts\launch-spectrograph-audio-workbench.ps1`.
-9. Launch the shared desktop data-source panel with `.\scripts\launch-desktop-multi-renderer-data-source-panel.ps1` if you want one live input source to drive the classic renderer, the spectrograph renderer, or both.
-10. Use the Control Center dashboard to run the prerequisite report, build, tests, and app startup from the browser.
-11. In the Scene Studio, either desktop control panel, the spectrograph audio-source panel, the shared data-source panel, or API Lab, generate and submit sample scenes to the live renderer.
-12. Open the docs site directly from the Control Center or with `.\scripts\serve-docs-site.ps1`.
-13. For a full Windows setup and troubleshooting guide, see `INSTALL.md`.
+3. Launch the native Visualizer with `.\scripts\launch-halcyn-app.ps1`.
+4. Launch the native Visualizer Studio with `.\scripts\launch-visualizer-studio.ps1`.
+5. Open the shared browser log viewer with `.\scripts\launch-activity-monitor.ps1`.
+6. If you want the main native/browser workflow opened for you, run `.\scripts\launch-visualizer-workbench.ps1`.
+7. If you want browser-side scene authoring, run `.\scripts\launch-browser-scene-studio.ps1`.
+
+## One-command workbench
+
+If you want the most beginner-friendly full setup, use:
+
+```powershell
+.\scripts\launch-visualizer-workbench.ps1
+```
+
+That helper opens:
+
+- the native Visualizer window
+- the browser Control Center
+- the unified Visualizer Studio desktop app
+
+From there, the Activity Monitor is one click away inside the Control Center, or you can open it directly with:
+
+```powershell
+.\scripts\launch-activity-monitor.ps1
+```
 
 ## PowerShell first-run note
 
-If Windows shows a security prompt before running the repository scripts, you can unblock this working tree once:
+If Windows shows a security prompt before running repository scripts, you can unblock the tree once:
 
 ```powershell
 Get-ChildItem -Path . -Recurse -File | Unblock-File
 ```
 
-That removes the "downloaded from the internet" marker from files in the current repository so PowerShell stops prompting for those scripts.
-
 ## Prerequisites
 
-The minimum setup for a local build on Windows is:
+Minimum Windows-native setup:
 
 - `cmake`
 - `python`
 - Python package `jinja2`
+- Python package `ttkbootstrap`
 - `git`
-- either `Visual Studio 2022 Build Tools` with `Desktop development with C++`, or `ninja` plus a working C++ compiler
+- either:
+  - Visual Studio 2022 Build Tools with `Desktop development with C++`
+  - or `ninja` plus a working C++ compiler
 
 Optional extras:
 
 - `doxygen` for generated code docs
-- `clang-format` for the formatting script
-- Python package `sounddevice` for microphone or line-input capture in desktop tools
-- Python package `soundcard` for desktop output-loopback capture in desktop tools
+- `clang-format` for formatting checks
+- Python package `sounddevice` for microphone and line-input capture
+- Python package `soundcard` for desktop output-loopback capture
 
 Helpful install routes:
 
 - Ninja: `winget install Ninja-build.Ninja`
 - LLVM and `clang-format`: `winget install LLVM.LLVM`
 - Doxygen: `winget install DimitriVanHeesch.Doxygen`
-- Python package: `python -m pip install jinja2`
-- Audio input package: `python -m pip install sounddevice`
-- Output loopback package: `python -m pip install soundcard`
+- Python packages:
+  ```powershell
+  python -m pip install jinja2 ttkbootstrap sounddevice soundcard
+  ```
 
-For the easiest Windows-native path, install Visual Studio 2022 Build Tools from `https://visualstudio.microsoft.com/downloads/` and select the `Desktop development with C++` workload.
+For the easiest Windows-native C++ path, install Visual Studio 2022 Build Tools from [visualstudio.microsoft.com/downloads](https://visualstudio.microsoft.com/downloads/) and include the `Desktop development with C++` workload.
 
-## Supported JSON scene formats
+## Supported scene families
 
-### 2D scene
+### Preset scenes
 
-Each 2D vertex must include:
+These are the classic Halcyn 2D and 3D scene families. They are useful when you want:
 
-- `x`
-- `y`
-- `r`
-- `g`
-- `b`
-- `a`
+- clean starter examples
+- direct scene authoring
+- small JSON payloads
+- browser-driven experimentation in Scene Studio
 
-Example:
+### Bar-wall scenes
 
-```json
-{
-  "sceneType": "2d",
-  "primitive": "triangles",
-  "vertices": [
-    { "x": -1.0, "y": -1.0, "r": 1.0, "g": 0.0, "b": 0.0, "a": 1.0 },
-    { "x": 0.0, "y": 1.0, "r": 0.0, "g": 1.0, "b": 0.0, "a": 1.0 },
-    { "x": 1.0, "y": -1.0, "r": 0.0, "g": 0.0, "b": 1.0, "a": 1.0 }
-  ]
-}
-```
+These are still ordinary Halcyn 3D scenes, but the content is a grid of colored bars whose heights represent grouped and normalized source data. They are useful when you want:
 
-### 3D scene
-
-Each 3D vertex must include:
-
-- `x`
-- `y`
-- `z`
-- `r`
-- `g`
-- `b`
-
-`a` is optional and defaults to `1.0`. A 3D scene also needs a `camera` object and may include `indices`.
-It may also include a `renderStyle` object when the caller wants to control shader presentation and multisample anti-aliasing.
-
-Example:
-
-```json
-{
-  "sceneType": "3d",
-  "primitive": "triangles",
-  "camera": {
-    "position": { "x": 2.5, "y": 2.0, "z": 2.8 },
-    "target": { "x": 0.0, "y": 0.0, "z": 0.0 },
-    "up": { "x": 0.0, "y": 1.0, "z": 0.0 },
-    "fovYDegrees": 60.0,
-    "nearPlane": 0.1,
-    "farPlane": 100.0
-  },
-  "renderStyle": {
-    "shader": "heatmap",
-    "antiAliasing": true
-  },
-  "vertices": [
-    { "x": -0.8, "y": -0.8, "z": 0.0, "r": 1.0, "g": 0.2, "b": 0.2 },
-    { "x": 0.8, "y": -0.8, "z": 0.0, "r": 0.2, "g": 1.0, "b": 0.2 },
-    { "x": 0.0, "y": 0.8, "z": 0.0, "r": 0.2, "g": 0.4, "b": 1.0 }
-  ],
-  "indices": [0, 1, 2]
-}
-```
+- generic JSON turned into visuals
+- strings converted into bytes and then into bars
+- rolling adaptive value ranges
+- shader and anti-aliasing control
+- audio-driven or other live-source-driven bar walls
 
 ## API endpoints
+
+The unified Visualizer exposes one API surface:
 
 - `GET /api/v1/health`
 - `GET /api/v1/scene`
@@ -180,197 +170,89 @@ Example:
 - `GET /api/v1/runtime/logs?limit=200`
 - `GET /api/v1/examples/2d`
 - `GET /api/v1/examples/3d`
+- `GET /api/v1/examples/bar-wall`
 - `GET /api/v1/examples/spectrograph`
+  - compatibility alias for the same bar-wall sample
 - `POST /api/v1/scene/validate`
 - `POST /api/v1/scene`
 
 ## Build and test scripts
 
+Main supported scripts:
+
 - `.\scripts\report-prerequisites.ps1`
 - `.\scripts\build-halcyn-app.ps1`
 - `.\scripts\launch-halcyn-app.ps1`
-- `.\scripts\launch-halcyn-spectrograph-app.ps1`
-- `.\scripts\launch-spectrograph-audio-workbench.ps1`
+- `.\scripts\launch-visualizer-studio.ps1`
+- `.\scripts\launch-browser-control-center.ps1`
+- `.\scripts\launch-activity-monitor.ps1`
+- `.\scripts\launch-browser-scene-studio.ps1`
+- `.\scripts\launch-visualizer-workbench.ps1`
 - `.\scripts\run-native-tests.ps1`
 - `.\scripts\run-all-quality-checks.ps1`
 - `.\scripts\lint-browser-control-center.ps1`
-- `.\scripts\measure-browser-control-center-coverage.ps1`
 - `.\scripts\typecheck-browser-control-center.ps1`
+- `.\scripts\measure-browser-control-center-coverage.ps1`
+- `.\scripts\lint-visualizer-studio.ps1`
+- `.\scripts\typecheck-visualizer-studio.ps1`
+- `.\scripts\test-visualizer-studio.ps1`
+- `.\scripts\measure-visualizer-studio-coverage.ps1`
 - `.\scripts\verify-cpp-formatting.ps1`
-- `.\scripts\create-release-package.ps1`
-- `.\scripts\launch-browser-control-center.ps1`
-- `.\scripts\launch-browser-scene-studio.ps1`
-- `.\scripts\launch-desktop-render-control-panel.ps1`
-- `.\scripts\launch-desktop-spectrograph-control-panel.ps1`
-- `.\scripts\launch-desktop-spectrograph-audio-source-panel.ps1`
-- `.\scripts\launch-desktop-multi-renderer-data-source-panel.ps1`
-- `.\scripts\test-browser-control-center.ps1`
-- `.\scripts\test-desktop-render-control-panel.ps1`
-- `.\scripts\test-desktop-spectrograph-control-panel.ps1`
-- `.\scripts\test-desktop-spectrograph-audio-source-panel.ps1`
-- `.\scripts\test-desktop-multi-renderer-data-source-panel.ps1`
-- `.\scripts\lint-desktop-render-control-panel.ps1`
-- `.\scripts\lint-desktop-spectrograph-control-panel.ps1`
-- `.\scripts\lint-desktop-spectrograph-audio-source-panel.ps1`
-- `.\scripts\lint-desktop-multi-renderer-data-source-panel.ps1`
-- `.\scripts\typecheck-desktop-render-control-panel.ps1`
-- `.\scripts\typecheck-desktop-spectrograph-control-panel.ps1`
-- `.\scripts\typecheck-desktop-spectrograph-audio-source-panel.ps1`
-- `.\scripts\typecheck-desktop-multi-renderer-data-source-panel.ps1`
-- `.\scripts\measure-desktop-render-control-panel-coverage.ps1`
-- `.\scripts\measure-desktop-spectrograph-control-panel-coverage.ps1`
-- `.\scripts\measure-desktop-spectrograph-audio-source-panel-coverage.ps1`
-- `.\scripts\measure-desktop-multi-renderer-data-source-panel-coverage.ps1`
-- `.\scripts\post-example-2d-scene.ps1`
-- `.\scripts\post-example-3d-scene.ps1`
-- `.\scripts\serve-docs-site.ps1`
 - `.\scripts\generate-code-reference-docs.ps1`
-- `.\scripts\format-cpp-code.ps1`
+- `.\scripts\serve-docs-site.ps1`
+- `.\scripts\create-release-package.ps1`
+
+Compatibility launchers still exist for older workflows, but the preferred public names are the scripts listed above.
 
 ## Documentation
 
-- Beginner docs site: `docs/site/index.html`
-- Field reference: `docs/site/field-reference.html`
-- Control center guide: `docs/site/control-center.html`
-- Scene Studio guide: `docs/site/scene-studio.html`
-- Desktop control panel guide: `docs/site/desktop-control-panel.html`
-- Spectrograph suite guide: `docs/site/spectrograph-suite.html`
-- Spectrograph audio-source panel guide: `docs/site/spectrograph-audio-source-panel.html`
-- Shared data-source panel guide: `docs/site/multi-renderer-data-source-panel.html`
-- Architecture guide: `docs/site/architecture.html`
+- Docs overview: `docs/site/index.html`
+- Tutorial: `docs/site/tutorial.html`
 - API guide: `docs/site/api.html`
+- Architecture guide: `docs/site/architecture.html`
 - Testing guide: `docs/site/testing.html`
+- Control Center guide: `docs/site/control-center.html`
+- Scene Studio guide: `docs/site/scene-studio.html`
+- Visualizer Studio guide: `docs/site/desktop-control-panel.html`
+- Bar-wall scene guide: `docs/site/spectrograph-suite.html`
+- Field reference: `docs/site/field-reference.html`
 - Code docs guide: `docs/site/code-docs.html`
-
-## Fastest spectrograph audio path
-
-If you want the quickest beginner-friendly way to see the spectrograph suite
-working with live audio, use this one command:
-
-```powershell
-.\scripts\launch-spectrograph-audio-workbench.ps1
-```
-
-That helper opens separate windows for:
-
-- the dedicated spectrograph renderer
-- the Desktop Spectrograph Control Panel
-- the Spectrograph Audio Source Panel
-
-After those windows open:
-
-1. Leave the external source bridge enabled in the spectrograph control panel.
-2. Choose an audio device in the audio-source panel.
-3. Click `Start capture`.
-4. Use `Send once` or `Start live`.
-
-## Browser Control Center
-
-Run `.\scripts\launch-browser-control-center.ps1` to launch the browser-based dashboard. The Control Center can:
-
-- inspect local prerequisites
-- kick off bootstrap, build, test, format, and code-doc jobs
-- start and stop the managed Halcyn app process
-- show Control Center logs and captured app output
-- run smoke checks against the live Halcyn API
-- proxy browser-issued requests into the live Halcyn API
-- link directly into the docs site and generated code docs
-
-## Scene Studio
-
-Run `.\scripts\launch-browser-scene-studio.ps1` or open `/scene-studio/` from the Control Center server to launch the separate browser-facing scene GUI. Scene Studio can:
-
-- choose from multiple 3D visual presets
-- drive scenes from unix time, deterministic noise, pointer motion, microphone energy, or manual sliders
-- preview generated JSON scene payloads before applying them
-- apply one scene immediately to the live renderer on demand
-- run a server-side live session that keeps streaming scenes to the renderer on a chosen cadence
-- send lighter browser control updates while the Control Center owns the continuous scene stream
-- receive server-pushed live-session status instead of relying on tight browser polling
-
-## Desktop Render Control Panel
-
-Run `.\scripts\launch-desktop-render-control-panel.ps1` to open the native Tk-based operator console. The desktop panel can:
-
-- switch between 2D and 3D presets immediately without changing tools
-- choose real local audio input devices instead of relying only on browser microphone permissions
-- preview generated JSON scenes before applying them
-- validate the current scene against the live Halcyn API
-- apply one scene immediately or keep a live stream running at a chosen cadence
-- expose signal controls for unix time, deterministic noise, pointer input, audio energy bands, and manual drive
-- serve as a desktop-side companion to the browser Control Center and Scene Studio instead of replacing them
-
-## Shared Data Source Panel
-
-Run `.\scripts\launch-desktop-multi-renderer-data-source-panel.ps1` to open the native shared data-source console. This app can:
-
-- accept JSON documents, plain text, random values, audio devices, or pointer-pad movement as its live source
-- route the same source into the classic renderer, the spectrograph renderer, or both
-- preview, validate, apply once, or live-stream the translated scenes
-- save and reload a versioned settings document
-- complement the other desktop panels by handling data capture and routing while they stay focused on scene editing
-
-## Spectrograph Renderer
-
-Run `.\scripts\launch-halcyn-spectrograph-app.ps1` to start the dedicated spectrograph-oriented renderer executable. This renderer uses the same shared engine as the regular Halcyn app, but it starts with a 3D bar-grid sample, uses a spectrograph-friendly title, and defaults to API port `8090` so it can coexist more easily with the regular renderer.
-
-The spectrograph sample also exercises the new 3D `renderStyle` controls:
-
-- `renderStyle.shader`
-  - `standard`
-  - `neon`
-  - `heatmap`
-- `renderStyle.antiAliasing`
-  - `true` or `false`
-
-## Desktop Spectrograph Control Panel
-
-Run `.\scripts\launch-desktop-spectrograph-control-panel.ps1` to open the native spectrograph operator console. The spectrograph panel can:
-
-- accept very generic JSON instead of only pre-shaped scene documents
-- flatten nested arrays, objects, booleans, numbers, and strings into one numeric source stream
-- convert strings into UTF-8 byte values so even non-numeric payloads still produce bars
-- maintain a rolling statistical history and normalize new values against an adaptive range
-- switch between automatic range calculation and manual minimum/maximum control
-- choose the 3D bar-grid size `N` so the renderer shows an `N x N` wall of bars
-- toggle anti-aliasing and shader presentation style for the 3D bar scene
-- preview, validate, apply, and live-stream the generated spectrograph scene
-- save and load operator settings as JSON
-- open the fully generated Halcyn scene JSON in a separate study window
-- optionally follow the latest JSON arriving from the dedicated spectrograph audio-source helper
-
-## Desktop Spectrograph Audio Source Panel
-
-Run `.\scripts\launch-desktop-spectrograph-audio-source-panel.ps1` to open the native spectrograph audio-source helper. This app can:
-
-- choose from desktop `Output sources` or microphone-style `Input sources`
-- refresh the device list and start or stop capture explicitly
-- show a live volume meter for the currently selected source
-- package a rolling history of audio snapshots into readable generic JSON
-- send that JSON once or repeatedly to the spectrograph control panel's local external-data bridge
-- save and reload a versioned settings document
-- open the fully generated bridge JSON in a separate study window
-
-## Code documentation generation
-
-Run `.\scripts\generate-code-reference-docs.ps1` after installing Doxygen. Generated HTML will be written to `docs/generated/code-reference`.
-
-## Packaging
-
-Run `.\scripts\create-release-package.ps1` to produce a versioned ZIP file under `artifacts/`. Each package includes the executable, examples, docs, a `build-manifest.json` file with build metadata, and a companion `.sha256` file for release verification.
 
 ## Quality gates
 
 - C++ warnings are treated as build failures by default.
-- The Control Center is linted, type-checked, and required to maintain at least 90% Python coverage.
-- The desktop render control panel is also linted, type-checked, and required to maintain at least 90% Python coverage.
-- The desktop spectrograph control panel is also linted, type-checked, and required to maintain at least 90% Python coverage.
-- The desktop spectrograph audio-source panel is also linted, type-checked, and required to maintain at least 90% Python coverage.
-- GitHub Actions lint and cover all maintained Python operator surfaces, build the native project in Debug and Release, and run the native tests.
-- CodeQL analyzes the native code on pushes, pull requests, and a weekly schedule.
-- The Pages workflow now publishes the static docs site together with generated Doxygen output.
-- Repository formatting is explicitly governed by `.clang-format` and `.editorconfig`.
+- Browser Control Center Python code is linted, type-checked, tested, and required to maintain at least 90% coverage.
+- Visualizer Studio Python code is linted, type-checked, tested, and required to maintain at least 90% coverage.
+- GitHub Actions build native Debug and Release, run the Python quality suites, publish the docs site, and run CodeQL.
+- The browser Activity Monitor reads one shared JSON-lines journal written by the Visualizer, Control Center, and Visualizer Studio.
 
-## Notes about GPU rendering
+## Code documentation generation
 
-The CPU still performs normal application work such as parsing JSON, handling HTTP requests, and submitting draw commands. The actual graphics pipeline work that turns vertices into pixels is performed by the GPU through OpenGL. This is the normal and correct architecture for modern real-time graphics applications.
+Run:
+
+```powershell
+.\scripts\generate-code-reference-docs.ps1
+```
+
+Generated HTML will be written to `docs/generated/code-reference`.
+
+## Packaging
+
+Run:
+
+```powershell
+.\scripts\create-release-package.ps1
+```
+
+This writes a versioned ZIP package under `artifacts/`.
+
+## Beginner-friendly next step
+
+If you only want one recommended learning path:
+
+1. Open the docs site.
+2. Read `tutorial.html`.
+3. Run `.\scripts\launch-visualizer-workbench.ps1`.
+4. Watch the Visualizer window.
+5. Use Visualizer Studio to preview and apply scenes.
+6. Use the Activity Monitor to watch the shared logs from every running app.

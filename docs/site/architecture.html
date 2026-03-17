@@ -13,13 +13,12 @@
         <div class="brand">
           <div class="brand-mark" aria-hidden="true"></div>
           <div class="brand-copy">
-            <h1>Architecture</h1>
-            <p>The real runtime picture: what owns what, what talks to what, and why.</p>
+            <h1>Architecture Guide</h1>
+            <p>How the unified Visualizer workflow fits together.</p>
           </div>
         </div>
         <div class="topbar-actions">
           <button class="button" data-theme-toggle>Toggle theme</button>
-          <a class="button" href="index.html">Back to overview</a>
         </div>
       </header>
 
@@ -36,321 +35,66 @@
             <li><a href="field-reference.html" data-nav-link="field-reference">Field Reference</a></li>
             <li><a href="control-center.html" data-nav-link="control-center">Control Center</a></li>
             <li><a href="scene-studio.html" data-nav-link="scene-studio">Scene Studio</a></li>
-            <li><a href="desktop-control-panel.html" data-nav-link="desktop-control-panel">Desktop Control Panel</a></li>
-            <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Spectrograph Suite</a></li>
-            <li><a href="spectrograph-audio-source-panel.html" data-nav-link="spectrograph-audio-source-panel">Spectrograph Audio Source Panel</a></li>
-            <li><a href="multi-renderer-data-source-panel.html" data-nav-link="multi-renderer-data-source-panel">Shared Data Source Panel</a></li>
+            <li><a href="desktop-control-panel.html" data-nav-link="desktop-control-panel">Visualizer Studio</a></li>
+            <li><a href="spectrograph-suite.html" data-nav-link="spectrograph-suite">Bar-Wall Scenes</a></li>
+            <li><a href="spectrograph-audio-source-panel.html" data-nav-link="spectrograph-audio-source-panel">Legacy Audio Helper</a></li>
+            <li><a href="multi-renderer-data-source-panel.html" data-nav-link="multi-renderer-data-source-panel">Legacy Data Router</a></li>
           </ul>
         </nav>
 
         <main>
           <section class="panel">
-            <h3>What this page is about</h3>
+            <h3>Architecture in one sentence</h3>
             <p>
-              This page is intentionally about the <strong>runtime architecture</strong> of Halcyn:
-              the pieces that are alive while the app is being used. It focuses on who owns the
-              scene data, how requests move through the process, and where rendering actually
-              happens.
+              The browser tools and the native Visualizer Studio generate or manage scenes, the
+              native Visualizer validates and stores the newest accepted scene, and the OpenGL
+              renderer draws that stored scene every frame.
             </p>
-            <div class="callout">
-              This page deliberately leaves out CI, packaging, branch rules, and release mechanics.
-              Those matter for engineering quality, but they are not part of the runtime path that
-              turns requests into pixels.
+          </section>
+
+          <section class="panel">
+            <h3>Human-readable architecture map</h3>
+            <div class="cards">
+              <div class="card"><h4>Control Center</h4><p>Browser orchestration, docs links, API lab, and managed-process launching.</p></div>
+              <div class="card"><h4>Activity Monitor</h4><p>Browser log viewer over the shared JSON-lines activity journal.</p></div>
+              <div class="card"><h4>Scene Studio</h4><p>Browser preset authoring and live browser-side scene control.</p></div>
+              <div class="card"><h4>Visualizer Studio</h4><p>Unified native desktop source selection, preview, validation, apply, and live streaming.</p></div>
+              <div class="card"><h4>HTTP API</h4><p>Validation, submission, example scenes, runtime limits, and runtime logs.</p></div>
+              <div class="card"><h4>Scene store</h4><p>The thread-safe source of truth for the latest accepted scene.</p></div>
+              <div class="card"><h4>Renderer</h4><p>The OpenGL loop that uploads and draws the current scene on the GPU.</p></div>
             </div>
           </section>
 
           <section class="panel">
-            <h3>Runtime map</h3>
-            <div class="architecture-flow">
-              <section class="architecture-stage">
-                <div class="architecture-stage-header">
-                  <p class="eyebrow">Stage 1</p>
-                  <h4>Entry points</h4>
-                  <p>
-                    These are the ways a person or tool asks Halcyn to do something. None of these
-                    entry points draw directly; they all feed into a smaller number of canonical
-                    runtime services.
-                  </p>
-                </div>
-                <div class="architecture-stage-grid">
-                  <div class="architecture-node emphasis">
-                    <strong>Desktop startup</strong>
-                    <p>
-                      PowerShell launch scripts and command-line arguments choose the startup sample,
-                      the HTTP port, the window size, and optional scene files.
-                    </p>
-                  </div>
-                  <div class="architecture-node">
-                    <strong>Browser Control Center</strong>
-                    <p>
-                      The browser dashboard helps with launching, testing, docs access, log viewing,
-                      and request orchestration before or during a desktop app session.
-                    </p>
-                  </div>
-                  <div class="architecture-node">
-                    <strong>Browser Scene Studio</strong>
-                    <p>
-                      The scene authoring UI sends control changes that become scene updates or
-                      server-driven live-session output.
-                    </p>
-                  </div>
-                  <div class="architecture-node">
-                    <strong>Desktop Render Control Panel</strong>
-                    <p>
-                      The native operator console offers local audio-device selection, a desktop
-                      pointer pad, instant 2D and 3D switching, and its own live-stream controls.
-                    </p>
-                  </div>
-                  <div class="architecture-node">
-                    <strong>Spectrograph Suite</strong>
-                    <p>
-                      A dedicated renderer executable plus a native desktop operator panel transform
-                      generic JSON into an adaptive 3D bar wall before submitting ordinary scene
-                      JSON into the shared renderer pipeline.
-                    </p>
-                  </div>
-                  <div class="architecture-node">
-                    <strong>Spectrograph Audio Source Panel</strong>
-                    <p>
-                      A companion desktop helper captures live output or input audio, builds a
-                      rolling JSON document from that activity, and posts it to the spectrograph
-                      control panel's local external-data bridge.
-                    </p>
-                  </div>
-                  <div class="architecture-node">
-                    <strong>Shared Data Source Panel</strong>
-                    <p>
-                      A native routing console captures or generates one source stream, translates it
-                      into classic-scene signals and spectrograph data, and can send the results to
-                      either renderer family or both.
-                    </p>
-                  </div>
-                  <div class="architecture-node">
-                    <strong>Direct HTTP callers</strong>
-                    <p>
-                      PowerShell scripts, tests, curl, and other tools can submit or validate scene
-                      JSON without going through a browser at all.
-                    </p>
-                  </div>
-                </div>
-              </section>
-
-              <section class="architecture-stage">
-                <div class="architecture-stage-header">
-                  <p class="eyebrow">Stage 2</p>
-                  <h4>Acceptance pipeline</h4>
-                  <p>
-                    Once a request reaches the C++ application, the data follows one deliberate path
-                    so parsing, validation, and rendering stay clearly separated.
-                  </p>
-                </div>
-                <div class="architecture-stage-grid">
-                  <div class="architecture-node emphasis">
-                    <strong><code>src/http_api</code></strong>
-                    <p>
-                      The embedded HTTP server receives requests, enforces payload limits, and
-                      turns success or failure into readable JSON responses.
-                    </p>
-                  </div>
-                  <div class="architecture-node">
-                    <strong><code>src/scene_description/SceneJsonCodec</code></strong>
-                    <p>
-                      The codec parses raw JSON into typed scene objects and can serialize stored
-                      snapshots back into JSON for diagnostics.
-                    </p>
-                  </div>
-                  <div class="architecture-node">
-                    <strong><code>ValidateSceneDocument</code></strong>
-                    <p>
-                      Semantic validation checks things the JSON parser alone cannot prove, such as
-                      primitive alignment, index bounds, and sane 3D camera settings.
-                    </p>
-                  </div>
-                  <div class="architecture-node">
-                    <strong><code>BuildRenderScene</code></strong>
-                    <p>
-                      Both 2D and 3D scenes are normalized into one render-friendly shape so the GPU
-                      upload path can stay simple, even when 3D scenes also carry presentation
-                      options such as shader style and anti-aliasing.
-                    </p>
-                  </div>
-                </div>
-              </section>
-
-              <section class="architecture-stage">
-                <div class="architecture-stage-header">
-                  <p class="eyebrow">Stage 3</p>
-                  <h4>Authoritative shared runtime state</h4>
-                  <p>
-                    After validation succeeds, the new scene becomes shared application state. This
-                    is the hand-off point between "request handling" and "ongoing rendering".
-                  </p>
-                </div>
-                <div class="architecture-stage-grid">
-                  <div class="architecture-node emphasis">
-                    <strong><code>SceneStore</code></strong>
-                    <p>
-                      Owns the current immutable scene snapshot, including version number, source
-                      label, and activation time. This is the renderer's source of truth.
-                    </p>
-                  </div>
-                  <div class="architecture-node">
-                    <strong><code>RuntimeLog</code></strong>
-                    <p>
-                      Keeps the shared log stream used by the terminal, the embedded API, and the
-                      browser tooling. This is the observability spine of the app.
-                    </p>
-                  </div>
-                  <div class="architecture-node">
-                    <strong><code>desktop_app::Application</code></strong>
-                    <p>
-                      Wires the codec, scene store, log, API server, and renderer together and owns
-                      their startup/shutdown order.
-                    </p>
-                  </div>
-                </div>
-              </section>
-
-              <section class="architecture-stage">
-                <div class="architecture-stage-header">
-                  <p class="eyebrow">Stage 4</p>
-                  <h4>Frame production</h4>
-                  <p>
-                    Rendering begins only after a valid snapshot already exists. The renderer never
-                    needs to parse JSON or reason about partially updated scene state.
-                  </p>
-                </div>
-                <div class="architecture-stage-grid">
-                  <div class="architecture-node emphasis">
-                    <strong><code>Renderer</code></strong>
-                    <p>
-                      Watches the snapshot version, uploads new buffers only when the scene changes,
-                      and drives the frame loop on the main thread.
-                    </p>
-                  </div>
-                  <div class="architecture-node">
-                    <strong><code>ShaderProgram</code></strong>
-                    <p>
-                      Wraps shader compilation, linking, and uniform uploads so the render loop can
-                      focus on rendering decisions instead of low-level program management.
-                    </p>
-                  </div>
-                  <div class="architecture-node">
-                    <strong>OpenGL + GPU window</strong>
-                    <p>
-                      The GPU transforms vertices, rasterizes primitives, blends colors, and fills
-                      the framebuffer that eventually appears in the visible app window.
-                    </p>
-                  </div>
-                </div>
-              </section>
-            </div>
-          </section>
-
-          <section class="panel">
-            <h3>Request-to-pixels sequence</h3>
-            <ol class="architecture-sequence">
-              <li>
-                A person, script, Control Center action, Scene Studio control, desktop render
-                control-panel action, spectrograph control-panel action, spectrograph audio-source
-                action, or shared data-source action emits a request or startup instruction.
-              </li>
-              <li>
-                The desktop app or embedded HTTP API receives that input and turns it into a scene
-                loading or scene submission attempt. In the spectrograph workflow, the desktop panel
-                first converts generic JSON into a full 3D bar scene. In the spectrograph
-                audio-source workflow, one helper app first captures live audio and posts a rolling
-                JSON document into the control panel's local bridge. In the shared data-source
-                workflow, one source stream can be translated into both classic and spectrograph
-                scenes before submission.
-              </li>
-              <li>
-                The JSON codec converts raw text into typed scene objects and preserves readable
-                error information if the input is malformed.
-              </li>
-              <li>
-                Semantic validation checks that the scene would make sense to draw, not just that the
-                JSON has the right shape.
-              </li>
-              <li>
-                The validated scene is converted into the normalized render format and published into
-                the shared scene store as a brand-new immutable snapshot.
-              </li>
-              <li>
-                The renderer notices the new snapshot version on a later frame and uploads the latest
-                vertex and index data to GPU buffers.
-              </li>
-              <li>
-                The renderer builds either an orthographic 2D matrix or a perspective 3D matrix,
-                depending on the scene kind.
-              </li>
-              <li>
-                OpenGL executes the draw call and the GPU fills the window with the new image.
-              </li>
+            <h3>How a scene reaches the screen</h3>
+            <ol>
+              <li>A tool such as Visualizer Studio or Scene Studio generates a scene JSON document.</li>
+              <li>The tool optionally validates it through <code>POST /api/v1/scene/validate</code>.</li>
+              <li>The tool submits it through <code>POST /api/v1/scene</code>.</li>
+              <li>The HTTP API parses the JSON and turns it into typed scene data.</li>
+              <li>The scene store replaces the current scene snapshot.</li>
+              <li>The renderer sees the new scene version and uploads it to GPU buffers.</li>
+              <li>The GPU draws the frame.</li>
             </ol>
           </section>
 
           <section class="panel">
-            <h3>Responsibility boundaries</h3>
-            <div class="architecture-boundary-grid">
-              <section class="architecture-boundary">
-                <h4><code>src/desktop_app</code></h4>
-                <ul>
-                  <li>Owns startup, shutdown, and command-line parsing.</li>
-                  <li>Does not own HTTP transport details or OpenGL draw logic.</li>
-                </ul>
-              </section>
-              <section class="architecture-boundary">
-                <h4><code>src/http_api</code></h4>
-                <ul>
-                  <li>Owns request routing, response formatting, and transport-level checks.</li>
-                  <li>Does not own the canonical scene model or GPU behavior.</li>
-                </ul>
-              </section>
-              <section class="architecture-boundary">
-                <h4><code>src/scene_description</code></h4>
-                <ul>
-                  <li>Owns the scene language, JSON codec, examples, and validation rules.</li>
-                  <li>Does not own threading, sockets, or rendering loop state.</li>
-                </ul>
-              </section>
-              <section class="architecture-boundary">
-                <h4><code>src/shared_runtime</code></h4>
-                <ul>
-                  <li>Owns immutable scene snapshots and shared log history.</li>
-                  <li>Does not own parsing rules or drawing commands.</li>
-                </ul>
-              </section>
-              <section class="architecture-boundary">
-                <h4><code>src/opengl_renderer</code></h4>
-                <ul>
-                  <li>Owns GLFW, glad, shader use, matrix building, buffers, and draw calls.</li>
-                  <li>Does not own JSON parsing, request validation, or browser orchestration.</li>
-                </ul>
-              </section>
-              <section class="architecture-boundary">
-                <h4>Operator tooling</h4>
-                <ul>
-                  <li>Owns operator workflow, authoring UX, local device selection, and orchestration affordances.</li>
-                  <li>Does not replace the scene store as the canonical source of truth.</li>
-                </ul>
-              </section>
-            </div>
+            <h3>How shared logging works now</h3>
+            <p>
+              The native Visualizer, the browser Control Center, and Visualizer Studio all append
+              structured JSON-lines events to the same shared activity journal. The Activity Monitor
+              reads that journal in the browser and lets you sort and filter it by time, source app,
+              level, and text.
+            </p>
           </section>
 
           <section class="panel">
-            <h3>Why there are multiple control surfaces</h3>
+            <h3>Why bar walls are no longer a separate renderer</h3>
             <p>
-              The Control Center, Scene Studio, Desktop Render Control Panel, Spectrograph Suite,
-              Spectrograph Audio Source Panel, and Shared Data Source Panel serve different jobs.
-              The Control Center is about orchestration: builds, tests, logs, docs, and API
-              experiments. The Scene Studio is about browser-native live scene authoring. The
-              desktop panel is about a native operator experience with local hardware awareness. The
-              spectrograph suite is about generic-data-to-bar-wall transformation. The spectrograph
-              audio-source panel is about capturing live audio and handing it to that suite through
-              a simple bridge. The shared data-source panel is about capturing one input stream and
-              routing it into one or both renderer families. Keeping them separate avoids one
-              overloaded UI that tries to be every tool at once.
+              A bar wall is just a specialized 3D scene. Treating it as a separate renderer created
+              extra launchers, extra docs paths, extra operator tools, and extra mental overhead.
+              The current architecture treats bar walls as one more scene family inside the same
+              renderer and API, which is simpler to learn and simpler to maintain.
             </p>
           </section>
         </main>

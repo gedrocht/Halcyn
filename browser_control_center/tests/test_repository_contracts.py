@@ -70,6 +70,16 @@ class RepositoryContractTests(unittest.TestCase):
             f"Missing Scene Studio HTML ids for JS bindings: {sorted(js_ids - html_ids)}",
         )
 
+    def test_activity_monitor_html_and_js_ids_stay_in_sync(self) -> None:
+        """The Activity Monitor frontend should not reference missing DOM ids."""
+
+        html_ids = self._parse_html("browser_control_center/static/activity-monitor.html").ids
+        js_ids = self._js_element_ids("browser_control_center/static/activity-monitor.js")
+        self.assertFalse(
+            js_ids - html_ids,
+            f"Missing Activity Monitor HTML ids for JS bindings: {sorted(js_ids - html_ids)}",
+        )
+
     def test_browser_control_center_dashboard_links_to_browser_scene_studio(self) -> None:
         """The dashboard should keep its launch path to the Scene Studio visible."""
 
@@ -102,13 +112,17 @@ class RepositoryContractTests(unittest.TestCase):
             self.assertIn("'--project-root'", script_text)
 
     def test_spectrograph_audio_workbench_launcher_stays_wired_to_the_three_app_flow(self) -> None:
-        """The convenience launcher should keep opening the full spectrograph audio workflow."""
+        """The compatibility workbench should forward to the unified Visualizer workbench."""
 
         launcher_text = self._read_text("scripts/launch-spectrograph-audio-workbench.ps1")
-        self.assertIn("launch-halcyn-spectrograph-app.ps1", launcher_text)
-        self.assertIn("launch-desktop-spectrograph-control-panel.ps1", launcher_text)
-        self.assertIn("launch-desktop-spectrograph-audio-source-panel.ps1", launcher_text)
-        self.assertIn("Start-HalcynScriptInNewWindow", launcher_text)
+        self.assertIn("launch-visualizer-workbench.ps1", launcher_text)
+
+    def test_activity_monitor_launcher_reuses_control_center_routes(self) -> None:
+        """The Activity Monitor launcher should stay coupled to the Control Center server."""
+
+        launcher_text = self._read_text("scripts/launch-activity-monitor.ps1")
+        self.assertIn("Get-ControlCenterCompatibility", launcher_text)
+        self.assertIn("/activity-monitor/", launcher_text)
 
     def test_scripts_do_not_reintroduce_provider_style_project_root_resolution(self) -> None:
         """Repository scripts should avoid the old provider-prefixed Resolve-Path pattern."""
@@ -142,10 +156,17 @@ class RepositoryContractTests(unittest.TestCase):
             r".\scripts\coverage-control-plane.ps1",
             r".\scripts\typecheck-control-plane.ps1",
             r".\scripts\test-control-plane.ps1",
+            r".\scripts\launch-operator-console.ps1",
             "client-studio.html",
+            "desktop_render_control_panel/",
+            "desktop_spectrograph_control_panel/",
+            "desktop_spectrograph_audio_source_panel/",
+            "desktop_multi_renderer_data_source_panel/",
         ]:
             self.assertNotIn(retired_name, readme_text)
-        self.assertIn(r".\scripts\launch-spectrograph-audio-workbench.ps1", readme_text)
+        self.assertIn(r".\scripts\launch-visualizer-studio.ps1", readme_text)
+        self.assertIn(r".\scripts\launch-activity-monitor.ps1", readme_text)
+        self.assertIn(r".\scripts\launch-visualizer-workbench.ps1", readme_text)
 
     def test_docs_site_uses_current_directory_and_script_names(self) -> None:
         """The docs site should stay aligned with the renamed repository layout."""
@@ -182,16 +203,16 @@ class RepositoryContractTests(unittest.TestCase):
                 )
 
     def test_spectrograph_docs_expose_the_workbench_launcher(self) -> None:
-        """The docs should keep teaching the easiest spectrograph audio launch path."""
+        """The bar-wall docs should keep teaching the unified workbench launch path."""
 
         spectrograph_suite_text = self._read_text("docs/site/spectrograph-suite.html")
         spectrograph_audio_source_text = self._read_text(
             "docs/site/spectrograph-audio-source-panel.html"
         )
 
-        self.assertIn(r".\scripts\launch-spectrograph-audio-workbench.ps1", spectrograph_suite_text)
+        self.assertIn(r".\scripts\launch-visualizer-workbench.ps1", spectrograph_suite_text)
         self.assertIn(
-            r".\scripts\launch-spectrograph-audio-workbench.ps1",
+            r".\scripts\launch-visualizer-studio.ps1",
             spectrograph_audio_source_text,
         )
 

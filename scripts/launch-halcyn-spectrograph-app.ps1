@@ -3,43 +3,26 @@ param(
   [string]$Configuration = 'Debug',
   [string]$ApiHost = '127.0.0.1',
   [int]$Port = 8090,
-  [ValidateSet('default', '2d', '3d', 'spectrograph')]
-  [string]$Sample = 'spectrograph',
   [string]$SceneFile = '',
   [int]$Width = 1440,
   [int]$Height = 900,
   [Alias('Fps')]
   [int]$TargetFramesPerSecond = 60,
-  [string]$Title = 'Halcyn Spectrograph'
+  [string]$Title = 'Halcyn Visualizer Bar Wall'
 )
 
 $ErrorActionPreference = 'Stop'
 
-. (Join-Path $PSScriptRoot 'shared-script-helpers.ps1')
+Write-Host 'launch-halcyn-spectrograph-app.ps1 is now a compatibility wrapper.'
+Write-Host 'The unified Visualizer app renders both preset scenes and bar-wall scenes.'
 
-& (Join-Path $PSScriptRoot 'build-halcyn-app.ps1') -Configuration $Configuration
-
-$spectrographExecutablePath = Get-HalcynSpectrographExecutablePath -Configuration $Configuration
-if (-not (Test-Path $spectrographExecutablePath)) {
-  throw "The Halcyn spectrograph executable was not found at $spectrographExecutablePath"
-}
-
-$applicationArguments = @(
-  '--host', $ApiHost,
-  '--port', $Port,
-  '--width', $Width,
-  '--height', $Height,
-  '--fps', $TargetFramesPerSecond,
-  '--title', $Title
-)
-
-if ([string]::IsNullOrWhiteSpace($SceneFile)) {
-  $applicationArguments += @('--sample', $Sample)
-}
-else {
-  $applicationArguments += @('--scene-file', $SceneFile)
-}
-
-Write-Host "Starting $spectrographExecutablePath"
-& $spectrographExecutablePath @applicationArguments
-
+& (Join-Path $PSScriptRoot 'launch-halcyn-app.ps1') `
+  -Configuration $Configuration `
+  -ApiHost $ApiHost `
+  -Port $Port `
+  -Sample 'bar-wall' `
+  -SceneFile $SceneFile `
+  -Width $Width `
+  -Height $Height `
+  -TargetFramesPerSecond $TargetFramesPerSecond `
+  -Title $Title

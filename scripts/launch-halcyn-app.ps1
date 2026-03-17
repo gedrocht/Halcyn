@@ -3,14 +3,14 @@
   [string]$Configuration = 'Debug',
   [string]$ApiHost = '127.0.0.1',
   [int]$Port = 8080,
-  [ValidateSet('default', '2d', '3d', 'spectrograph')]
+  [ValidateSet('default', '2d', '3d', 'bar-wall', 'spectrograph')]
   [string]$Sample = 'default',
   [string]$SceneFile = '',
   [int]$Width = 1280,
   [int]$Height = 720,
   [Alias('Fps')]
   [int]$TargetFramesPerSecond = 60,
-  [string]$Title = 'Halcyn'
+  [string]$Title = 'Halcyn Visualizer'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -18,6 +18,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'shared-script-helpers.ps1')
 
 & (Join-Path $PSScriptRoot 'build-halcyn-app.ps1') -Configuration $Configuration
+Initialize-HalcynActivityLogEnvironment | Out-Null
 
 $halcynExecutablePath = Get-HalcynExecutablePath -Configuration $Configuration
 if (-not (Test-Path $halcynExecutablePath)) {

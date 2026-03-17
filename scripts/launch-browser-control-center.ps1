@@ -8,7 +8,13 @@ $ErrorActionPreference = 'Stop'
 
 . (Join-Path $PSScriptRoot 'shared-script-helpers.ps1')
 
+$python = Get-Command python -ErrorAction SilentlyContinue
+if ($null -eq $python) {
+  throw 'python is not installed or not on PATH.'
+}
+
 $projectRoot = Get-ProjectRoot
+Initialize-HalcynActivityLogEnvironment | Out-Null
 $command = @(
   '-m',
   'browser_control_center.control_center_http_server',
@@ -47,7 +53,7 @@ if (-not $NoBrowser) {
 
 Push-Location $projectRoot
 try {
-  & python @command
+  & $python.Source @command
 }
 finally {
   Pop-Location

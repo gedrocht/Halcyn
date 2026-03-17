@@ -14,7 +14,11 @@ select = [
 
 [tool.coverage.run]
 branch = true
-source = ["browser_control_center"]
+source = [
+  "browser_control_center",
+  "desktop_visualizer_operator_console",
+  "desktop_shared_control_support",
+]
 
 [tool.coverage.report]
 show_missing = true
@@ -22,7 +26,11 @@ skip_covered = false
 
 [tool.mypy]
 python_version = "3.10"
-files = ["browser_control_center"]
+files = [
+  "browser_control_center",
+  "desktop_visualizer_operator_console",
+  "desktop_shared_control_support",
+]
 check_untyped_defs = true
 warn_redundant_casts = true
 warn_unused_ignores = true
