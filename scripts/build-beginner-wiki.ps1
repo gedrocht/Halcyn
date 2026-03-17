@@ -5,12 +5,13 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = Get-ProjectRoot
 $wikiConfigurationPath = Join-Path $projectRoot 'mkdocs-wiki.yml'
 
-if (-not (Test-PythonModuleAvailable -ModuleName 'mkdocs')) {
+if ((-not (Test-PythonModuleAvailable -ModuleName 'mkdocs')) -or
+    (-not (Test-PythonModuleAvailable -ModuleName 'pymdownx'))) {
   throw @"
-Python package 'mkdocs' is required to build the hosted beginner wiki.
+Python packages 'mkdocs' and 'pymdown-extensions' are required to build the hosted beginner wiki.
 
 Install it with:
-  python -m pip install mkdocs
+  python -m pip install mkdocs pymdown-extensions
 "@
 }
 

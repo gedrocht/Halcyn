@@ -124,9 +124,10 @@ Minimum Windows-native setup:
 
 Optional extras:
 
-  - `doxygen` for generated code docs
-  - `clang-format` for formatting checks
+- `doxygen` for generated code docs
+- `clang-format` for formatting checks
 - Python package `mkdocs` for the hosted beginner walkthrough wiki
+- Python package `pymdown-extensions` for the hosted beginner walkthrough wiki
 - Python package `sounddevice` for microphone and line-input capture
 - Python package `soundcard` for desktop output-loopback capture
 
@@ -137,7 +138,7 @@ Helpful install routes:
   - Doxygen: `winget install DimitriVanHeesch.Doxygen`
   - Python packages:
     ```powershell
-  python -m pip install jinja2 ttkbootstrap mkdocs sounddevice soundcard
+  python -m pip install jinja2 ttkbootstrap mkdocs pymdown-extensions sounddevice soundcard
     ```
 
 For the easiest Windows-native C++ path, install Visual Studio 2022 Build Tools from [visualstudio.microsoft.com/downloads](https://visualstudio.microsoft.com/downloads/) and include the `Desktop development with C++` workload.
