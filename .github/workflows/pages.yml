@@ -64,7 +64,7 @@ jobs:
           cp -R artifacts/beginner-wiki-site/. .pages/wiki/
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
           path: .pages
 
